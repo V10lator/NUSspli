@@ -69,6 +69,19 @@
 #include <sysapp/launch.h>
 #include <whb/crash.h>
 
+char *lerr = NULL;
+
+static void checkError() {
+	if(lerr != NULL)
+	{
+		drawErrorFrame(lerr, ANY_RETURN);
+		showFrame();
+
+		while(!(vpad.trigger))
+			showFrame();
+	}
+}
+
 static void innerMain(bool validCfw)
 {
 	OSThread *mainThread = OSGetCurrentThread();
@@ -98,7 +111,6 @@ static void innerMain(bool validCfw)
 		if(initRenderer())
 		{
 			readInput(); // bug #95
-			char *lerr = NULL;
 			if(validCfw)
 			{
 				if(OSSetThreadPriority(mainThread, THREAD_PRIORITY_HIGH))
@@ -110,130 +122,123 @@ static void innerMain(bool validCfw)
 				textToFrame(0, 0, "Loading OpenSSL...");
 				writeScreenLog(1);
 				drawFrame();
-
-				if(initCrypto())
-				{
-					addToScreenLog("OpenSSL initialized!");
-
-					startNewFrame();
-					textToFrame(0, 0, "Loading MCP...");
-					writeScreenLog(1);
-					drawFrame();
-
-					mcpHandle = MCP_Open();
-					if(mcpHandle != 0)
-					{
-						addToScreenLog("MCP initialized!");
-
-						startNewFrame();
-						textToFrame(0, 0, "Checking sanity...");
-						writeScreenLog(1);
-						drawFrame();
-
-						if(sanityCheck())
-						{
-							addToScreenLog("Sanity checked!");
-
-							startNewFrame();
-							textToFrame(0, 0, "Initializing notification system...");
-							writeScreenLog(1);
-							drawFrame();
-
-							if(initNotifications())
-							{
-								addToScreenLog("Notification system initialized!");
-
-								startNewFrame();
-								textToFrame(0, 0, "Loading downloader...");
-								writeScreenLog(1);
-								drawFrame();
-
-								if(initDownloader())
-								{
-									addToScreenLog("Downloader initialized!");
-
-									startNewFrame();
-									textToFrame(0, 0, "Loading I/O thread...");
-									writeScreenLog(1);
-									drawFrame();
-
-									if(initIOThread())
-									{
-										addToScreenLog("I/O thread initialized!");
-
-										startNewFrame();
-										textToFrame(0, 0, "Loading config...");
-										writeScreenLog(1);
-										drawFrame();
-
-										if(initConfig())
-										{
-											addToScreenLog("Config loaded!");
-											startNewFrame();
-											textToFrame(0, 0, "Loading SWKBD...");
-											writeScreenLog(1);
-											drawFrame();
-
-											if(SWKBD_Init())
-											{
-												addToScreenLog("SWKBD initialized!");
-												startNewFrame();
-												textToFrame(0, 0, "Loading menu...");
-												writeScreenLog(1);
-												drawFrame();
-
-												checkStacks("main()");
-
-												if(!updateCheck())
-												{
-													checkStacks("main");
-													mainMenu(); // main loop
-													checkStacks("main");
-													debugPrintf("Deinitializing libraries...");
-												}
-
-												SWKBD_Shutdown();
-												debugPrintf("SWKBD closed");
-											}
-											else
-												lerr = "Couldn't initialize SWKBD!";
-
-											saveConfig(false);
-										}
-										else
-											lerr = "Couldn't load config file!\n\nMost likely your SD card is write locked!";
-
-										shutdownIOThread();
-										debugPrintf("I/O thread closed");
-									}
-									else
-										lerr = "Couldn't load I/O thread!";
-
-									deinitDownloader();
-								}
-								else
-									lerr = "Couldn't initialize downloader!";
-
-								deinitNotifications();
-								debugPrintf("Notification system closed");
-							}
-							else
-								lerr = "Couldn't initialize notification system!";
-						}
-						else
-							lerr = "No support for rebrands, use original NUSspli!";
-
-						MCP_Close(mcpHandle);
-						debugPrintf("MCP closed");
-					}
-					else
-						lerr = "Couldn't initialize MCP!";
-
+				if(!initCrypto()) {
+					lerr = "Couldn't initialize OpenSSL!";
 					deinitCrypto();
 					debugPrintf("OpenSSL closed");
+					checkError();
 				}
-				else
-					lerr = "Couldn't initialize OpenSSL!";
+
+				addToScreenLog("OpenSSL initialized!");
+
+				startNewFrame();
+				textToFrame(0, 0, "Loading MCP...");
+				writeScreenLog(1);
+				drawFrame();
+
+				mcpHandle = MCP_Open();
+				if(mcpHandle == 0)
+				{
+					lerr = "Couldn't initialize MCP!";
+					MCP_Close(mcpHandle);
+					debugPrintf("MCP closed");
+					checkError();
+				}
+				addToScreenLog("MCP initialized!");
+
+				startNewFrame();
+				textToFrame(0, 0, "Checking sanity...");
+				writeScreenLog(1);
+				drawFrame();
+
+				if(!sanityCheck())
+				{
+					lerr = "No support for rebrands, use original NUSspli!";
+					checkError();
+				}
+				addToScreenLog("Sanity checked!");
+
+				startNewFrame();
+				textToFrame(0, 0, "Initializing notification system...");
+				writeScreenLog(1);
+				drawFrame();
+
+				if(!initNotifications())
+				{
+					lerr = "Couldn't initialize notification system!";
+					deinitNotifications();
+					debugPrintf("Notification system closed");
+					checkError();
+				}
+
+				addToScreenLog("Notification system initialized!");
+
+				startNewFrame();
+				textToFrame(0, 0, "Loading downloader...");
+				writeScreenLog(1);
+				drawFrame();
+
+				if(!initDownloader())
+				{
+					lerr = "Couldn't initialize downloader!";
+					deinitDownloader();
+					checkError();
+				}
+				addToScreenLog("Downloader initialized!");
+
+				startNewFrame();
+				textToFrame(0, 0, "Loading I/O thread...");
+				writeScreenLog(1);
+				drawFrame();
+
+				if(!initIOThread())
+				{
+					shutdownIOThread();
+					debugPrintf("I/O thread closed");
+					lerr = "Couldn't load I/O thread!";
+					checkError();
+				}
+				addToScreenLog("I/O thread initialized!");
+
+				startNewFrame();
+				textToFrame(0, 0, "Loading config...");
+				writeScreenLog(1);
+				drawFrame();
+
+				if(!initConfig())
+				{
+					saveConfig(false);
+					lerr = "Couldn't load config file!\n\nMost likely your SD card is write locked!";
+					checkError();
+				}
+				addToScreenLog("Config loaded!");
+				startNewFrame();
+				textToFrame(0, 0, "Loading SWKBD...");
+				writeScreenLog(1);
+				drawFrame();
+
+				if(!SWKBD_Init())
+				{
+					SWKBD_Shutdown();
+					debugPrintf("SWKBD closed");
+					lerr = "Couldn't initialize SWKBD!";
+					checkError();
+				}
+				addToScreenLog("SWKBD initialized!");
+				startNewFrame();
+				textToFrame(0, 0, "Loading menu...");
+				writeScreenLog(1);
+				drawFrame();
+
+				checkStacks("main()");
+
+				if(!updateCheck())
+				{
+					checkStacks("main");
+					mainMenu(); // main loop
+					checkStacks("main");
+					debugPrintf("Deinitializing libraries...");
+				}
 
 				unmountAll();
 				closeIOSUhax();
@@ -241,14 +246,7 @@ static void innerMain(bool validCfw)
 			else
 				lerr = "Unsupported environment.\nPlease update to Tiramisu.\nSee https://wiiu.hacks.guide";
 
-			if(lerr != NULL)
-			{
-				drawErrorFrame(lerr, ANY_RETURN);
-				showFrame();
-
-				while(!(vpad.trigger))
-					showFrame();
-			}
+			checkError();
 
 			shutdownRenderer();
 			debugPrintf("SDL closed");

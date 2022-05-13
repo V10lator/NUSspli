@@ -246,7 +246,7 @@ queueExit:
 	if(buf != NULL)
 		return size * n;
 
-	fclose(entry->file->fd))
+	fclose(entry->file->fd);
 	MEMFreeToDefaultHeap(entry->file->buffer);
 	MEMFreeToDefaultHeap((void *)entry->file);
 	return 0;

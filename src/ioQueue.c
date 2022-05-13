@@ -243,13 +243,7 @@ queueExit:
 
 	*/
 
-	if(buf != NULL)
-		return size * n;
-
-	fclose(entry->file->fd);
-	MEMFreeToDefaultHeap(entry->file->buffer);
-	MEMFreeToDefaultHeap((void *)entry->file);
-	return 0;
+	return size * n;
 }
 
 void flushIOQueue()
@@ -276,7 +270,7 @@ void flushIOQueue()
 
 NUSFILE *openFile(const char *path, const char *mode)
 {
-	if(checkForQueueErrors())
+/*	if(checkForQueueErrors())
 		return NULL;
 
 	NUSFILE *ret = MEMAllocFromDefaultHeap(sizeof(NUSFILE));
@@ -302,4 +296,6 @@ NUSFILE *openFile(const char *path, const char *mode)
 	}
 	MEMFreeToDefaultHeap(ret);
 	return NULL;
+	*/
+	return (NUSFILE *)0xDEADBABE;
 }

@@ -806,10 +806,6 @@ void showFrame()
 	SDL_RenderCopy(renderer, frameBuffer, NULL, NULL);
 
 #define postdrawFrame()													\
-	for(int i = 0; i < MAX_OVERLAYS; ++i)								\
-		if(errorOverlay[i].tex != NULL)								\
-			SDL_RenderCopy(renderer, errorOverlay[i].tex, NULL, NULL);	\
-																		\
 	SDL_RenderPresent(renderer);										\
 	SDL_SetRenderTarget(renderer, frameBuffer);
 

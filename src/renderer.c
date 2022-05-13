@@ -448,6 +448,7 @@ int addErrorOverlay(const char *err)
 	drawFrame();
 	return i;
 */
+	drawFrame();
 	return 0;
 }
 
@@ -459,8 +460,8 @@ void removeErrorOverlay(int id)
 		return;
 	
 	SDL_DestroyTexture(errorOverlay[id].tex);
-	errorOverlay[id].tex = NULL;
-	drawFrame();*/
+	errorOverlay[id].tex = NULL;*/
+	drawFrame();
 }
 
 static bool loadTexture(const char *path, SDL_Texture **out)

@@ -174,7 +174,7 @@ bool queueStalled = false;
 #endif
 size_t addToIOQueue(const void *buf, size_t size, size_t n, NUSFILE *file)
 {
-	if(checkForQueueErrors())
+/*	if(checkForQueueErrors())
 		return 0;
 
     volatile WriteQueueEntry *entry;
@@ -240,7 +240,16 @@ retryAddingToQueue:
 
 queueExit:
 	spinReleaseLock(ioWriteLock);
-	return n;
+
+	*/
+
+	if(buf != NULL)
+		return size * n;
+
+	fclose(entry->file->fd))
+	MEMFreeToDefaultHeap(entry->file->buffer);
+	MEMFreeToDefaultHeap((void *)entry->file);
+	return 0;
 }
 
 void flushIOQueue()

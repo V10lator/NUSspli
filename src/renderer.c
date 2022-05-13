@@ -390,7 +390,7 @@ void tabToFrame(int line, int column, const char *label, bool active)
 
 int addErrorOverlay(const char *err)
 {
-	OSTick t = OSGetTick();
+/*	OSTick t = OSGetTick();
 	addEntropy(&t, sizeof(OSTick));
 	if(font == NULL)
 		return -1;
@@ -447,18 +447,20 @@ int addErrorOverlay(const char *err)
 	SDL_SetRenderTarget(renderer, frameBuffer);
 	drawFrame();
 	return i;
+*/
+	return 0;
 }
 
 void removeErrorOverlay(int id)
 {
-	OSTick t = OSGetTick();
+/*	OSTick t = OSGetTick();
 	addEntropy(&t, sizeof(OSTick));
 	if(id < 0 || id >= MAX_OVERLAYS || errorOverlay[id].tex == NULL)
 		return;
 	
 	SDL_DestroyTexture(errorOverlay[id].tex);
 	errorOverlay[id].tex = NULL;
-	drawFrame();
+	drawFrame();*/
 }
 
 static bool loadTexture(const char *path, SDL_Texture **out)

@@ -53,8 +53,7 @@
 
 #include <jansson.h>
 
-#define UPDATE_CHECK_URL NAPI_URL "s?t="
-#define UPDATE_DL_URL NAPI_URL "d?t="
+#define UPDATE_CHECK_URL "https://github.com/V10lator/NUSspli/releases/latest/download/"
 #define UPDATE_TEMP_FOLDER NUSDIR_SD "/NUSspli_temp/"
 #define UPDATE_AROMA_FOLDER NUSDIR_SD "/wiiu/apps/"
 #define UPDATE_AROMA_FILE "NUSspli.wuhb"
@@ -153,7 +152,13 @@ bool updateCheck()
 			return false;
 		case 1:
 			newVer = json_string_value(json_object_get(json, "v"));
-			break;
+			debugPrintf("newVer: %s", newVer);
+			if(strcmp(NUSSPLI_VERSION, newVer))
+				break;
+			debugPrintf("Newest version!");
+			json_decref(json);
+			clearRamBuf();
+			return false;
 		case 2: //TODO
 			showUpdateErrorf("The %s version of NUSspli is deprecated!", isAroma() ? "Aroma" : isChannel() ? "Channel" : "HBL");
 			json_decref(json);

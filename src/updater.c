@@ -54,8 +54,8 @@
 
 #include <jansson.h>
 
-#define UPDATE_CHECK_URL NAPI_URL "s?t="
 #define UPDATE_DOWNLOAD_URL "https://github.com/V10lator/NUSspli/releases/download/v"
+#define UPDATE_GITHUB_API "https://api.github.com/repos/V10lator/NUSspli/releases/latest"
 #define UPDATE_TEMP_FOLDER NUSDIR_SD "/NUSspli_temp/"
 #define UPDATE_AROMA_FOLDER NUSDIR_SD "/wiiu/apps/"
 #define UPDATE_AROMA_FILE "NUSspli.wuhb"
@@ -66,6 +66,16 @@
 #else
 	#define NUSSPLI_DLVER ""
 #endif
+
+static void removeChars(char* s, char c)
+{
+    int j, n = strlen(s);
+    for (int i = j = 0; i < n; i++)
+        if (s[i] != c)
+            s[j++] = s[i];
+ 
+    s[j] = '\0';
+}
 
 void showUpdateError(const char* msg)
 {
@@ -107,15 +117,8 @@ bool updateCheck()
 	drawFrame();
 	showFrame();
 
-	const char *updateChkUrl =
-#ifdef NUSSPLI_HBL
-	UPDATE_CHECK_URL "h";
-#else
-	!isChannel() && isAroma() ? UPDATE_CHECK_URL "a" : UPDATE_CHECK_URL "c";
-#endif
-
 	bool ret = false;
-	if(downloadFile(updateChkUrl, "JSON", NULL, FILE_TYPE_JSON | FILE_TYPE_TORAM, false) == 0)
+	if(downloadFile(UPDATE_GITHUB_API, "JSON", NULL, FILE_TYPE_JSON | FILE_TYPE_TORAM, false) == 0)
 	{
 		startNewFrame();
 		textToFrame(0, 0, "Parsing JSON");
@@ -126,43 +129,30 @@ bool updateCheck()
 		json_t *json = json_loadb(getRamBuf(), getRamBufSize(), 0, NULL);
 		if(json != NULL)
 		{
-			json_t *jsonObj = json_object_get(json, "s");
-			if(jsonObj != NULL && json_is_integer(jsonObj))
+			json_t *jsonObj = json_object_get(json, "name");
+			if(jsonObj != NULL && json_is_string(jsonObj))
 			{
-				switch(json_integer_value(jsonObj))
+
+				char serverVersionChar[24];
+				strcpy(serverVersionChar, json_string_value(jsonObj) + 1);
+				removeChars(serverVersionChar, '.');
+				const int serverVersion = atoi(serverVersionChar);
+
+				char *currentVersionChar = NUSSPLI_VERSION;
+				removeChars(currentVersionChar, '.');
+				const int currentVersion = atoi(currentVersionChar);
+
+				debugPrintf("currentVersion: %i", currentVersion);
+				debugPrintf("serverVersion: %i", serverVersion);
+				
+				if(serverVersion > currentVersion)
 				{
-					case 0:
-						debugPrintf("Newest version!");
-						break;
-					case 1: // Update
-						const char *newVer = json_string_value(json_object_get(json, "v"));
-						ret = newVer != NULL;
-						if(ret)
-#ifdef NUSSPLI_HBL
-							ret = updateMenu(newVer, NUSSPLI_TYPE_HBL);
+					const char *newVer = json_string_value(jsonObj) + 1;
+					#ifdef NUSSPLI_HBL
+						ret = updateMenu(newVer, NUSSPLI_TYPE_HBL);
 #else
-							ret = updateMenu(newVer, isAroma() ? NUSSPLI_TYPE_AROMA : NUSSPLI_TYPE_CHANNEL);
+						ret = updateMenu(newVer, isAroma() ? NUSSPLI_TYPE_AROMA : NUSSPLI_TYPE_CHANNEL);
 #endif
-						break;
-					case 2: // Type deprecated, update to what the server suggests
-						const char *nv = json_string_value(json_object_get(json, "v"));
-						ret = nv != NULL;
-						if(ret)
-						{
-							int t = json_integer_value(json_object_get(json, "t"));
-							if(t)
-								ret = updateMenu(nv, t);
-							else
-								ret = false;
-						}
-						break;
-					case 3: // TODO
-					case 4:
-						showUpdateError("Internal server error!");
-						break;
-					default: // TODO
-						showUpdateErrorf("Invalid state value: %d", json_integer_value(jsonObj));
-						break;
 				}
 			}
 			else
@@ -174,7 +164,7 @@ bool updateCheck()
 			debugPrintf("Invalid JSON data");
 	}
 	else
-		debugPrintf("Error downloading %s", updateChkUrl);
+		debugPrintf("Error downloading %s", UPDATE_GITHUB_API);
 
 	clearRamBuf();
 	return ret;

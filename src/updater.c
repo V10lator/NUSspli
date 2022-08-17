@@ -130,9 +130,9 @@ bool updateCheck()
 		if(json != NULL)
 		{
 			json_t *jsonObj = json_object_get(json, "name");
+			json_t *jsonAssetsObj = json_object_get(json, "assets");
 			if(jsonObj != NULL && json_is_string(jsonObj))
 			{
-
 				char serverVersionChar[24];
 				strcpy(serverVersionChar, json_string_value(jsonObj) + 1);
 				removeChars(serverVersionChar, '.');
@@ -144,14 +144,54 @@ bool updateCheck()
 
 				debugPrintf("currentVersion: %i", currentVersion);
 				debugPrintf("serverVersion: %i", serverVersion);
-				
+
+				char newVerZipName[256];
 				if(serverVersion > currentVersion)
 				{
 					const char *newVer = json_string_value(jsonObj) + 1;
-					#ifdef NUSSPLI_HBL
-						ret = updateMenu(newVer, NUSSPLI_TYPE_HBL);
+					strcat(newVerZipName, "NUSspli-");
+					strcat(newVerZipName, newVer);
+				#ifdef NUSSPLI_HBL
+					strcat(newVerZipName, "-HBL.zip");
 #else
+					strcat(newVerZipName, isAroma() ? "-Aroma.zip" : "-Channel.zip");
+#endif
+
+					size_t index;
+					json_t *value;
+					bool foundZip = false;
+					json_array_foreach(jsonAssetsObj, index, value)
+					{
+						char serverZipName[256];
+						json_t *serverZipNameObj = json_object_get(value, "name");
+						if(serverZipNameObj != NULL && json_is_string(serverZipNameObj))
+						{
+							strcpy(serverZipName, json_string_value(serverZipNameObj));
+							if(strcmp(newVerZipName, serverZipName) == 0)
+							{
+								foundZip = true;
+								break;
+							}
+						}
+					}
+					#ifdef NUSSPLI_HBL
+					if(foundZip)
+					{
+						ret = updateMenu(newVer, NUSSPLI_TYPE_HBL);
+					}
+					else
+					{
+						showUpdateErrorf("%s not found in the server, perhaps this version is deprecated?", newVerZipName);
+					}
+#else
+					if(foundZip)
+					{
 						ret = updateMenu(newVer, isAroma() ? NUSSPLI_TYPE_AROMA : NUSSPLI_TYPE_CHANNEL);
+					}
+					else
+					{
+						showUpdateErrorf("%s not found in the server, perhaps this version is deprecated?", newVerZipName);
+					}
 #endif
 				}
 			}

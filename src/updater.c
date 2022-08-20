@@ -77,6 +77,17 @@ static void removeChars(char* s, char c)
     s[j] = '\0';
 }
 
+static bool isBeta()
+{
+	if (strstr(NUSSPLI_VERSION, "BETA") != NULL) 
+		return true;
+
+	if (strstr(NUSSPLI_VERSION, "ALPHA") != NULL) 
+		return true;
+
+	return false;
+}
+
 void showUpdateError(const char* msg)
 {
 	enableShutdown();
@@ -108,7 +119,7 @@ void showUpdateErrorf(const char *msg, ...)
 
 bool updateCheck()
 {
-	if(!updateCheckEnabled())
+	if(!updateCheckEnabled() || isBeta())
 		return false;
 	
 	startNewFrame();
@@ -133,9 +144,11 @@ bool updateCheck()
 			json_t *jsonAssetsObj = json_object_get(json, "assets");
 			if(jsonObj != NULL && json_is_string(jsonObj))
 			{
-				char serverVersionChar[24];
+				char serverVersionChar[16];
 				strcpy(serverVersionChar, json_string_value(jsonObj) + 1);
 				removeChars(serverVersionChar, '.');
+				for (int i = 0; i < strlen(NUSSPLI_DLVER); i++)
+					removeChars(serverVersionChar, NUSSPLI_DLVER[i]);
 				const int serverVersion = atoi(serverVersionChar);
 
 				char *currentVersionChar = NUSSPLI_VERSION;
@@ -152,11 +165,11 @@ bool updateCheck()
 					strcat(newVerZipName, "NUSspli-");
 					strcat(newVerZipName, newVer);
 				#ifdef NUSSPLI_HBL
-					strcat(newVerZipName, "-HBL.zip");
+					strcat(newVerZipName, "-HBL");
 #else
-					strcat(newVerZipName, isAroma() ? "-Aroma.zip" : "-Channel.zip");
+					strcat(newVerZipName, isAroma() ? "-Aroma" : "-Channel");
 #endif
-
+					strcat(newVerZipName, NUSSPLI_DLVER ".zip");
 					size_t index;
 					json_t *value;
 					bool foundZip = false;

@@ -49,25 +49,25 @@ bool generateTik(const char *path, const TitleEntry *titleEntry)
 {
     FSFileHandle *tik = openFile(path, "w", 0);
     if(tik == NULL)
+    {
+        char *err = getStaticScreenBuffer();
+        sprintf(err, "%s\n%s", gettext("Could not open path"), prettyDir(path));
+        drawErrorFrame(err, ANY_RETURN);
+
+        while(AppRunning())
         {
-            char *err = getStaticScreenBuffer();
-            sprintf(err, "%s\n%s", gettext("Could not open path"), prettyDir(path));
-            drawErrorFrame(err, ANY_RETURN);
+            showFrame();
 
-            while(AppRunning())
-                {
-                    showFrame();
+            if(app == APP_STATE_BACKGROUND)
+                continue;
+            if(app == APP_STATE_RETURNING)
+                drawErrorFrame(err, ANY_RETURN);
 
-                    if(app == APP_STATE_BACKGROUND)
-                        continue;
-                    if(app == APP_STATE_RETURNING)
-                        drawErrorFrame(err, ANY_RETURN);
-
-                    if(vpad.trigger)
-                        break;
-                }
-            return false;
+            if(vpad.trigger)
+                break;
         }
+        return false;
+    }
 
     char encKey[33];
     if(!generateKey(titleEntry, encKey))
@@ -117,25 +117,25 @@ bool generateCert(const char *path)
 {
     FSFileHandle *cert = openFile(path, "w", 0);
     if(cert == NULL)
+    {
+        char *err = getStaticScreenBuffer();
+        sprintf(err, "%s\n%s", gettext("Could not open path"), prettyDir(path));
+        drawErrorFrame(err, ANY_RETURN);
+
+        while(AppRunning())
         {
-            char *err = getStaticScreenBuffer();
-            sprintf(err, "%s\n%s", gettext("Could not open path"), prettyDir(path));
-            drawErrorFrame(err, ANY_RETURN);
+            showFrame();
 
-            while(AppRunning())
-                {
-                    showFrame();
+            if(app == APP_STATE_BACKGROUND)
+                continue;
+            if(app == APP_STATE_RETURNING)
+                drawErrorFrame(err, ANY_RETURN);
 
-                    if(app == APP_STATE_BACKGROUND)
-                        continue;
-                    if(app == APP_STATE_RETURNING)
-                        drawErrorFrame(err, ANY_RETURN);
-
-                    if(vpad.trigger)
-                        break;
-                }
-            return false;
+            if(vpad.trigger)
+                break;
         }
+        return false;
+    }
 
     // NUSspli adds its own header.
     writeHeader(cert, FILE_TYPE_CERT);
@@ -201,80 +201,80 @@ void generateFakeTicket()
 
     TMD *tmd = getTmd(dir);
     if(tmd == NULL)
-        {
-            drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
+    {
+        drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
 
-            while(AppRunning())
-                {
-                    showFrame();
-
-                    if(app == APP_STATE_BACKGROUND)
-                        continue;
-                    if(app == APP_STATE_RETURNING)
-                        drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
-
-                    if(vpad.trigger)
-                        break;
-                }
-            return;
-        }
-
-    drawTicketFrame(tmd->tid);
-
-    while(AppRunning())
+        while(AppRunning())
         {
             showFrame();
 
             if(app == APP_STATE_BACKGROUND)
                 continue;
             if(app == APP_STATE_RETURNING)
-                drawTicketFrame(tmd->tid);
+                drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
 
-            if(vpad.trigger & VPAD_BUTTON_A)
-                {
-                    startNewFrame();
-                    textToFrame(0, 0, gettext("Generating fake ticket..."));
-                    drawFrame();
-                    showFrame();
-
-                    strcat(dir, "title.");
-                    char *ptr = dir + strlen(dir);
-                    strcpy(ptr, "cert");
-                    if(!generateCert(dir))
-                        break;
-
-                    const TitleEntry *entry = getTitleEntryByTid(tmd->tid);
-                    const TitleEntry te = { .name = "UNKNOWN", .tid = tmd->tid, .region = MCP_REGION_UNKNOWN, .key = 99 };
-                    if(entry == NULL)
-                        entry = &te;
-
-                    strcpy(ptr, "tik");
-                    if(!generateTik(dir, entry))
-                        break;
-
-                    colorStartNewFrame(SCREEN_COLOR_D_GREEN);
-                    textToFrame(0, 0, gettext("Fake ticket generated on:"));
-                    textToFrame(1, 0, prettyDir(dir));
-
-                    textToFrame(3, 0, gettext("Press any key to return"));
-                    drawFrame();
-
-                    while(AppRunning())
-                        {
-                            showFrame();
-
-                            if(app == APP_STATE_BACKGROUND)
-                                continue;
-                            // TODO: APP_STATE_RETURNING
-
-                            if(vpad.trigger)
-                                break;
-                        }
-                    break;
-                }
-            if(vpad.trigger & VPAD_BUTTON_B)
+            if(vpad.trigger)
                 break;
         }
+        return;
+    }
+
+    drawTicketFrame(tmd->tid);
+
+    while(AppRunning())
+    {
+        showFrame();
+
+        if(app == APP_STATE_BACKGROUND)
+            continue;
+        if(app == APP_STATE_RETURNING)
+            drawTicketFrame(tmd->tid);
+
+        if(vpad.trigger & VPAD_BUTTON_A)
+        {
+            startNewFrame();
+            textToFrame(0, 0, gettext("Generating fake ticket..."));
+            drawFrame();
+            showFrame();
+
+            strcat(dir, "title.");
+            char *ptr = dir + strlen(dir);
+            strcpy(ptr, "cert");
+            if(!generateCert(dir))
+                break;
+
+            const TitleEntry *entry = getTitleEntryByTid(tmd->tid);
+            const TitleEntry te = { .name = "UNKNOWN", .tid = tmd->tid, .region = MCP_REGION_UNKNOWN, .key = 99 };
+            if(entry == NULL)
+                entry = &te;
+
+            strcpy(ptr, "tik");
+            if(!generateTik(dir, entry))
+                break;
+
+            colorStartNewFrame(SCREEN_COLOR_D_GREEN);
+            textToFrame(0, 0, gettext("Fake ticket generated on:"));
+            textToFrame(1, 0, prettyDir(dir));
+
+            textToFrame(3, 0, gettext("Press any key to return"));
+            drawFrame();
+
+            while(AppRunning())
+            {
+                showFrame();
+
+                if(app == APP_STATE_BACKGROUND)
+                    continue;
+                // TODO: APP_STATE_RETURNING
+
+                if(vpad.trigger)
+                    break;
+            }
+            break;
+        }
+        if(vpad.trigger & VPAD_BUTTON_B)
+            break;
+    }
 
     MEMFreeToDefaultHeap(tmd);
 }

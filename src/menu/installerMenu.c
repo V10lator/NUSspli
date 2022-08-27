@@ -48,13 +48,13 @@ static void drawInstallerMenuFrame(const char *name, NUSDEV dev, bool keepFiles)
     if(dev != NUSDEV_SD)
         textToFrame(MAX_LINES - 1, 0, gettext("WARNING: Files on USB/NAND will always be deleted after installing!"));
     else
-        {
-            char *toFrame = getToFrameBuffer();
-            strcpy(toFrame, "Press " BUTTON_LEFT " to ");
-            strcat(toFrame, keepFiles ? "delete" : "keep");
-            strcat(toFrame, " files after the installation");
-            textToFrame(MAX_LINES - 1, 0, gettext(toFrame));
-        }
+    {
+        char *toFrame = getToFrameBuffer();
+        strcpy(toFrame, "Press " BUTTON_LEFT " to ");
+        strcat(toFrame, keepFiles ? "delete" : "keep");
+        strcat(toFrame, " files after the installation");
+        textToFrame(MAX_LINES - 1, 0, gettext(toFrame));
+    }
 
     drawFrame();
 }
@@ -65,31 +65,31 @@ static NUSDEV getDevFromPath(const char *path)
     size_t s = strlen(path);
     char *ptr = MEMAllocFromDefaultHeap(++s);
     if(ptr)
+    {
+        OSBlockMove(ptr, path, s, false);
+        --s;
+
+        if(s >= strlen(NUSDIR_SD))
         {
-            OSBlockMove(ptr, path, s, false);
-            --s;
+            char oc = ptr[strlen(NUSDIR_SD)];
+            ptr[strlen(NUSDIR_SD)] = '\0';
+            if(strcmp(ptr, NUSDIR_SD) == 0)
+                ret = NUSDEV_SD;
+            else if(s >= strlen(NUSDIR_MLC))
+            {
+                ptr[strlen(NUSDIR_SD)] = oc;
+                oc = ptr[strlen(NUSDIR_MLC)];
+                ptr[strlen(NUSDIR_MLC)] = '\0';
 
-            if(s >= strlen(NUSDIR_SD))
-                {
-                    char oc = ptr[strlen(NUSDIR_SD)];
-                    ptr[strlen(NUSDIR_SD)] = '\0';
-                    if(strcmp(ptr, NUSDIR_SD) == 0)
-                        ret = NUSDEV_SD;
-                    else if(s >= strlen(NUSDIR_MLC))
-                        {
-                            ptr[strlen(NUSDIR_SD)] = oc;
-                            oc = ptr[strlen(NUSDIR_MLC)];
-                            ptr[strlen(NUSDIR_MLC)] = '\0';
-
-                            if(strcmp(ptr, NUSDIR_USB1) == 0)
-                                ret = NUSDEV_USB01;
-                            else if(strcmp(ptr, NUSDIR_USB2) == 0)
-                                ret = NUSDEV_USB02;
-                            else if(strcmp(ptr, NUSDIR_MLC) == 0)
-                                ret = NUSDEV_MLC;
-                        }
-                }
+                if(strcmp(ptr, NUSDIR_USB1) == 0)
+                    ret = NUSDEV_USB01;
+                else if(strcmp(ptr, NUSDIR_USB2) == 0)
+                    ret = NUSDEV_USB02;
+                else if(strcmp(ptr, NUSDIR_MLC) == 0)
+                    ret = NUSDEV_MLC;
+            }
         }
+    }
 
     return ret;
 }
@@ -103,50 +103,50 @@ void installerMenu(const char *dir)
     drawInstallerMenuFrame(nd, dev, keepFiles);
 
     while(AppRunning())
+    {
+        if(app == APP_STATE_BACKGROUND)
+            continue;
+        if(app == APP_STATE_RETURNING)
+            drawInstallerMenuFrame(nd, dev, keepFiles);
+
+        showFrame();
+
+        if((vpad.trigger & VPAD_BUTTON_A) || (vpad.trigger & VPAD_BUTTON_X))
         {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawInstallerMenuFrame(nd, dev, keepFiles);
+            TMD *tmd = getTmd(dir);
+            if(tmd != NULL)
+            {
+                if(checkSystemTitleFromTid(tmd->tid))
+                    install(nd, false, dev, dir, vpad.trigger & VPAD_BUTTON_A, keepFiles, tmd->tid);
 
-            showFrame();
+                MEMFreeToDefaultHeap(tmd);
+            }
+            else
+            {
+                drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
 
-            if((vpad.trigger & VPAD_BUTTON_A) || (vpad.trigger & VPAD_BUTTON_X))
+                while(AppRunning())
                 {
-                    TMD *tmd = getTmd(dir);
-                    if(tmd != NULL)
-                        {
-                            if(checkSystemTitleFromTid(tmd->tid))
-                                install(nd, false, dev, dir, vpad.trigger & VPAD_BUTTON_A, keepFiles, tmd->tid);
+                    if(app == APP_STATE_BACKGROUND)
+                        continue;
+                    if(app == APP_STATE_RETURNING)
+                        drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
 
-                            MEMFreeToDefaultHeap(tmd);
-                        }
-                    else
-                        {
-                            drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
-
-                            while(AppRunning())
-                                {
-                                    if(app == APP_STATE_BACKGROUND)
-                                        continue;
-                                    if(app == APP_STATE_RETURNING)
-                                        drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
-
-                                    showFrame();
-                                    if(vpad.trigger)
-                                        break;
-                                }
-                        }
-
-                    return;
+                    showFrame();
+                    if(vpad.trigger)
+                        break;
                 }
-            if(vpad.trigger & VPAD_BUTTON_B)
-                return;
+            }
 
-            if(vpad.trigger & VPAD_BUTTON_LEFT)
-                {
-                    keepFiles = !keepFiles;
-                    drawInstallerMenuFrame(nd, dev, keepFiles);
-                }
+            return;
         }
+        if(vpad.trigger & VPAD_BUTTON_B)
+            return;
+
+        if(vpad.trigger & VPAD_BUTTON_LEFT)
+        {
+            keepFiles = !keepFiles;
+            drawInstallerMenuFrame(nd, dev, keepFiles);
+        }
+    }
 }

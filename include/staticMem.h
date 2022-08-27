@@ -27,15 +27,16 @@
 #include <nn/acp/title.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-bool initStaticMem() __attribute__((__cold__));
-void shutdownStaticMem() __attribute__((__cold__));
+    bool initStaticMem() __attribute__((__cold__));
+    void shutdownStaticMem() __attribute__((__cold__));
 
-char *getStaticScreenBuffer() __attribute__((__hot__));
-char *getStaticLineBuffer() __attribute__((__hot__));
-char *getStaticPathBuffer(uint32_t i) __attribute__((__hot__));
+    char *getStaticScreenBuffer() __attribute__((__hot__));
+    char *getStaticLineBuffer() __attribute__((__hot__));
+    char *getStaticPathBuffer(uint32_t i) __attribute__((__hot__));
 
 #ifdef __cplusplus
 }

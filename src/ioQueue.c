@@ -68,40 +68,40 @@ static int ioThreadMain(int argc, const char **argv)
     FSSetCmdPriority(&cmdBlk, 1);
 
     while(ioRunning && fwriteErrno == FS_STATUS_OK)
+    {
+        asl = activeWriteBuffer;
+        entry = queueEntries + asl;
+        if(entry->file == NULL)
         {
-            asl = activeWriteBuffer;
-            entry = queueEntries + asl;
-            if(entry->file == NULL)
-                {
-                    OSSleepTicks(256);
-                    continue;
-                }
-
-            if(entry->size) // WRITE command
-                {
-                    err = FSWriteFile(__wut_devoptab_fs_client, &cmdBlk, (uint8_t *)entry->buf, entry->size, 1, *entry->file, 0, FS_ERROR_FLAG_ALL);
-                    if(err != 1)
-                        fwriteErrno = err;
-
-                    entry->size = 0;
-                }
-            else // Close command
-                {
-                    OSTime t = OSGetTime();
-                    err = FSCloseFile(__wut_devoptab_fs_client, &cmdBlk, *entry->file, FS_ERROR_FLAG_ALL);
-                    if(err != FS_STATUS_OK)
-                        fwriteErrno = err;
-
-                    t = OSGetTime() - t;
-                    addEntropy(&t, sizeof(OSTime));
-                }
-
-            if(++asl == MAX_IO_QUEUE_ENTRIES)
-                asl = 0;
-
-            activeWriteBuffer = asl;
-            entry->file = NULL;
+            OSSleepTicks(256);
+            continue;
         }
+
+        if(entry->size) // WRITE command
+        {
+            err = FSWriteFile(__wut_devoptab_fs_client, &cmdBlk, (uint8_t *)entry->buf, entry->size, 1, *entry->file, 0, FS_ERROR_FLAG_ALL);
+            if(err != 1)
+                fwriteErrno = err;
+
+            entry->size = 0;
+        }
+        else // Close command
+        {
+            OSTime t = OSGetTime();
+            err = FSCloseFile(__wut_devoptab_fs_client, &cmdBlk, *entry->file, FS_ERROR_FLAG_ALL);
+            if(err != FS_STATUS_OK)
+                fwriteErrno = err;
+
+            t = OSGetTime() - t;
+            addEntropy(&t, sizeof(OSTime));
+        }
+
+        if(++asl == MAX_IO_QUEUE_ENTRIES)
+            asl = 0;
+
+        activeWriteBuffer = asl;
+        entry->file = NULL;
+    }
 
     return 0;
 }
@@ -110,29 +110,29 @@ bool initIOThread()
 {
     queueEntries = MEMAllocFromDefaultHeap(MAX_IO_QUEUE_ENTRIES * sizeof(WriteQueueEntry));
     if(queueEntries != NULL)
+    {
+        uint8_t *buf = MEMAllocFromDefaultHeapEx(MAX_IO_QUEUE_ENTRIES * IO_MAX_FILE_BUFFER, 0x40);
+        if(buf != NULL)
         {
-            uint8_t *buf = MEMAllocFromDefaultHeapEx(MAX_IO_QUEUE_ENTRIES * IO_MAX_FILE_BUFFER, 0x40);
-            if(buf != NULL)
-                {
-                    for(int i = 0; i < MAX_IO_QUEUE_ENTRIES; ++i, buf += IO_MAX_FILE_BUFFER)
-                        {
-                            queueEntries[i].file = NULL;
-                            queueEntries[i].size = 0;
-                            queueEntries[i].buf = buf;
-                        }
+            for(int i = 0; i < MAX_IO_QUEUE_ENTRIES; ++i, buf += IO_MAX_FILE_BUFFER)
+            {
+                queueEntries[i].file = NULL;
+                queueEntries[i].size = 0;
+                queueEntries[i].buf = buf;
+            }
 
-                    activeReadBuffer = activeWriteBuffer = 0;
-                    ioRunning = true;
+            activeReadBuffer = activeWriteBuffer = 0;
+            ioRunning = true;
 
-                    ioThread = startThread("NUSspli I/O", THREAD_PRIORITY_HIGH, IOT_STACK_SIZE, ioThreadMain, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_CPU0); // We move this to core 0 for maximum performance. Later on move it back to core 1 as we want download threads on core 0 and 2.
-                    if(ioThread != NULL)
-                        return true;
+            ioThread = startThread("NUSspli I/O", THREAD_PRIORITY_HIGH, IOT_STACK_SIZE, ioThreadMain, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_CPU0); // We move this to core 0 for maximum performance. Later on move it back to core 1 as we want download threads on core 0 and 2.
+            if(ioThread != NULL)
+                return true;
 
-                    MEMFreeToDefaultHeap(buf);
-                }
-
-            MEMFreeToDefaultHeap(queueEntries);
+            MEMFreeToDefaultHeap(buf);
         }
+
+        MEMFreeToDefaultHeap(queueEntries);
+    }
 
     return false;
 }
@@ -140,15 +140,15 @@ bool initIOThread()
 bool checkForQueueErrors()
 {
     if(fwriteErrno != FS_STATUS_OK)
+    {
+        if(fwriteOverlay == -1 && OSIsMainCore())
         {
-            if(fwriteOverlay == -1 && OSIsMainCore())
-                {
-                    char errMsg[1024];
-                    sprintf(errMsg, "Write error:\n%s\n\nThis is an unrecoverable error!", translateFSErr(fwriteErrno));
-                    fwriteOverlay = addErrorOverlay(errMsg);
-                }
-            return true;
+            char errMsg[1024];
+            sprintf(errMsg, "Write error:\n%s\n\nThis is an unrecoverable error!", translateFSErr(fwriteErrno));
+            fwriteOverlay = addErrorOverlay(errMsg);
         }
+        return true;
+    }
     return false;
 }
 
@@ -158,10 +158,10 @@ void shutdownIOThread()
         return;
 
     if(!checkForQueueErrors())
-        {
-            while(queueEntries[activeWriteBuffer].file != NULL)
-                ;
-        }
+    {
+        while(queueEntries[activeWriteBuffer].file != NULL)
+            ;
+    }
 
     ioRunning = false;
 #ifdef NUSSPLI_DEBUG
@@ -188,64 +188,64 @@ size_t addToIOQueue(const void *buf, size_t size, size_t n, FSFileHandle *file)
 retryAddingToQueue:
     entry = queueEntries + activeReadBuffer;
     if(entry->file != NULL)
-        {
+    {
 #ifdef NUSSPLI_DEBUG
-            if(!queueStalled)
-                {
-                    debugPrintf("Waiting for free slot...");
-                    queueStalled = true;
-                }
-#endif
-            goto retryAddingToQueue; // We use goto here instead of just calling addToIOQueue again to not overgrow the stack.
+        if(!queueStalled)
+        {
+            debugPrintf("Waiting for free slot...");
+            queueStalled = true;
         }
+#endif
+        goto retryAddingToQueue; // We use goto here instead of just calling addToIOQueue again to not overgrow the stack.
+    }
 
 #ifdef NUSSPLI_DEBUG
     if(queueStalled)
-        {
-            debugPrintf("Slot free!");
-            queueStalled = false;
-        }
+    {
+        debugPrintf("Slot free!");
+        queueStalled = false;
+    }
 #endif
 
     if(buf != NULL)
+    {
+        size *= n;
+        if(size == 0)
+            return 0;
+
+        size_t ns = entry->size + size;
+        if(ns > IO_MAX_FILE_BUFFER)
         {
-            size *= n;
-            if(size == 0)
-                return 0;
+            ns = IO_MAX_FILE_BUFFER - entry->size;
+            OSBlockMove((void *)(entry->buf + entry->size), buf, ns, false);
+            entry->size = IO_MAX_FILE_BUFFER;
 
-            size_t ns = entry->size + size;
-            if(ns > IO_MAX_FILE_BUFFER)
-                {
-                    ns = IO_MAX_FILE_BUFFER - entry->size;
-                    OSBlockMove((void *)(entry->buf + entry->size), buf, ns, false);
-                    entry->size = IO_MAX_FILE_BUFFER;
-
-                    // TODO: Deduplicate code
-                    entry->file = file;
-                    if(++activeReadBuffer == MAX_IO_QUEUE_ENTRIES)
-                        activeReadBuffer = 0;
-
-                    size -= ns;
-                    const uint8_t *newPtr = buf;
-                    newPtr += ns;
-                    addToIOQueue((const void *)newPtr, 1, size, file);
-                    return n;
-                }
-
-            OSBlockMove((void *)(entry->buf + entry->size), buf, size, false);
-            entry->size = ns;
-            if(ns != IO_MAX_FILE_BUFFER) // ns < IO_MAX_FILE_BUFFER
-                return n;
-        }
-    else if(entry->size != 0)
-        {
             // TODO: Deduplicate code
             entry->file = file;
             if(++activeReadBuffer == MAX_IO_QUEUE_ENTRIES)
                 activeReadBuffer = 0;
 
-            entry = queueEntries + activeReadBuffer;
+            size -= ns;
+            const uint8_t *newPtr = buf;
+            newPtr += ns;
+            addToIOQueue((const void *)newPtr, 1, size, file);
+            return n;
         }
+
+        OSBlockMove((void *)(entry->buf + entry->size), buf, size, false);
+        entry->size = ns;
+        if(ns != IO_MAX_FILE_BUFFER) // ns < IO_MAX_FILE_BUFFER
+            return n;
+    }
+    else if(entry->size != 0)
+    {
+        // TODO: Deduplicate code
+        entry->file = file;
+        if(++activeReadBuffer == MAX_IO_QUEUE_ENTRIES)
+            activeReadBuffer = 0;
+
+        entry = queueEntries + activeReadBuffer;
+    }
 
     entry->file = file;
     if(++activeReadBuffer == MAX_IO_QUEUE_ENTRIES)
@@ -263,11 +263,11 @@ void flushIOQueue()
     debugPrintf("Flushing...");
 
     while(queueEntries[activeWriteBuffer].file != NULL)
-        {
-            OSSleepTicks(1024);
-            if(checkForQueueErrors())
-                break;
-        }
+    {
+        OSSleepTicks(1024);
+        if(checkForQueueErrors())
+            break;
+    }
 
     removeErrorOverlay(ovl);
 

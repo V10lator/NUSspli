@@ -56,23 +56,23 @@ void addToScreenLog(const char *str, ...)
     LogList *newEntry;
     int i = 0;
     for(newEntry = logList; newEntry != NULL; newEntry = newEntry->nextEntry)
-        {
+    {
 
-            ++i;
-            last = newEntry;
-        }
+        ++i;
+        last = newEntry;
+    }
 
     if(i == MAX_LINES - 2)
-        {
-            newEntry = logList;
-            logList = newEntry->nextEntry;
-        }
+    {
+        newEntry = logList;
+        logList = newEntry->nextEntry;
+    }
     else
-        {
-            newEntry = MEMAllocFromDefaultHeap(sizeof(LogList));
-            if(newEntry == NULL)
-                return;
-        }
+    {
+        newEntry = MEMAllocFromDefaultHeap(sizeof(LogList));
+        if(newEntry == NULL)
+            return;
+    }
 
     va_list va;
     va_start(va, str);
@@ -82,10 +82,10 @@ void addToScreenLog(const char *str, ...)
     newEntry->nextEntry = NULL;
 
     if(i != 0)
-        {
-            last->nextEntry = newEntry;
-            return;
-        }
+    {
+        last->nextEntry = newEntry;
+        return;
+    }
 
     logList = newEntry;
 }
@@ -94,11 +94,11 @@ void clearScreenLog()
 {
     LogList *tmpList;
     while(logList != NULL)
-        {
-            tmpList = logList;
-            logList = tmpList->nextEntry;
-            MEMFreeToDefaultHeap(tmpList);
-        }
+    {
+        tmpList = logList;
+        logList = tmpList->nextEntry;
+        MEMFreeToDefaultHeap(tmpList);
+    }
 }
 
 void writeScreenLog(int line)
@@ -121,38 +121,38 @@ void drawErrorFrame(const char *text, ErrorOptions option)
     size_t size;
     int line = -1;
     while(text)
+    {
+        l = strchr(text, '\n');
+        ++line;
+        size = l == NULL ? strlen(text) : (l - text);
+        if(size > 0)
         {
-            l = strchr(text, '\n');
-            ++line;
-            size = l == NULL ? strlen(text) : (l - text);
-            if(size > 0)
-                {
-                    char tmp[size + 1];
-                    for(int i = 0; i < size; ++i)
-                        tmp[i] = text[i];
+            char tmp[size + 1];
+            for(int i = 0; i < size; ++i)
+                tmp[i] = text[i];
 
-                    tmp[size] = '\0';
-                    textToFrame(line, 0, tmp);
-                }
-
-            text = l == NULL ? NULL : (l + 1);
+            tmp[size] = '\0';
+            textToFrame(line, 0, tmp);
         }
+
+        text = l == NULL ? NULL : (l + 1);
+    }
 
     line = MAX_LINES;
 
     if(option == ANY_RETURN)
         textToFrame(--line, 0, gettext("Press any key to return"));
     else
-        {
-            if(option & B_RETURN)
-                textToFrame(--line, 0, gettext("Press " BUTTON_B " to return"));
+    {
+        if(option & B_RETURN)
+            textToFrame(--line, 0, gettext("Press " BUTTON_B " to return"));
 
-            if(option & Y_RETRY)
-                textToFrame(--line, 0, gettext("Press " BUTTON_Y " to retry"));
+        if(option & Y_RETRY)
+            textToFrame(--line, 0, gettext("Press " BUTTON_Y " to retry"));
 
-            if(option & A_CONTINUE)
-                textToFrame(--line, 0, gettext("Press " BUTTON_A " to continue"));
-        }
+        if(option & A_CONTINUE)
+            textToFrame(--line, 0, gettext("Press " BUTTON_A " to continue"));
+    }
 
     lineToFrame(--line, SCREEN_COLOR_WHITE);
     textToFrame(--line, 0, "NUSspli v" NUSSPLI_VERSION);
@@ -162,57 +162,57 @@ void drawErrorFrame(const char *text, ErrorOptions option)
 bool checkSystemTitle(uint64_t tid, MCPRegion region)
 {
     switch(getTidHighFromTid(tid))
-        {
-        case TID_HIGH_SYSTEM_APP:
-        case TID_HIGH_SYSTEM_DATA:
-        case TID_HIGH_SYSTEM_APPLET:
-            break;
-        default:
-            return true;
-        }
+    {
+    case TID_HIGH_SYSTEM_APP:
+    case TID_HIGH_SYSTEM_DATA:
+    case TID_HIGH_SYSTEM_APPLET:
+        break;
+    default:
+        return true;
+    }
 
     MCPRegion reg;
     MCPSysProdSettings *settings = MEMAllocFromDefaultHeapEx(sizeof(MCPSysProdSettings), 0x40);
     if(settings == NULL)
+    {
+        debugPrintf("OUT OF MEMORY!");
+        reg = 0;
+    }
+    else
+    {
+        MCPError err = MCP_GetSysProdSettings(mcpHandle, settings);
+        if(err)
         {
-            debugPrintf("OUT OF MEMORY!");
+            debugPrintf("Error reading settings: %d!", err);
             reg = 0;
         }
-    else
-        {
-            MCPError err = MCP_GetSysProdSettings(mcpHandle, settings);
-            if(err)
-                {
-                    debugPrintf("Error reading settings: %d!", err);
-                    reg = 0;
-                }
-            else
-                reg = settings->game_region;
+        else
+            reg = settings->game_region;
 
-            MEMFreeToDefaultHeap(settings);
-        }
+        MEMFreeToDefaultHeap(settings);
+    }
 
     debugPrintf("Console region: 0x%08X", reg);
     debugPrintf("Title region: 0x%08X", region);
     switch(reg)
-        {
-        case MCP_REGION_EUROPE:
-            if(region & MCP_REGION_EUROPE)
-                return true;
-            break;
-        case MCP_REGION_USA:
-            if(region & MCP_REGION_USA)
-                return true;
-            break;
-        case MCP_REGION_JAPAN:
-            if(region & MCP_REGION_JAPAN)
-                return true;
-            break;
-        default:
-            // TODO: MCP_REGION_CHINA, MCP_REGION_KOREA, MCP_REGION_TAIWAN
-            debugPrintf("Unknwon region: %d", reg);
+    {
+    case MCP_REGION_EUROPE:
+        if(region & MCP_REGION_EUROPE)
             return true;
-        }
+        break;
+    case MCP_REGION_USA:
+        if(region & MCP_REGION_USA)
+            return true;
+        break;
+    case MCP_REGION_JAPAN:
+        if(region & MCP_REGION_JAPAN)
+            return true;
+        break;
+    default:
+        // TODO: MCP_REGION_CHINA, MCP_REGION_KOREA, MCP_REGION_TAIWAN
+        debugPrintf("Unknwon region: %d", reg);
+        return true;
+    }
 
     char *toFrame = getToFrameBuffer();
     sprintf(toFrame,
@@ -224,66 +224,66 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region)
 
     bool ret = true;
     while(AppRunning())
+    {
+        showFrame();
+
+        if(vpad.trigger & VPAD_BUTTON_A)
+            break;
+        if(vpad.trigger & VPAD_BUTTON_B)
+        {
+            ret = false;
+            break;
+        }
+    }
+
+    removeErrorOverlay(ovl);
+    if(ret)
+    {
+        sprintf(toFrame,
+            "%s\n\n" BUTTON_A " %s || " BUTTON_B "%s",
+            gettext("Are you really sure you want to brick your Wii U?"),
+            gettext("Yes"),
+            gettext("No"));
+        ovl = addErrorOverlay(toFrame);
+
+        while(AppRunning())
         {
             showFrame();
 
             if(vpad.trigger & VPAD_BUTTON_A)
                 break;
             if(vpad.trigger & VPAD_BUTTON_B)
-                {
-                    ret = false;
-                    break;
-                }
+            {
+                ret = false;
+                break;
+            }
         }
-
-    removeErrorOverlay(ovl);
-    if(ret)
-        {
-            sprintf(toFrame,
-                "%s\n\n" BUTTON_A " %s || " BUTTON_B "%s",
-                gettext("Are you really sure you want to brick your Wii U?"),
-                gettext("Yes"),
-                gettext("No"));
-            ovl = addErrorOverlay(toFrame);
-
-            while(AppRunning())
-                {
-                    showFrame();
-
-                    if(vpad.trigger & VPAD_BUTTON_A)
-                        break;
-                    if(vpad.trigger & VPAD_BUTTON_B)
-                        {
-                            ret = false;
-                            break;
-                        }
-                }
-            removeErrorOverlay(ovl);
-        }
+        removeErrorOverlay(ovl);
+    }
 
     if(ret)
+    {
+        sprintf(toFrame,
+            "%s\n\n" BUTTON_A " %s || " BUTTON_B "%s",
+            gettext("You're on your own doing this,\ndo you understand the consequences?"),
+            gettext("Yes"),
+            gettext("No"));
+        ovl = addErrorOverlay(toFrame);
+
+        while(AppRunning())
         {
-            sprintf(toFrame,
-                "%s\n\n" BUTTON_A " %s || " BUTTON_B "%s",
-                gettext("You're on your own doing this,\ndo you understand the consequences?"),
-                gettext("Yes"),
-                gettext("No"));
-            ovl = addErrorOverlay(toFrame);
+            showFrame();
 
-            while(AppRunning())
-                {
-                    showFrame();
-
-                    if(vpad.trigger & VPAD_BUTTON_A)
-                        break;
-                    if(vpad.trigger & VPAD_BUTTON_B)
-                        {
-                            ret = false;
-                            break;
-                        }
-                }
-            removeErrorOverlay(ovl);
+            if(vpad.trigger & VPAD_BUTTON_A)
+                break;
+            if(vpad.trigger & VPAD_BUTTON_B)
+            {
+                ret = false;
+                break;
+            }
         }
+        removeErrorOverlay(ovl);
+    }
 
     return ret;
 }
@@ -310,20 +310,20 @@ const char *prettyDir(const char *dir)
     static char ret[FS_MAX_PATH];
 
     if(strncmp(NUSDIR_USB1, dir, strlen(NUSDIR_USB1)) == 0 || strncmp(NUSDIR_USB2, dir, strlen(NUSDIR_USB2)) == 0)
-        {
-            dir += strlen(NUSDIR_USB1);
-            strcpy(ret, "USB:/");
-        }
+    {
+        dir += strlen(NUSDIR_USB1);
+        strcpy(ret, "USB:/");
+    }
     else if(strncmp(NUSDIR_SD, dir, strlen(NUSDIR_SD)) == 0)
-        {
-            dir += strlen(NUSDIR_SD);
-            strcpy(ret, "SD:/");
-        }
+    {
+        dir += strlen(NUSDIR_SD);
+        strcpy(ret, "SD:/");
+    }
     else if(strncmp(NUSDIR_MLC, dir, strlen(NUSDIR_MLC)) == 0)
-        {
-            dir += strlen(NUSDIR_MLC);
-            strcpy(ret, "NAND:/");
-        }
+    {
+        dir += strlen(NUSDIR_MLC);
+        strcpy(ret, "NAND:/");
+    }
     else
         return dir;
 

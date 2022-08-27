@@ -83,35 +83,35 @@ void secsToTime(uint32_t seconds, char *out)
     const char *i10n;
 
     if(hour)
-        {
-            sprintf(out, "%u ", hour);
-            out += strlen(out);
-            i10n = gettext("hours");
-            strcpy(out, i10n);
-            out += strlen(i10n);
-            strcpy(out++, " ");
-            visible = true;
-        }
+    {
+        sprintf(out, "%u ", hour);
+        out += strlen(out);
+        i10n = gettext("hours");
+        strcpy(out, i10n);
+        out += strlen(i10n);
+        strcpy(out++, " ");
+        visible = true;
+    }
     if(minute || visible)
-        {
-            sprintf(out, "%02u ", minute);
-            out += 3;
-            i10n = gettext("minutes");
-            strcpy(out, i10n);
-            out += strlen(i10n);
-            strcpy(out++, " ");
-            visible = true;
-        }
+    {
+        sprintf(out, "%02u ", minute);
+        out += 3;
+        i10n = gettext("minutes");
+        strcpy(out, i10n);
+        out += strlen(i10n);
+        strcpy(out++, " ");
+        visible = true;
+    }
 
     if(seconds || visible)
-        {
-            sprintf(out, "%02u ", seconds);
-            out += 3;
-            i10n = gettext("seconds");
-            strcpy(out, i10n);
-            out += strlen(i10n);
-            strcpy(out, " ");
-        }
+    {
+        sprintf(out, "%02u ", seconds);
+        out += 3;
+        i10n = gettext("seconds");
+        strcpy(out, i10n);
+        out += strlen(i10n);
+        strcpy(out, " ");
+    }
     else
         strcpy(out, "N/A");
 }
@@ -154,11 +154,11 @@ void showMcpProgress(McpData *data, const char *game, const bool inst)
 {
     MCPInstallProgress *progress = MEMAllocFromDefaultHeapEx(sizeof(MCPInstallProgress), 0x40);
     if(progress == NULL)
-        {
-            debugPrintf("Error allocating memory!");
-            data->err = CUSTOM_MCP_ERROR_EOM;
-            return;
-        }
+    {
+        debugPrintf("Error allocating memory!");
+        data->err = CUSTOM_MCP_ERROR_EOM;
+        return;
+    }
 
     progress->inProgress = 0;
     char multiplierName[3];
@@ -173,101 +173,101 @@ void showMcpProgress(McpData *data, const char *game, const bool inst)
     int ovl = -1;
 
     while(data->processing)
+    {
+        err = MCP_InstallGetProgress(mcpHandle, progress);
+        if(err == IOS_ERROR_OK)
         {
-            err = MCP_InstallGetProgress(mcpHandle, progress);
-            if(err == IOS_ERROR_OK)
+            if(progress->inProgress == 1 && progress->sizeTotal != 0 && data->err != CUSTOM_MCP_ERROR_CANCELLED)
+            {
+                if(multiplier == 0)
                 {
-                    if(progress->inProgress == 1 && progress->sizeTotal != 0 && data->err != CUSTOM_MCP_ERROR_CANCELLED)
-                        {
-                            if(multiplier == 0)
-                                {
-                                    if(progress->sizeTotal < 1 << 10)
-                                        {
-                                            multiplier = 1;
-                                            strcpy(multiplierName, "B");
-                                        }
-                                    else if(progress->sizeTotal < 1 << 20)
-                                        {
-                                            multiplier = 1 << 10;
-                                            strcpy(multiplierName, "KB");
-                                        }
-                                    else if(progress->sizeTotal < 1 << 30)
-                                        {
-                                            multiplier = 1 << 20;
-                                            strcpy(multiplierName, "MB");
-                                        }
-                                    else
-                                        {
-                                            multiplier = 1 << 30;
-                                            strcpy(multiplierName, "GB");
-                                        }
-                                }
-                            startNewFrame();
-                            strcpy(toScreen, gettext(inst ? "Installing" : "Uninstalling"));
-                            strcat(toScreen, " ");
-                            strcat(toScreen, game);
-                            textToFrame(0, 0, toScreen);
-                            double prg = (double)progress->sizeProgress;
-                            barToFrame(1, 0, 40, prg * 100.0f / progress->sizeTotal);
-                            sprintf(toScreen, "%.2f / %.2f %s", prg / multiplier, ((double)progress->sizeTotal) / multiplier, multiplierName);
-                            textToFrame(1, 41, toScreen);
-
-                            if(progress->sizeProgress != 0)
-                                {
-                                    now = OSGetSystemTime();
-                                    if(OSTicksToMilliseconds(now - lastSpeedCalc) > 333)
-                                        {
-                                            getSpeedString(prg - lsp, speedBuf);
-                                            lsp = prg;
-                                            lastSpeedCalc = now;
-                                        }
-                                    textToFrame(1, ALIGNED_RIGHT, speedBuf);
-                                }
-
-                            writeScreenLog(2);
-                            drawFrame();
-                        }
+                    if(progress->sizeTotal < 1 << 10)
+                    {
+                        multiplier = 1;
+                        strcpy(multiplierName, "B");
+                    }
+                    else if(progress->sizeTotal < 1 << 20)
+                    {
+                        multiplier = 1 << 10;
+                        strcpy(multiplierName, "KB");
+                    }
+                    else if(progress->sizeTotal < 1 << 30)
+                    {
+                        multiplier = 1 << 20;
+                        strcpy(multiplierName, "MB");
+                    }
+                    else
+                    {
+                        multiplier = 1 << 30;
+                        strcpy(multiplierName, "GB");
+                    }
                 }
-            else
-                debugPrintf("MCP_InstallGetProgress() returned %#010x", err);
+                startNewFrame();
+                strcpy(toScreen, gettext(inst ? "Installing" : "Uninstalling"));
+                strcat(toScreen, " ");
+                strcat(toScreen, game);
+                textToFrame(0, 0, toScreen);
+                double prg = (double)progress->sizeProgress;
+                barToFrame(1, 0, 40, prg * 100.0f / progress->sizeTotal);
+                sprintf(toScreen, "%.2f / %.2f %s", prg / multiplier, ((double)progress->sizeTotal) / multiplier, multiplierName);
+                textToFrame(1, 41, toScreen);
 
-            showFrame();
-
-            if(inst)
+                if(progress->sizeProgress != 0)
                 {
-                    if(ovl == -1)
-                        {
-                            if(vpad.trigger & VPAD_BUTTON_B)
-                                {
-                                    sprintf(toScreen, "%s\n\n" BUTTON_A " %s || " BUTTON_B " %s", gettext("Do you really want to cancel?"), gettext("Yes"), gettext("No"));
-                                    ovl = addErrorOverlay(toScreen);
-                                }
-                        }
-                    else if(ovl >= 0)
-                        {
-                            if(vpad.trigger & VPAD_BUTTON_A)
-                                {
-                                    removeErrorOverlay(ovl);
-                                    ovl = -2;
-
-                                    startNewFrame();
-                                    textToFrame(0, 0, gettext("Cancelling installation."));
-                                    textToFrame(1, 0, gettext("Please wait..."));
-                                    writeScreenLog(2);
-                                    drawFrame();
-                                    showFrame();
-
-                                    MCP_InstallTitleAbort(mcpHandle);
-                                    data->err = CUSTOM_MCP_ERROR_CANCELLED;
-                                }
-                            else if(vpad.trigger & VPAD_BUTTON_B)
-                                {
-                                    removeErrorOverlay(ovl);
-                                    ovl = -1;
-                                }
-                        }
+                    now = OSGetSystemTime();
+                    if(OSTicksToMilliseconds(now - lastSpeedCalc) > 333)
+                    {
+                        getSpeedString(prg - lsp, speedBuf);
+                        lsp = prg;
+                        lastSpeedCalc = now;
+                    }
+                    textToFrame(1, ALIGNED_RIGHT, speedBuf);
                 }
+
+                writeScreenLog(2);
+                drawFrame();
+            }
         }
+        else
+            debugPrintf("MCP_InstallGetProgress() returned %#010x", err);
+
+        showFrame();
+
+        if(inst)
+        {
+            if(ovl == -1)
+            {
+                if(vpad.trigger & VPAD_BUTTON_B)
+                {
+                    sprintf(toScreen, "%s\n\n" BUTTON_A " %s || " BUTTON_B " %s", gettext("Do you really want to cancel?"), gettext("Yes"), gettext("No"));
+                    ovl = addErrorOverlay(toScreen);
+                }
+            }
+            else if(ovl >= 0)
+            {
+                if(vpad.trigger & VPAD_BUTTON_A)
+                {
+                    removeErrorOverlay(ovl);
+                    ovl = -2;
+
+                    startNewFrame();
+                    textToFrame(0, 0, gettext("Cancelling installation."));
+                    textToFrame(1, 0, gettext("Please wait..."));
+                    writeScreenLog(2);
+                    drawFrame();
+                    showFrame();
+
+                    MCP_InstallTitleAbort(mcpHandle);
+                    data->err = CUSTOM_MCP_ERROR_CANCELLED;
+                }
+                else if(vpad.trigger & VPAD_BUTTON_B)
+                {
+                    removeErrorOverlay(ovl);
+                    ovl = -1;
+                }
+            }
+        }
+    }
 
     if(ovl >= 0)
         removeErrorOverlay(ovl);

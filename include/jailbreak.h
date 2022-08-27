@@ -25,10 +25,11 @@
 #include <stdbool.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-bool jailbreak();
+    bool jailbreak();
 
 #ifdef __cplusplus
 }

@@ -26,12 +26,13 @@
 //#endif
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-// // Functions from https://github.com/devkitPro/wut/blob/master/libraries/wutsocket/wut_socket_common.c
-void __attribute__((weak)) __init_wut_socket();
-void __attribute__((weak)) __fini_wut_socket();
+    // // Functions from https://github.com/devkitPro/wut/blob/master/libraries/wutsocket/wut_socket_common.c
+    void __attribute__((weak)) __init_wut_socket();
+    void __attribute__((weak)) __fini_wut_socket();
 
 #ifdef __cplusplus
 }

@@ -30,21 +30,22 @@
 #define DEFAULT_STACKSIZE 0xFFF8
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-/*
- * Default Wii U thread priority is 16.
- * SDL changes its audio thread priority one lower, so to 15.
- * We want the SDL audio thread to be at THREAD_PRIORITY_LOW,
- * so that has to be 15, too
- */
-typedef enum
-{
-    THREAD_PRIORITY_HIGH = 13,
-    THREAD_PRIORITY_MEDIUM = 14,
-    THREAD_PRIORITY_LOW = 15,
-} THREAD_PRIORITY;
+    /*
+     * Default Wii U thread priority is 16.
+     * SDL changes its audio thread priority one lower, so to 15.
+     * We want the SDL audio thread to be at THREAD_PRIORITY_LOW,
+     * so that has to be 15, too
+     */
+    typedef enum
+    {
+        THREAD_PRIORITY_HIGH = 13,
+        THREAD_PRIORITY_MEDIUM = 14,
+        THREAD_PRIORITY_LOW = 15,
+    } THREAD_PRIORITY;
 
 #define spinlock                     volatile uint32_t
 
@@ -56,16 +57,16 @@ typedef enum
 #define spinTryLock(lock)            OSCompareAndSwapAtomic(&lock, SPINLOCK_FREE, SPINLOCK_LOCKED)
 #define spinLock(lock)        \
     while(!spinTryLock(lock)) \
-        {                     \
-        }
-#define spinLockAsMutex(lock)  \
-    while(!spinTryLock(lock))  \
-        {                      \
-            OSSleepTicks(256); \
-        }
+    {                         \
+    }
+#define spinLockAsMutex(lock) \
+    while(!spinTryLock(lock)) \
+    {                         \
+        OSSleepTicks(256);    \
+    }
 #define spinReleaseLock(lock) lock = SPINLOCK_FREE
 
-OSThread *startThread(const char *name, THREAD_PRIORITY priority, size_t stacksize, OSThreadEntryPointFn mainfunc, int argc, char *argv, OSThreadAttributes attribs) __attribute__((__hot__));
+    OSThread *startThread(const char *name, THREAD_PRIORITY priority, size_t stacksize, OSThreadEntryPointFn mainfunc, int argc, char *argv, OSThreadAttributes attribs) __attribute__((__hot__));
 
 #ifdef NUSSPLI_DEBUG
 #define stopThread(thread, ret)                                                                                                                                \

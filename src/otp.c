@@ -35,27 +35,27 @@ static uint8_t otp_common_key[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 uint8_t *getCommonKey()
 {
     if(otp_common_key[0] == 0x00)
+    {
+        OSTime t = OSGetSystemTime();
+        WiiUConsoleOTP otp;
+        if(Mocha_ReadOTP(&otp) == MOCHA_RESULT_SUCCESS)
         {
-            OSTime t = OSGetSystemTime();
-            WiiUConsoleOTP otp;
-            if(Mocha_ReadOTP(&otp) == MOCHA_RESULT_SUCCESS)
-                {
-                    OSBlockMove(otp_common_key, otp.wiiUBank.wiiUCommonKey, 16, false);
+            OSBlockMove(otp_common_key, otp.wiiUBank.wiiUCommonKey, 16, false);
 
-                    t = OSGetSystemTime() - t;
-                    addEntropy(&t, sizeof(OSTime));
+            t = OSGetSystemTime() - t;
+            addEntropy(&t, sizeof(OSTime));
 
 #ifdef NUSSPLI_DEBUG
-                    char ret[33];
-                    char *tmp = &ret[0];
-                    for(int i = 0; i < 16; i++, tmp += 2)
-                        sprintf(tmp, "%02x", otp_common_key[i]);
-                    debugPrintf("Common key: %s", ret);
+            char ret[33];
+            char *tmp = &ret[0];
+            for(int i = 0; i < 16; i++, tmp += 2)
+                sprintf(tmp, "%02x", otp_common_key[i]);
+            debugPrintf("Common key: %s", ret);
 #endif
-                }
-            else
-                debugPrintf("Common key: IOSUHAX_read_otp() failed!");
         }
+        else
+            debugPrintf("Common key: IOSUHAX_read_otp() failed!");
+    }
 
     return otp_common_key;
 }

@@ -70,11 +70,11 @@ static void drawFBMenuFrame(char **folders, size_t foldersSize, const size_t pos
         foldersSize = MAX_FILEBROWSER_LINES;
 
     for(size_t i = 0; i < foldersSize; ++i)
-        {
-            textToFrame(i + 2, 5, folders[i + pos]);
-            if(cursor == i)
-                arrowToFrame(i + 2, 1);
-        }
+    {
+        textToFrame(i + 2, 5, folders[i + pos]);
+        if(cursor == i)
+            arrowToFrame(i + 2, 1);
+    }
     drawFrame();
 }
 
@@ -107,49 +107,49 @@ refreshDirList:
     path = getStaticPathBuffer(2);
     strcpy(path, (activeDevice & NUSDEV_USB) ? (usbMounted == NUSDEV_USB01 ? INSTALL_DIR_USB1 : INSTALL_DIR_USB2) : (activeDevice == NUSDEV_SD ? INSTALL_DIR_SD : INSTALL_DIR_MLC));
     if(FSOpenDir(__wut_devoptab_fs_client, getCmdBlk(), path, &dir, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
-        {
-            size_t len;
-            FSDirectoryEntry entry;
-            while(FSReadDir(__wut_devoptab_fs_client, getCmdBlk(), dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
-                if(entry.info.flags & FS_STAT_DIRECTORY) // Check if it's a directory
+    {
+        size_t len;
+        FSDirectoryEntry entry;
+        while(FSReadDir(__wut_devoptab_fs_client, getCmdBlk(), dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+            if(entry.info.flags & FS_STAT_DIRECTORY) // Check if it's a directory
+            {
+                if(foldersSize == max_folders)
+                {
+                    max_folders += 64;
+                    if(max_folders < foldersSize) // buffer overrun, shouldn't happen
                     {
-                        if(foldersSize == max_folders)
-                            {
-                                max_folders += 64;
-                                if(max_folders < foldersSize) // buffer overrun, shouldn't happen
-                                    {
-                                        FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
-                                        goto exitFileBrowserMenu;
-                                    }
-
-                                char **tf = MEMAllocFromDefaultHeap(sizeof(char *) * max_folders);
-                                if(tf == NULL)
-                                    {
-                                        FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
-                                        goto exitFileBrowserMenu;
-                                    }
-
-                                OSBlockMove(tf, folders, sizeof(char *) * foldersSize, false);
-                                MEMFreeToDefaultHeap(folders);
-                                folders = tf;
-                            }
-
-                        len = strlen(entry.name);
-                        folders[foldersSize] = MEMAllocFromDefaultHeap(len + 2);
-                        if(folders[foldersSize] == NULL)
-                            {
-                                FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
-                                goto exitFileBrowserMenu;
-                            }
-
-                        OSBlockMove(folders[foldersSize], entry.name, len, false);
-                        folders[foldersSize][len] = '/';
-                        folders[foldersSize][++len] = '\0';
-                        ++foldersSize;
+                        FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
+                        goto exitFileBrowserMenu;
                     }
 
-            FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
-        }
+                    char **tf = MEMAllocFromDefaultHeap(sizeof(char *) * max_folders);
+                    if(tf == NULL)
+                    {
+                        FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
+                        goto exitFileBrowserMenu;
+                    }
+
+                    OSBlockMove(tf, folders, sizeof(char *) * foldersSize, false);
+                    MEMFreeToDefaultHeap(folders);
+                    folders = tf;
+                }
+
+                len = strlen(entry.name);
+                folders[foldersSize] = MEMAllocFromDefaultHeap(len + 2);
+                if(folders[foldersSize] == NULL)
+                {
+                    FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
+                    goto exitFileBrowserMenu;
+                }
+
+                OSBlockMove(folders[foldersSize], entry.name, len, false);
+                folders[foldersSize][len] = '/';
+                folders[foldersSize][++len] = '\0';
+                ++foldersSize;
+            }
+
+        FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
+    }
 
     t = OSGetTime() - t;
     addEntropy(&t, sizeof(OSTime));
@@ -162,174 +162,174 @@ refreshDirList:
     size_t frameCount = 0;
     bool dpadAction;
     while(AppRunning())
+    {
+        if(app == APP_STATE_BACKGROUND)
+            continue;
+        if(app == APP_STATE_RETURNING)
+            drawFBMenuFrame(folders, foldersSize, pos, cursor, activeDevice, usbMounted);
+
+        showFrame();
+        if(vpad.trigger & VPAD_BUTTON_B)
+            goto exitFileBrowserMenu;
+        if(vpad.trigger & VPAD_BUTTON_A)
         {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawFBMenuFrame(folders, foldersSize, pos, cursor, activeDevice, usbMounted);
-
-            showFrame();
-            if(vpad.trigger & VPAD_BUTTON_B)
+            if(foldersSize != 1)
+            {
+                ret = getStaticPathBuffer(2);
+                strcpy(ret, (activeDevice & NUSDEV_USB) ? (usbMounted == NUSDEV_USB01 ? INSTALL_DIR_USB1 : INSTALL_DIR_USB2) : (activeDevice == NUSDEV_SD ? INSTALL_DIR_SD : INSTALL_DIR_MLC));
+                strcat(ret, folders[cursor + pos]);
                 goto exitFileBrowserMenu;
-            if(vpad.trigger & VPAD_BUTTON_A)
-                {
-                    if(foldersSize != 1)
-                        {
-                            ret = getStaticPathBuffer(2);
-                            strcpy(ret, (activeDevice & NUSDEV_USB) ? (usbMounted == NUSDEV_USB01 ? INSTALL_DIR_USB1 : INSTALL_DIR_USB2) : (activeDevice == NUSDEV_SD ? INSTALL_DIR_SD : INSTALL_DIR_MLC));
-                            strcat(ret, folders[cursor + pos]);
-                            goto exitFileBrowserMenu;
-                        }
-                }
-
-            if(vpad.hold & VPAD_BUTTON_UP)
-                {
-                    if(oldHold != VPAD_BUTTON_UP)
-                        {
-                            oldHold = VPAD_BUTTON_UP;
-                            frameCount = 30;
-                            dpadAction = true;
-                        }
-                    else if(frameCount == 0)
-                        dpadAction = true;
-                    else
-                        {
-                            --frameCount;
-                            dpadAction = false;
-                        }
-
-                    if(dpadAction)
-                        {
-                            if(cursor)
-                                cursor--;
-                            else
-                                {
-                                    if(mov)
-                                        {
-                                            if(pos)
-                                                pos--;
-                                            else
-                                                {
-                                                    cursor = MAX_FILEBROWSER_LINES - 1;
-                                                    pos = foldersSize - MAX_FILEBROWSER_LINES;
-                                                }
-                                        }
-                                    else
-                                        cursor = foldersSize - 1;
-                                }
-
-                            redraw = true;
-                        }
-                }
-            else if(vpad.hold & VPAD_BUTTON_DOWN)
-                {
-                    if(oldHold != VPAD_BUTTON_DOWN)
-                        {
-                            oldHold = VPAD_BUTTON_DOWN;
-                            frameCount = 30;
-                            dpadAction = true;
-                        }
-                    else if(frameCount == 0)
-                        dpadAction = true;
-                    else
-                        {
-                            --frameCount;
-                            dpadAction = false;
-                        }
-
-                    if(dpadAction)
-                        {
-                            if(cursor + pos >= foldersSize - 1 || cursor >= MAX_FILEBROWSER_LINES - 1)
-                                {
-                                    if(!mov || ++pos + cursor >= foldersSize)
-                                        cursor = pos = 0;
-                                }
-                            else
-                                ++cursor;
-
-                            redraw = true;
-                        }
-                }
-            else if(mov)
-                {
-                    if(vpad.hold & VPAD_BUTTON_RIGHT)
-                        {
-                            if(oldHold != VPAD_BUTTON_RIGHT)
-                                {
-                                    oldHold = VPAD_BUTTON_RIGHT;
-                                    frameCount = 30;
-                                    dpadAction = true;
-                                }
-                            else if(frameCount == 0)
-                                dpadAction = true;
-                            else
-                                {
-                                    --frameCount;
-                                    dpadAction = false;
-                                }
-
-                            if(dpadAction)
-                                {
-                                    pos += MAX_FILEBROWSER_LINES;
-                                    if(pos >= foldersSize)
-                                        pos = 0;
-                                    cursor = 0;
-                                    redraw = true;
-                                }
-                        }
-                    else if(vpad.hold & VPAD_BUTTON_LEFT)
-                        {
-                            if(oldHold != VPAD_BUTTON_LEFT)
-                                {
-                                    oldHold = VPAD_BUTTON_LEFT;
-                                    frameCount = 30;
-                                    dpadAction = true;
-                                }
-                            else if(frameCount == 0)
-                                dpadAction = true;
-                            else
-                                {
-                                    --frameCount;
-                                    dpadAction = false;
-                                }
-
-                            if(dpadAction)
-                                {
-                                    if(pos >= MAX_FILEBROWSER_LINES)
-                                        pos -= MAX_FILEBROWSER_LINES;
-                                    else
-                                        pos = foldersSize - MAX_FILEBROWSER_LINES;
-                                    cursor = 0;
-                                    redraw = true;
-                                }
-                        }
-                }
-
-            if(vpad.trigger & VPAD_BUTTON_X)
-                {
-                    switch((int)activeDevice)
-                        {
-                        case NUSDEV_USB:
-                            activeDevice = NUSDEV_SD;
-                            break;
-                        case NUSDEV_SD:
-                            activeDevice = NUSDEV_MLC;
-                            break;
-                        case NUSDEV_MLC:
-                            activeDevice = usbMounted ? NUSDEV_USB : NUSDEV_SD;
-                        }
-                    goto refreshDirList;
-                }
-
-            if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
-                oldHold = 0;
-
-            if(redraw)
-                {
-                    drawFBMenuFrame(folders, foldersSize, pos, cursor, activeDevice, usbMounted);
-                    redraw = false;
-                }
+            }
         }
+
+        if(vpad.hold & VPAD_BUTTON_UP)
+        {
+            if(oldHold != VPAD_BUTTON_UP)
+            {
+                oldHold = VPAD_BUTTON_UP;
+                frameCount = 30;
+                dpadAction = true;
+            }
+            else if(frameCount == 0)
+                dpadAction = true;
+            else
+            {
+                --frameCount;
+                dpadAction = false;
+            }
+
+            if(dpadAction)
+            {
+                if(cursor)
+                    cursor--;
+                else
+                {
+                    if(mov)
+                    {
+                        if(pos)
+                            pos--;
+                        else
+                        {
+                            cursor = MAX_FILEBROWSER_LINES - 1;
+                            pos = foldersSize - MAX_FILEBROWSER_LINES;
+                        }
+                    }
+                    else
+                        cursor = foldersSize - 1;
+                }
+
+                redraw = true;
+            }
+        }
+        else if(vpad.hold & VPAD_BUTTON_DOWN)
+        {
+            if(oldHold != VPAD_BUTTON_DOWN)
+            {
+                oldHold = VPAD_BUTTON_DOWN;
+                frameCount = 30;
+                dpadAction = true;
+            }
+            else if(frameCount == 0)
+                dpadAction = true;
+            else
+            {
+                --frameCount;
+                dpadAction = false;
+            }
+
+            if(dpadAction)
+            {
+                if(cursor + pos >= foldersSize - 1 || cursor >= MAX_FILEBROWSER_LINES - 1)
+                {
+                    if(!mov || ++pos + cursor >= foldersSize)
+                        cursor = pos = 0;
+                }
+                else
+                    ++cursor;
+
+                redraw = true;
+            }
+        }
+        else if(mov)
+        {
+            if(vpad.hold & VPAD_BUTTON_RIGHT)
+            {
+                if(oldHold != VPAD_BUTTON_RIGHT)
+                {
+                    oldHold = VPAD_BUTTON_RIGHT;
+                    frameCount = 30;
+                    dpadAction = true;
+                }
+                else if(frameCount == 0)
+                    dpadAction = true;
+                else
+                {
+                    --frameCount;
+                    dpadAction = false;
+                }
+
+                if(dpadAction)
+                {
+                    pos += MAX_FILEBROWSER_LINES;
+                    if(pos >= foldersSize)
+                        pos = 0;
+                    cursor = 0;
+                    redraw = true;
+                }
+            }
+            else if(vpad.hold & VPAD_BUTTON_LEFT)
+            {
+                if(oldHold != VPAD_BUTTON_LEFT)
+                {
+                    oldHold = VPAD_BUTTON_LEFT;
+                    frameCount = 30;
+                    dpadAction = true;
+                }
+                else if(frameCount == 0)
+                    dpadAction = true;
+                else
+                {
+                    --frameCount;
+                    dpadAction = false;
+                }
+
+                if(dpadAction)
+                {
+                    if(pos >= MAX_FILEBROWSER_LINES)
+                        pos -= MAX_FILEBROWSER_LINES;
+                    else
+                        pos = foldersSize - MAX_FILEBROWSER_LINES;
+                    cursor = 0;
+                    redraw = true;
+                }
+            }
+        }
+
+        if(vpad.trigger & VPAD_BUTTON_X)
+        {
+            switch((int)activeDevice)
+            {
+            case NUSDEV_USB:
+                activeDevice = NUSDEV_SD;
+                break;
+            case NUSDEV_SD:
+                activeDevice = NUSDEV_MLC;
+                break;
+            case NUSDEV_MLC:
+                activeDevice = usbMounted ? NUSDEV_USB : NUSDEV_SD;
+            }
+            goto refreshDirList;
+        }
+
+        if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
+            oldHold = 0;
+
+        if(redraw)
+        {
+            drawFBMenuFrame(folders, foldersSize, pos, cursor, activeDevice, usbMounted);
+            redraw = false;
+        }
+    }
 
 exitFileBrowserMenu:
     for(int i = 1; i < foldersSize; ++i)

@@ -43,16 +43,16 @@ static volatile uint32_t entropy;
     }
 
 // Based on George Marsaglias paper "Xorshift RNGs" from https://www.jstatsoft.org/article/view/v008i14
-#define rngRun()                          \
-    {                                     \
-        if(entropy)                       \
-            {                             \
-                entropy ^= entropy << 13; \
-                entropy ^= entropy >> 17; \
-                entropy ^= entropy << 5;  \
-            }                             \
-        else                              \
-            reseed();                     \
+#define rngRun()                      \
+    {                                 \
+        if(entropy)                   \
+        {                             \
+            entropy ^= entropy << 13; \
+            entropy ^= entropy >> 17; \
+            entropy ^= entropy << 5;  \
+        }                             \
+        else                          \
+            reseed();                 \
     }
 
 int osslBytes(unsigned char *buf, int num)
@@ -63,10 +63,10 @@ int osslBytes(unsigned char *buf, int num)
     spinLock(rngLock);
 
     while(--num)
-        {
-            rngRun();
-            *++buf = entropy;
-        }
+    {
+        rngRun();
+        *++buf = entropy;
+    }
 
     spinReleaseLock(rngLock);
 
@@ -98,12 +98,12 @@ void addEntropy(void *e, size_t l)
     uint32_t *buf32;
     size_t l32 = l >> 2;
     if(l32)
-        {
-            buf32 = (uint32_t *)e;
-            --buf32;
-            buf8 += l32 << 2;
-            l %= 4;
-        }
+    {
+        buf32 = (uint32_t *)e;
+        --buf32;
+        buf8 += l32 << 2;
+        l %= 4;
+    }
 
     ++l;
     ++l32;
@@ -112,16 +112,16 @@ void addEntropy(void *e, size_t l)
     spinLock(rngLock);
 
     while(--l32)
-        {
-            rngRun();
-            entropy ^= *++buf32;
-        }
+    {
+        rngRun();
+        entropy ^= *++buf32;
+    }
 
     while(--l)
-        {
-            rngRun();
-            entropy ^= *++buf8;
-        }
+    {
+        rngRun();
+        entropy ^= *++buf8;
+    }
 
     spinReleaseLock(rngLock);
 }
@@ -139,15 +139,15 @@ static inline bool getHash(const void *data, size_t data_len, void *hash, const 
     bool ret = false;
 
     if(ctx)
+    {
+        if(EVP_DigestInit(ctx, type) == 1)
         {
-            if(EVP_DigestInit(ctx, type) == 1)
-                {
-                    if(EVP_DigestUpdate(ctx, data, data_len) == 1)
-                        ret = EVP_DigestFinal(ctx, hash, NULL) == 1;
-                }
-
-            EVP_MD_CTX_free(ctx);
+            if(EVP_DigestUpdate(ctx, data, data_len) == 1)
+                ret = EVP_DigestFinal(ctx, hash, NULL) == 1;
         }
+
+        EVP_MD_CTX_free(ctx);
+    }
 
     return ret;
 }
@@ -168,16 +168,16 @@ bool encryptAES(void *data, int data_len, const unsigned char *key, const unsign
     bool ret = false;
 
     if(ctx)
+    {
+        if(EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv) == 1)
         {
-            if(EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv) == 1)
-                {
-                    int len;
-                    if(EVP_EncryptUpdate(ctx, encrypted, &len, data, data_len) == 1)
-                        ret = EVP_EncryptFinal_ex(ctx, encrypted + len, &len) == 1;
-                }
-
-            EVP_CIPHER_CTX_free(ctx);
+            int len;
+            if(EVP_EncryptUpdate(ctx, encrypted, &len, data, data_len) == 1)
+                ret = EVP_EncryptFinal_ex(ctx, encrypted + len, &len) == 1;
         }
+
+        EVP_CIPHER_CTX_free(ctx);
+    }
 
     return ret;
 }

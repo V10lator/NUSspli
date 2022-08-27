@@ -57,22 +57,22 @@ bool updateMenu(const char *newVersion, NUSSPLI_TYPE type)
     drawUpdateMenuFrame(newVersion);
 
     while(AppRunning())
+    {
+        if(app == APP_STATE_BACKGROUND)
+            continue;
+        if(app == APP_STATE_RETURNING)
+            drawUpdateMenuFrame(newVersion);
+
+        showFrame();
+
+        if(vpad.trigger & VPAD_BUTTON_A)
         {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawUpdateMenuFrame(newVersion);
-
-            showFrame();
-
-            if(vpad.trigger & VPAD_BUTTON_A)
-                {
-                    update(newVersion, type);
-                    return true;
-                }
-            if(vpad.trigger & VPAD_BUTTON_B)
-                break;
+            update(newVersion, type);
+            return true;
         }
+        if(vpad.trigger & VPAD_BUTTON_B)
+            break;
+    }
 
     return false;
 }

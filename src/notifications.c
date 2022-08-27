@@ -49,24 +49,24 @@ static int rumbleThreadMain(int argc, const char **argv)
     OSMessage msg;
 
     do
+    {
+        OSReceiveMessage(&rumble_queue, &msg, OS_MESSAGE_FLAGS_BLOCKING);
+        if(msg.message == NUSSPLI_MESSAGE_NONE)
         {
-            OSReceiveMessage(&rumble_queue, &msg, OS_MESSAGE_FLAGS_BLOCKING);
-            if(msg.message == NUSSPLI_MESSAGE_NONE)
-                {
-                    i = 3;
-                    for(; i > 1; i--)
-                        VPADControlMotor(VPAD_CHAN_0, (uint8_t *)pattern, 120);
+            i = 3;
+            for(; i > 1; i--)
+                VPADControlMotor(VPAD_CHAN_0, (uint8_t *)pattern, 120);
 
-                    for(; i > -1; i--)
-                        {
-                            for(WPADChan j = 0; j < 4; ++j)
-                                WPADControlMotor(j, i);
+            for(; i > -1; i--)
+            {
+                for(WPADChan j = 0; j < 4; ++j)
+                    WPADControlMotor(j, i);
 
-                            OSSleepTicks(OSSecondsToTicks(i));
-                        }
+                OSSleepTicks(OSSecondsToTicks(i));
+            }
 
-                    VPADStopMotor(VPAD_CHAN_0);
-                }
+            VPADStopMotor(VPAD_CHAN_0);
+        }
     } while(msg.message != NUSSPLI_MESSAGE_EXIT);
 
     return 0;
@@ -83,20 +83,20 @@ bool initNotifications()
 void deinitNotifications()
 {
     if(rumbleThread != NULL)
-        {
-            OSMessage msg = { .message = NUSSPLI_MESSAGE_EXIT };
-            OSSendMessage(&rumble_queue, &msg, OS_MESSAGE_FLAGS_BLOCKING);
-            stopThread(rumbleThread, NULL);
-        }
+    {
+        OSMessage msg = { .message = NUSSPLI_MESSAGE_EXIT };
+        OSSendMessage(&rumble_queue, &msg, OS_MESSAGE_FLAGS_BLOCKING);
+        stopThread(rumbleThread, NULL);
+    }
 }
 
 void startNotification()
 {
     if(getNotificationMethod() & NOTIF_METHOD_RUMBLE)
-        {
-            OSMessage msg = { .message = NUSSPLI_MESSAGE_NONE };
-            OSSendMessage(&rumble_queue, &msg, OS_MESSAGE_FLAGS_NONE);
-        }
+    {
+        OSMessage msg = { .message = NUSSPLI_MESSAGE_NONE };
+        OSSendMessage(&rumble_queue, &msg, OS_MESSAGE_FLAGS_NONE);
+    }
     if(getNotificationMethod() & NOTIF_METHOD_LED)
         ACPTurnOnDrcLed(pId, LED_ON);
 }

@@ -52,10 +52,10 @@ void enableApd()
         return;
 
     if(IMEnableAPD() == 0)
-        {
-            apdDisabled = false;
-            debugPrintf("APD enabled!");
-        }
+    {
+        apdDisabled = false;
+        debugPrintf("APD enabled!");
+    }
     else
         debugPrintf("Error enabling APD!");
 }
@@ -66,10 +66,10 @@ void disableApd()
         return;
 
     if(IMDisableAPD() == 0)
-        {
-            apdDisabled = true;
-            debugPrintf("APD disabled!");
-        }
+    {
+        apdDisabled = true;
+        debugPrintf("APD disabled!");
+    }
     else
         debugPrintf("Error disabling APD!");
 }
@@ -108,10 +108,10 @@ bool isChannel()
 uint32_t homeButtonCallback(void *dummy)
 {
     if(shutdownEnabled)
-        {
-            shutdownEnabled = false;
-            app = APP_STATE_HOME;
-        }
+    {
+        shutdownEnabled = false;
+        app = APP_STATE_HOME;
+    }
 
     return 0;
 }
@@ -142,10 +142,10 @@ void initState()
     if(IMIsAPDEnabledBySysSettings(&ime) == 0)
         apdEnabled = ime == 1;
     else
-        {
-            debugPrintf("Couldn't read APD sys setting!");
-            apdEnabled = false;
-        }
+    {
+        debugPrintf("Couldn't read APD sys setting!");
+        apdEnabled = false;
+    }
     debugPrintf("APD enabled by sys settings: %s (%d)", apdEnabled ? "true" : "false", (uint32_t)ime);
     t = OSGetTime() - t;
     addEntropy(&t, sizeof(OSTime));
@@ -157,23 +157,23 @@ bool AppRunning()
         return false;
 
     if(OSIsMainCore())
+    {
+        switch(ProcUIProcessMessages(true))
         {
-            switch(ProcUIProcessMessages(true))
-                {
-                case PROCUI_STATUS_EXITING:
-                    // Real exit request from CafeOS
-                    app = APP_STATE_STOPPED;
-                    break;
-                case PROCUI_STATUS_RELEASE_FOREGROUND:
-                    // Exit with power button
-                    shutdownRenderer();
-                    app = APP_STATE_STOPPING;
-                    break;
-                default:
-                    // Normal loop execution
-                    break;
-                }
+        case PROCUI_STATUS_EXITING:
+            // Real exit request from CafeOS
+            app = APP_STATE_STOPPED;
+            break;
+        case PROCUI_STATUS_RELEASE_FOREGROUND:
+            // Exit with power button
+            shutdownRenderer();
+            app = APP_STATE_STOPPING;
+            break;
+        default:
+            // Normal loop execution
+            break;
         }
+    }
 
     return true;
 }

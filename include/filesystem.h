@@ -25,12 +25,13 @@
 #include <stdbool.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-bool initFS() __attribute__((__cold__));
-void deinitFS() __attribute__((__cold__));
-NUSDEV getUSB();
+    bool initFS() __attribute__((__cold__));
+    void deinitFS() __attribute__((__cold__));
+    NUSDEV getUSB();
 
 #ifdef __cplusplus
 }

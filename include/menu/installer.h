@@ -21,10 +21,11 @@
 #include <wut-fixups.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-void installerMenu(const char *dir);
+    void installerMenu(const char *dir);
 
 #ifdef __cplusplus
 }

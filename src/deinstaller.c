@@ -70,19 +70,19 @@ bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool
 
     MCPError err = MCP_DeleteTitleAsync(mcpHandle, title->path, info);
     if(err != 0)
-        {
-            MEMFreeToDefaultHeap(info);
-            debugPrintf("Err1: %#010x (%d)", err, err);
-            if(!channelHaxx)
-                enableShutdown();
-            return false;
-        }
+    {
+        MEMFreeToDefaultHeap(info);
+        debugPrintf("Err1: %#010x (%d)", err, err);
+        if(!channelHaxx)
+            enableShutdown();
+        return false;
+    }
 
     if(channelHaxx)
-        {
-            MEMFreeToDefaultHeap(info);
-            return true;
-        }
+    {
+        MEMFreeToDefaultHeap(info);
+        return true;
+    }
 
     showMcpProgress(&data, name, false);
     MEMFreeToDefaultHeap(info);
@@ -92,35 +92,35 @@ bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool
     addToScreenLog("Deinstallation finished!");
 
     if(!skipEnd)
+    {
+        startNotification();
+
+        colorStartNewFrame(SCREEN_COLOR_D_GREEN);
+        textToFrame(0, 0, name);
+        textToFrame(1, 0, gettext("Uninstalled successfully!"));
+        writeScreenLog(2);
+        drawFrame();
+
+        while(AppRunning())
         {
-            startNotification();
+            if(app == APP_STATE_BACKGROUND)
+                continue;
+            if(app == APP_STATE_RETURNING)
+            {
+                colorStartNewFrame(SCREEN_COLOR_D_GREEN);
+                textToFrame(0, 0, name);
+                textToFrame(1, 0, gettext("Uninstalled successfully!"));
+                writeScreenLog(2);
+                drawFrame();
+            }
 
-            colorStartNewFrame(SCREEN_COLOR_D_GREEN);
-            textToFrame(0, 0, name);
-            textToFrame(1, 0, gettext("Uninstalled successfully!"));
-            writeScreenLog(2);
-            drawFrame();
+            showFrame();
 
-            while(AppRunning())
-                {
-                    if(app == APP_STATE_BACKGROUND)
-                        continue;
-                    if(app == APP_STATE_RETURNING)
-                        {
-                            colorStartNewFrame(SCREEN_COLOR_D_GREEN);
-                            textToFrame(0, 0, name);
-                            textToFrame(1, 0, gettext("Uninstalled successfully!"));
-                            writeScreenLog(2);
-                            drawFrame();
-                        }
-
-                    showFrame();
-
-                    if(vpad.trigger)
-                        break;
-                }
-
-            stopNotification();
+            if(vpad.trigger)
+                break;
         }
+
+        stopNotification();
+    }
     return true;
 }

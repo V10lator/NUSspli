@@ -24,10 +24,11 @@
 #include <stdbool.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-bool downloadMenu();
+    bool downloadMenu();
 
 #ifdef __cplusplus
 }

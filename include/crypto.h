@@ -25,17 +25,18 @@
 #include <stddef.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
 #define deinitCrypto()
 
-bool initCrypto();
-void addEntropy(void *e, size_t len) __attribute__((__hot__));
-int osslBytes(unsigned char *buf, int num);
-bool getMD5(const void *data, size_t data_len, void *hash);
-bool getSHA256(const void *data, size_t data_len, void *hash);
-bool encryptAES(void *data, int data_len, const unsigned char *key, const unsigned char *iv, void *encrypted);
+    bool initCrypto();
+    void addEntropy(void *e, size_t len) __attribute__((__hot__));
+    int osslBytes(unsigned char *buf, int num);
+    bool getMD5(const void *data, size_t data_len, void *hash);
+    bool getSHA256(const void *data, size_t data_len, void *hash);
+    bool encryptAES(void *data, int data_len, const unsigned char *key, const unsigned char *iv, void *encrypted);
 
 #ifdef __cplusplus
 }

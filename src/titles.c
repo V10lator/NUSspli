@@ -41,22 +41,22 @@ const TitleEntry *getTitleEntryByTid(uint64_t tid)
     static TITLE_CATEGORY cat;
 
     switch(getTidHighFromTid(tid))
-        {
-        case TID_HIGH_GAME:
-            cat = TITLE_CATEGORY_GAME;
-            break;
-        case TID_HIGH_UPDATE:
-            cat = TITLE_CATEGORY_UPDATE;
-            break;
-        case TID_HIGH_DLC:
-            cat = TITLE_CATEGORY_DLC;
-            break;
-        case TID_HIGH_DEMO:
-            cat = TITLE_CATEGORY_DEMO;
-            break;
-        default:
-            cat = TITLE_CATEGORY_ALL;
-        }
+    {
+    case TID_HIGH_GAME:
+        cat = TITLE_CATEGORY_GAME;
+        break;
+    case TID_HIGH_UPDATE:
+        cat = TITLE_CATEGORY_UPDATE;
+        break;
+    case TID_HIGH_DLC:
+        cat = TITLE_CATEGORY_DLC;
+        break;
+    case TID_HIGH_DEMO:
+        cat = TITLE_CATEGORY_DEMO;
+        break;
+    default:
+        cat = TITLE_CATEGORY_ALL;
+    }
 
     const TitleEntry *haystack = getTitleEntries(cat);
     size_t haySize = getTitleEntriesSize(cat);
@@ -85,21 +85,21 @@ bool name2tid(const char *name, char *out)
 
     const TitleEntry *titleEntry = getTitleEntries(TITLE_CATEGORY_ALL);
     while(lower != upper)
+    {
+        strret = strcmp(titleEntry[current].name, name);
+        if(strret == 0)
         {
-            strret = strcmp(titleEntry[current].name, name);
-            if(strret == 0)
-                {
-                    hex(titleEntry[current].tid, 16, out);
-                    return true;
-                }
-
-            if(strret < 0)
-                upper = current;
-            else
-                lower = current;
-
-            current = ((upper - lower) >> 1) + lower;
+            hex(titleEntry[current].tid, 16, out);
+            return true;
         }
+
+        if(strret < 0)
+            upper = current;
+        else
+            lower = current;
+
+        current = ((upper - lower) >> 1) + lower;
+    }
 
     return false;
 }

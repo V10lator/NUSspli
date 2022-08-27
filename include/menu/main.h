@@ -22,10 +22,11 @@
 #include <wut-fixups.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-void mainMenu();
+    void mainMenu();
 
 #ifdef __cplusplus
 }

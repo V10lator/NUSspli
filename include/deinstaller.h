@@ -27,10 +27,11 @@
 #include <stdbool.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool skipEnd);
+    bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool skipEnd);
 
 #ifdef __cplusplus
 }

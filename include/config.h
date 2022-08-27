@@ -33,46 +33,47 @@
 #define TITLE_KEY_URL_MAX_SIZE 1024
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-typedef enum
-{
-    NOTIF_METHOD_NONE = 0x00,
-    NOTIF_METHOD_RUMBLE = 0x01,
-    NOTIF_METHOD_LED = 0x02,
-} NOTIF_METHOD;
+    typedef enum
+    {
+        NOTIF_METHOD_NONE = 0x00,
+        NOTIF_METHOD_RUMBLE = 0x01,
+        NOTIF_METHOD_LED = 0x02,
+    } NOTIF_METHOD;
 
-typedef enum
-{
-    MENU_LANGUAGE_ENGLISH,
-    MENU_LANGUAGE_GERMAN,
-    MENU_LANGUAGE_SPANISH,
-    MENU_LANGUAGE_ITALIAN,
-    MENU_LANGUAGE_RUSSIAN,
-} MENU_LANGUAGE;
+    typedef enum
+    {
+        MENU_LANGUAGE_ENGLISH,
+        MENU_LANGUAGE_GERMAN,
+        MENU_LANGUAGE_SPANISH,
+        MENU_LANGUAGE_ITALIAN,
+        MENU_LANGUAGE_RUSSIAN,
+    } MENU_LANGUAGE;
 
-bool initConfig();
-bool saveConfig(bool force);
-bool updateCheckEnabled();
-void setUpdateCheck(bool enabled);
-bool autoResumeEnabled();
-void setAutoResume(bool enabled);
-Swkbd_LanguageType getKeyboardLanguage();
-Swkbd_LanguageType getUnfilteredLanguage();
-MCPRegion getRegion();
-void setRegion(MCPRegion region);
-const char *getFormattedRegion(MCPRegion region);
-void setKeyboardLanguage(Swkbd_LanguageType language);
-const char *getLanguageString(Swkbd_LanguageType language);
-const char *getNotificationString(NOTIF_METHOD method);
-bool dlToUSBenabled();
-void setDlToUSB(bool toUSB);
-NOTIF_METHOD getNotificationMethod();
-void setNotificationMethod(NOTIF_METHOD method);
-MENU_LANGUAGE getMenuLanguage();
-void setMenuLanguage(MENU_LANGUAGE lang);
-const char *menuLangToString(MENU_LANGUAGE lang);
+    bool initConfig();
+    bool saveConfig(bool force);
+    bool updateCheckEnabled();
+    void setUpdateCheck(bool enabled);
+    bool autoResumeEnabled();
+    void setAutoResume(bool enabled);
+    Swkbd_LanguageType getKeyboardLanguage();
+    Swkbd_LanguageType getUnfilteredLanguage();
+    MCPRegion getRegion();
+    void setRegion(MCPRegion region);
+    const char *getFormattedRegion(MCPRegion region);
+    void setKeyboardLanguage(Swkbd_LanguageType language);
+    const char *getLanguageString(Swkbd_LanguageType language);
+    const char *getNotificationString(NOTIF_METHOD method);
+    bool dlToUSBenabled();
+    void setDlToUSB(bool toUSB);
+    NOTIF_METHOD getNotificationMethod();
+    void setNotificationMethod(NOTIF_METHOD method);
+    MENU_LANGUAGE getMenuLanguage();
+    void setMenuLanguage(MENU_LANGUAGE lang);
+    const char *menuLangToString(MENU_LANGUAGE lang);
 
 #ifdef __cplusplus
 }

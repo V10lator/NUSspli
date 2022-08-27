@@ -109,13 +109,13 @@ static inline SDL_Rect *createRect()
     if(rectList == NULL)
         rectList = ret;
     else
-        {
-            SDL_Rect_Entry *cur = rectList;
-            while(cur->next != NULL)
-                cur = cur->next;
+    {
+        SDL_Rect_Entry *cur = rectList;
+        while(cur->next != NULL)
+            cur = cur->next;
 
-            cur->next = ret;
-        }
+        cur->next = ret;
+    }
 
     return &(ret->rect);
 }
@@ -131,50 +131,50 @@ void textToFrameCut(int line, int column, const char *str, int maxWidth)
     SDL_Rect text = { .w = FC_GetWidth(font, str), .h = FONT_SIZE, .y = line };
 
     if(maxWidth != 0 && text.w > maxWidth)
+    {
+        int i = strlen(str);
+        char *lineBuffer = (char *)getStaticLineBuffer();
+        char *tmp = lineBuffer;
+        OSBlockMove(tmp, str, i, false);
+        tmp += i;
+
+        *--tmp = '\0';
+        *--tmp = '.';
+        *--tmp = '.';
+        *--tmp = '.';
+
+        char *tmp2;
+        text.w = FC_GetWidth(font, lineBuffer);
+        while(text.w > maxWidth)
         {
-            int i = strlen(str);
-            char *lineBuffer = (char *)getStaticLineBuffer();
-            char *tmp = lineBuffer;
-            OSBlockMove(tmp, str, i, false);
-            tmp += i;
-
-            *--tmp = '\0';
+            tmp2 = tmp;
             *--tmp = '.';
-            *--tmp = '.';
-            *--tmp = '.';
-
-            char *tmp2;
+            ++tmp2;
+            *++tmp2 = '\0';
             text.w = FC_GetWidth(font, lineBuffer);
-            while(text.w > maxWidth)
-                {
-                    tmp2 = tmp;
-                    *--tmp = '.';
-                    ++tmp2;
-                    *++tmp2 = '\0';
-                    text.w = FC_GetWidth(font, lineBuffer);
-                }
-
-            if(*--tmp == ' ')
-                {
-                    *tmp = '.';
-                    tmp[3] = '\0';
-                }
-
-            str = lineBuffer;
         }
+
+        if(*--tmp == ' ')
+        {
+            *tmp = '.';
+            tmp[3] = '\0';
+        }
+
+        str = lineBuffer;
+    }
 
     switch(column)
-        {
-        case ALIGNED_CENTER:
-            text.x = (SCREEN_WIDTH >> 1) - (text.w >> 1);
-            break;
-        case ALIGNED_RIGHT:
-            text.x = SCREEN_WIDTH - text.w - FONT_SIZE;
-            break;
-        default:
-            column *= spaceWidth;
-            text.x = column + FONT_SIZE;
-        }
+    {
+    case ALIGNED_CENTER:
+        text.x = (SCREEN_WIDTH >> 1) - (text.w >> 1);
+        break;
+    case ALIGNED_RIGHT:
+        text.x = SCREEN_WIDTH - text.w - FONT_SIZE;
+        break;
+    default:
+        column *= spaceWidth;
+        text.x = column + FONT_SIZE;
+    }
 
     FC_DrawBox(font, renderer, text, str);
 }
@@ -186,10 +186,10 @@ int textToFrameMultiline(int x, int y, const char *text, size_t len)
 
     uint16_t fl = FC_GetWidth(font, text) / spaceWidth;
     if(fl <= len)
-        {
-            textToFrame(x, y, text);
-            return 1;
-        }
+    {
+        textToFrame(x, y, text);
+        return 1;
+    }
 
     size_t l = strlen(text);
     char tmp[++l];
@@ -201,35 +201,35 @@ int textToFrameMultiline(int x, int y, const char *text, size_t len)
     char o;
 
     while(fl > len)
+    {
+        l = strlen(p);
+        for(char *i = p + l; i > p; --i, --l)
         {
-            l = strlen(p);
-            for(char *i = p + l; i > p; --i, --l)
+            o = *i;
+            *i = '\0';
+            if(FC_GetWidth(font, p) / spaceWidth <= len)
+            {
+                t = strrchr(p, ' ');
+                if(t != NULL)
                 {
-                    o = *i;
-                    *i = '\0';
-                    if(FC_GetWidth(font, p) / spaceWidth <= len)
-                        {
-                            t = strrchr(p, ' ');
-                            if(t != NULL)
-                                {
-                                    *t = '\0';
-                                    *i = o;
-                                }
-                            else
-                                t = i;
-
-                            textToFrame(x, y, p);
-                            ++lines;
-                            ++x;
-                            p = ++t;
-                            break;
-                        }
-
+                    *t = '\0';
                     *i = o;
                 }
+                else
+                    t = i;
 
-            fl = FC_GetWidth(font, p) / spaceWidth;
+                textToFrame(x, y, p);
+                ++lines;
+                ++x;
+                p = ++t;
+                break;
+            }
+
+            *i = o;
         }
+
+        fl = FC_GetWidth(font, p) / spaceWidth;
+    }
 
     textToFrame(x, y, p);
     return ++lines;
@@ -264,11 +264,11 @@ void boxToFrame(int lineStart, int lineEnd)
 
     SDL_Rect *rect[5];
     for(int i = 0; i < 5; i++)
-        {
-            rect[i] = createRect();
-            if(rect[i] == NULL)
-                return;
-        }
+    {
+        rect[i] = createRect();
+        if(rect[i] == NULL)
+            return;
+    }
 
     rect[0]->x = FONT_SIZE;
     rect[0]->y = ((++lineStart) * FONT_SIZE) + ((FONT_SIZE >> 1) - 1);
@@ -318,11 +318,11 @@ void barToFrame(int line, int column, uint32_t width, double progress)
 
     SDL_Rect *rect[3];
     for(int i = 0; i < 3; i++)
-        {
-            rect[i] = createRect();
-            if(rect[i] == NULL)
-                return;
-        }
+    {
+        rect[i] = createRect();
+        if(rect[i] == NULL)
+            return;
+    }
 
     rect[0]->x = FONT_SIZE + (column * spaceWidth);
     rect[0]->y = ((++line) * FONT_SIZE) - 2;
@@ -404,12 +404,12 @@ void checkmarkToFrame(int line, int column)
 static inline SDL_Texture *getFlagData(MCPRegion flag)
 {
     if(flag & MCP_REGION_EUROPE)
-        {
-            if(flag & MCP_REGION_USA)
-                return flagTex[flag & MCP_REGION_JAPAN ? 7 : 4];
+    {
+        if(flag & MCP_REGION_USA)
+            return flagTex[flag & MCP_REGION_JAPAN ? 7 : 4];
 
-            return flagTex[flag & MCP_REGION_JAPAN ? 5 : 1];
-        }
+        return flagTex[flag & MCP_REGION_JAPAN ? 5 : 1];
+    }
 
     if(flag & MCP_REGION_USA)
         return flagTex[flag & MCP_REGION_JAPAN ? 6 : 2];
@@ -488,10 +488,10 @@ void tabToFrame(int line, int column, const char *label, bool active)
     rect.y -= FONT_SIZE >> 1;
 
     if(active)
-        {
-            FC_DrawBox(font, renderer, rect, label);
-            return;
-        }
+    {
+        FC_DrawBox(font, renderer, rect, label);
+        return;
+    }
 
     SDL_Color co = screenColorToSDLcolor(SCREEN_COLOR_WHITE);
     co.a = 159;
@@ -577,28 +577,28 @@ static bool loadTexture(const char *path, SDL_Texture **out)
     void *buffer;
     size_t fs = readFile(path, &buffer);
     if(buffer != NULL)
+    {
+        SDL_RWops *rw = SDL_RWFromMem(buffer, fs);
+        if(rw != NULL)
         {
-            SDL_RWops *rw = SDL_RWFromMem(buffer, fs);
-            if(rw != NULL)
-                {
-                    SDL_Surface *surface = IMG_Load_RW(rw, SDL_TRUE);
-                    if(surface != NULL)
-                        {
-                            *out = SDL_CreateTextureFromSurface(renderer, surface);
-                            SDL_FreeSurface(surface);
-                            if(*out != NULL)
-                                ret = true;
-                            else
-                                debugPrintf("Error creating texture!");
-                        }
-                    else
-                        debugPrintf("Error creating surface!");
-                }
+            SDL_Surface *surface = IMG_Load_RW(rw, SDL_TRUE);
+            if(surface != NULL)
+            {
+                *out = SDL_CreateTextureFromSurface(renderer, surface);
+                SDL_FreeSurface(surface);
+                if(*out != NULL)
+                    ret = true;
+                else
+                    debugPrintf("Error creating texture!");
+            }
             else
-                debugPrintf("Error creating SDL_WRops!");
-
-            MEMFreeToDefaultHeap(buffer);
+                debugPrintf("Error creating surface!");
         }
+        else
+            debugPrintf("Error creating SDL_WRops!");
+
+        MEMFreeToDefaultHeap(buffer);
+    }
 
     return ret;
 }
@@ -613,129 +613,129 @@ void resumeRenderer()
     OSGetSharedData(OS_SHAREDDATATYPE_FONT_STANDARD, 0, &ttf, &size);
     font = FC_CreateFont();
     if(font != NULL)
+    {
+        SDL_RWops *rw = SDL_RWFromConstMem(ttf, size);
+        if(FC_LoadFont_RW(font, renderer, rw, 1, FONT_SIZE, screenColorToSDLcolor(SCREEN_COLOR_WHITE), TTF_STYLE_NORMAL))
         {
-            SDL_RWops *rw = SDL_RWFromConstMem(ttf, size);
-            if(FC_LoadFont_RW(font, renderer, rw, 1, FONT_SIZE, screenColorToSDLcolor(SCREEN_COLOR_WHITE), TTF_STYLE_NORMAL))
+            FC_GlyphData spaceGlyph;
+            FC_GetGlyphData(font, &spaceGlyph, ' ');
+            spaceWidth = spaceGlyph.rect.w;
+
+            OSTime t = OSGetSystemTime();
+            loadTexture(ROMFS_PATH "textures/arrow.png", &arrowTex); // TODO: Error handling...
+            loadTexture(ROMFS_PATH "textures/checkmark.png", &checkmarkTex);
+            loadTexture(ROMFS_PATH "textures/tab.png", &tabTex);
+
+            barTex = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, 2, 1);
+            SDL_SetRenderTarget(renderer, barTex);
+            SDL_Color co = screenColorToSDLcolor(SCREEN_COLOR_GREEN);
+            SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
+            SDL_RenderClear(renderer);
+            co = screenColorToSDLcolor(SCREEN_COLOR_D_GREEN);
+            SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
+            SDL_RenderFillRect(renderer, &barRect);
+            // TODO: This doesn't work for some SDL bug reason
+            //			SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
+            //			SDL_RenderDrawPoint(renderer, 1, 0);
+
+            SDL_Texture *tt = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, 2, 2);
+            SDL_SetRenderTarget(renderer, tt);
+            // Top left
+            SDL_SetRenderDrawColor(renderer, 0x91, 0x1E, 0xFF, 0xFF);
+            SDL_RenderClear(renderer);
+            // Top right
+            SDL_SetRenderDrawColor(renderer, 0x52, 0x05, 0xFF, 0xFF);
+            const SDL_Rect r1 = {
+                .x = 1,
+                .y = 0,
+                .w = 1,
+                .h = 1,
+            };
+            SDL_RenderFillRect(renderer, &r1);
+            // Bottom right
+            SDL_SetRenderDrawColor(renderer, 0x61, 0x0a, 0xFF, 0xFF);
+            const SDL_Rect r2 = {
+                .x = 1,
+                .y = 1,
+                .w = 1,
+                .h = 1,
+            };
+            SDL_RenderFillRect(renderer, &r2);
+            // Bottom left
+            SDL_SetRenderDrawColor(renderer, 0x83, 0x18, 0xFF, 0xFF);
+            const SDL_Rect r3 = {
+                .x = 0,
+                .y = 1,
+                .w = 1,
+                .h = 1,
+            };
+            SDL_RenderFillRect(renderer, &r3);
+
+            bgTex = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
+            SDL_SetRenderTarget(renderer, bgTex);
+            SDL_RenderCopy(renderer, tt, NULL, NULL);
+            SDL_DestroyTexture(tt);
+
+            SDL_SetRenderTarget(renderer, frameBuffer);
+
+            const char *tex;
+            for(int i = 0; i < 8; ++i)
+            {
+                switch(i)
                 {
-                    FC_GlyphData spaceGlyph;
-                    FC_GetGlyphData(font, &spaceGlyph, ' ');
-                    spaceWidth = spaceGlyph.rect.w;
-
-                    OSTime t = OSGetSystemTime();
-                    loadTexture(ROMFS_PATH "textures/arrow.png", &arrowTex); // TODO: Error handling...
-                    loadTexture(ROMFS_PATH "textures/checkmark.png", &checkmarkTex);
-                    loadTexture(ROMFS_PATH "textures/tab.png", &tabTex);
-
-                    barTex = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, 2, 1);
-                    SDL_SetRenderTarget(renderer, barTex);
-                    SDL_Color co = screenColorToSDLcolor(SCREEN_COLOR_GREEN);
-                    SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
-                    SDL_RenderClear(renderer);
-                    co = screenColorToSDLcolor(SCREEN_COLOR_D_GREEN);
-                    SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
-                    SDL_RenderFillRect(renderer, &barRect);
-                    // TODO: This doesn't work for some SDL bug reason
-                    //			SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
-                    //			SDL_RenderDrawPoint(renderer, 1, 0);
-
-                    SDL_Texture *tt = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, 2, 2);
-                    SDL_SetRenderTarget(renderer, tt);
-                    // Top left
-                    SDL_SetRenderDrawColor(renderer, 0x91, 0x1E, 0xFF, 0xFF);
-                    SDL_RenderClear(renderer);
-                    // Top right
-                    SDL_SetRenderDrawColor(renderer, 0x52, 0x05, 0xFF, 0xFF);
-                    const SDL_Rect r1 = {
-                        .x = 1,
-                        .y = 0,
-                        .w = 1,
-                        .h = 1,
-                    };
-                    SDL_RenderFillRect(renderer, &r1);
-                    // Bottom right
-                    SDL_SetRenderDrawColor(renderer, 0x61, 0x0a, 0xFF, 0xFF);
-                    const SDL_Rect r2 = {
-                        .x = 1,
-                        .y = 1,
-                        .w = 1,
-                        .h = 1,
-                    };
-                    SDL_RenderFillRect(renderer, &r2);
-                    // Bottom left
-                    SDL_SetRenderDrawColor(renderer, 0x83, 0x18, 0xFF, 0xFF);
-                    const SDL_Rect r3 = {
-                        .x = 0,
-                        .y = 1,
-                        .w = 1,
-                        .h = 1,
-                    };
-                    SDL_RenderFillRect(renderer, &r3);
-
-                    bgTex = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
-                    SDL_SetRenderTarget(renderer, bgTex);
-                    SDL_RenderCopy(renderer, tt, NULL, NULL);
-                    SDL_DestroyTexture(tt);
-
-                    SDL_SetRenderTarget(renderer, frameBuffer);
-
-                    const char *tex;
-                    for(int i = 0; i < 8; ++i)
-                        {
-                            switch(i)
-                                {
-                                case 0:
-                                    tex = ROMFS_PATH "textures/flags/unk.png";
-                                    break;
-                                case 1:
-                                    tex = ROMFS_PATH "textures/flags/eur.png";
-                                    break;
-                                case 2:
-                                    tex = ROMFS_PATH "textures/flags/usa.png";
-                                    break;
-                                case 3:
-                                    tex = ROMFS_PATH "textures/flags/jap.png";
-                                    break;
-                                case 4:
-                                    tex = ROMFS_PATH "textures/flags/eurUsa.png";
-                                    break;
-                                case 5:
-                                    tex = ROMFS_PATH "textures/flags/eurJap.png";
-                                    break;
-                                case 6:
-                                    tex = ROMFS_PATH "textures/flags/usaJap.png";
-                                    break;
-                                case 7:
-                                    tex = ROMFS_PATH "textures/flags/multi.png";
-                                    break;
-                                }
-                            loadTexture(tex, flagTex + i);
-                        }
-
-                    for(int i = 0; i < 3; i++)
-                        {
-                            switch(i)
-                                {
-                                case 0:
-                                    tex = ROMFS_PATH "textures/dev/unk.png";
-                                    break;
-                                case 1:
-                                    tex = ROMFS_PATH "textures/dev/usb.png";
-                                    break;
-                                case 2:
-                                    tex = ROMFS_PATH "textures/dev/nand.png";
-                                    break;
-                                }
-                            loadTexture(tex, deviceTex + i);
-                        }
-
-                    t = OSGetSystemTime() - t;
-                    addEntropy(&t, sizeof(OSTime));
-                    return;
+                case 0:
+                    tex = ROMFS_PATH "textures/flags/unk.png";
+                    break;
+                case 1:
+                    tex = ROMFS_PATH "textures/flags/eur.png";
+                    break;
+                case 2:
+                    tex = ROMFS_PATH "textures/flags/usa.png";
+                    break;
+                case 3:
+                    tex = ROMFS_PATH "textures/flags/jap.png";
+                    break;
+                case 4:
+                    tex = ROMFS_PATH "textures/flags/eurUsa.png";
+                    break;
+                case 5:
+                    tex = ROMFS_PATH "textures/flags/eurJap.png";
+                    break;
+                case 6:
+                    tex = ROMFS_PATH "textures/flags/usaJap.png";
+                    break;
+                case 7:
+                    tex = ROMFS_PATH "textures/flags/multi.png";
+                    break;
                 }
+                loadTexture(tex, flagTex + i);
+            }
 
-            debugPrintf("Font: Error loading RW!");
-            SDL_RWclose(rw);
+            for(int i = 0; i < 3; i++)
+            {
+                switch(i)
+                {
+                case 0:
+                    tex = ROMFS_PATH "textures/dev/unk.png";
+                    break;
+                case 1:
+                    tex = ROMFS_PATH "textures/dev/usb.png";
+                    break;
+                case 2:
+                    tex = ROMFS_PATH "textures/dev/nand.png";
+                    break;
+                }
+                loadTexture(tex, deviceTex + i);
+            }
+
+            t = OSGetSystemTime() - t;
+            addEntropy(&t, sizeof(OSTime));
+            return;
         }
+
+        debugPrintf("Font: Error loading RW!");
+        SDL_RWclose(rw);
+    }
     else
         debugPrintf("Font: Error loading!");
 
@@ -747,18 +747,18 @@ static inline void quitSDL() __attribute__((__cold__));
 static inline void quitSDL()
 {
     if(backgroundMusic != NULL)
-        {
-            debugPrintf("Stopping background music");
-            Mix_HaltChannel(0);
-            Mix_FreeChunk(backgroundMusic);
-            Mix_CloseAudio();
-            backgroundMusic = NULL;
-        }
+    {
+        debugPrintf("Stopping background music");
+        Mix_HaltChannel(0);
+        Mix_FreeChunk(backgroundMusic);
+        Mix_CloseAudio();
+        backgroundMusic = NULL;
+    }
     if(bgmBuffer != NULL)
-        {
-            MEMFreeToDefaultHeap(bgmBuffer);
-            bgmBuffer = NULL;
-        }
+    {
+        MEMFreeToDefaultHeap(bgmBuffer);
+        bgmBuffer = NULL;
+    }
 
     // TODO:
     if(TTF_WasInit())
@@ -777,85 +777,85 @@ bool initRenderer()
         errorOverlay[i].tex = NULL;
 
     if(SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) == 0)
+    {
+        window = SDL_CreateWindow(NULL, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
+        if(window)
         {
-            window = SDL_CreateWindow(NULL, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
-            if(window)
+            renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+            if(renderer)
+            {
+                frameBuffer = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
+                if(frameBuffer != NULL)
                 {
-                    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-                    if(renderer)
+                    SDL_SetRenderTarget(renderer, frameBuffer);
+
+                    OSTime t = OSGetSystemTime();
+                    if(Mix_Init(MIX_INIT_MP3))
+                    {
+                        size_t fs = readFile(ROMFS_PATH "audio/bg.mp3", &bgmBuffer);
+                        if(bgmBuffer != NULL)
                         {
-                            frameBuffer = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
-                            if(frameBuffer != NULL)
+                            if(Mix_OpenAudio(22050, AUDIO_S16MSB, 2, 4096) == 0)
+                            {
+                                SDL_RWops *rw = SDL_RWFromMem(bgmBuffer, fs);
+                                backgroundMusic = Mix_LoadWAV_RW(rw, true);
+                                if(backgroundMusic != NULL)
                                 {
-                                    SDL_SetRenderTarget(renderer, frameBuffer);
+                                    Mix_VolumeChunk(backgroundMusic, 15);
+                                    if(Mix_PlayChannel(0, backgroundMusic, -1) == 0)
+                                        goto audioRunning;
 
-                                    OSTime t = OSGetSystemTime();
-                                    if(Mix_Init(MIX_INIT_MP3))
-                                        {
-                                            size_t fs = readFile(ROMFS_PATH "audio/bg.mp3", &bgmBuffer);
-                                            if(bgmBuffer != NULL)
-                                                {
-                                                    if(Mix_OpenAudio(22050, AUDIO_S16MSB, 2, 4096) == 0)
-                                                        {
-                                                            SDL_RWops *rw = SDL_RWFromMem(bgmBuffer, fs);
-                                                            backgroundMusic = Mix_LoadWAV_RW(rw, true);
-                                                            if(backgroundMusic != NULL)
-                                                                {
-                                                                    Mix_VolumeChunk(backgroundMusic, 15);
-                                                                    if(Mix_PlayChannel(0, backgroundMusic, -1) == 0)
-                                                                        goto audioRunning;
-
-                                                                    Mix_FreeChunk(backgroundMusic);
-                                                                    backgroundMusic = NULL;
-                                                                }
-
-                                                            Mix_CloseAudio();
-                                                        }
-
-                                                    MEMFreeToDefaultHeap(bgmBuffer);
-                                                    bgmBuffer = NULL;
-                                                }
-                                        }
-                                audioRunning:
-                                    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
-                                    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
-                                    GX2SetTVGamma(2.0f);
-                                    GX2SetDRCGamma(1.0f);
-
-                                    if(loadTexture(ROMFS_PATH "textures/goodbye.png", &byeTex))
-                                        {
-                                            t = OSGetSystemTime() - t;
-                                            addEntropy(&t, sizeof(OSTime));
-
-                                            TTF_Init();
-                                            resumeRenderer();
-                                            if(font != NULL)
-                                                {
-                                                    addToScreenLog("SDL initialized!");
-                                                    startNewFrame();
-                                                    textToFrame(0, 0, "Loading...");
-                                                    writeScreenLog(1);
-                                                    drawFrame();
-                                                    return true;
-                                                }
-
-                                            pauseRenderer();
-                                        }
-                                    else
-                                        debugPrintf("Can't find goodbye texture!");
-
-                                    SDL_DestroyTexture(frameBuffer);
+                                    Mix_FreeChunk(backgroundMusic);
+                                    backgroundMusic = NULL;
                                 }
 
-                            SDL_DestroyRenderer(renderer);
+                                Mix_CloseAudio();
+                            }
+
+                            MEMFreeToDefaultHeap(bgmBuffer);
+                            bgmBuffer = NULL;
+                        }
+                    }
+                audioRunning:
+                    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+                    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
+                    GX2SetTVGamma(2.0f);
+                    GX2SetDRCGamma(1.0f);
+
+                    if(loadTexture(ROMFS_PATH "textures/goodbye.png", &byeTex))
+                    {
+                        t = OSGetSystemTime() - t;
+                        addEntropy(&t, sizeof(OSTime));
+
+                        TTF_Init();
+                        resumeRenderer();
+                        if(font != NULL)
+                        {
+                            addToScreenLog("SDL initialized!");
+                            startNewFrame();
+                            textToFrame(0, 0, "Loading...");
+                            writeScreenLog(1);
+                            drawFrame();
+                            return true;
                         }
 
-                    SDL_DestroyWindow(window);
+                        pauseRenderer();
+                    }
+                    else
+                        debugPrintf("Can't find goodbye texture!");
+
+                    SDL_DestroyTexture(frameBuffer);
                 }
 
-            quitSDL();
+                SDL_DestroyRenderer(renderer);
+            }
+
+            SDL_DestroyWindow(window);
         }
+
+        quitSDL();
+    }
     else
         debugPrintf("SDL init error: %s", SDL_GetError());
 
@@ -920,27 +920,27 @@ void colorStartNewFrame(uint32_t color)
     clearFrame();
 
     if(rectList != NULL)
+    {
+        SDL_Rect_Entry *current = rectList;
+        SDL_Rect_Entry *next;
+        do
         {
-            SDL_Rect_Entry *current = rectList;
-            SDL_Rect_Entry *next;
-            do
-                {
-                    next = current->next;
-                    MEMFreeToDefaultHeap(current);
-                    current = next;
-            } while(current != NULL);
+            next = current->next;
+            MEMFreeToDefaultHeap(current);
+            current = next;
+        } while(current != NULL);
 
-            rectList = NULL;
-        }
+        rectList = NULL;
+    }
 
     if(color == SCREEN_COLOR_BLUE)
         SDL_RenderCopy(renderer, bgTex, NULL, NULL);
     else
-        {
-            SDL_Color co = screenColorToSDLcolor(color);
-            SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
-            SDL_RenderClear(renderer);
-        }
+    {
+        SDL_Color co = screenColorToSDLcolor(color);
+        SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
+        SDL_RenderClear(renderer);
+    }
 }
 
 void showFrame()

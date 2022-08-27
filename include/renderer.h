@@ -65,37 +65,38 @@
 #define TO_FRAME_BUFFER_SIZE (1024 * 1024)
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-typedef enum
-{
-    DEVICE_TYPE_UNKNOWN = 0,
-    DEVICE_TYPE_USB = 1,
-    DEVICE_TYPE_NAND = 2
-} DEVICE_TYPE;
+    typedef enum
+    {
+        DEVICE_TYPE_UNKNOWN = 0,
+        DEVICE_TYPE_USB = 1,
+        DEVICE_TYPE_NAND = 2
+    } DEVICE_TYPE;
 
-bool initRenderer();
-void shutdownRenderer() __attribute__((__cold__));
-void pauseRenderer();
-void resumeRenderer();
-void colorStartNewFrame(uint32_t color);
-void showFrame() __attribute__((__hot__));
-void drawFrame();
-void drawKeyboard(bool tv);
-void textToFrameCut(int line, int column, const char *str, int maxWidth) __attribute__((__hot__));
-int textToFrameMultiline(int x, int y, const char *text, size_t len);
-void lineToFrame(int column, uint32_t color);
-void boxToFrame(int lineStart, int lineEnd);
-void barToFrame(int line, int column, uint32_t width, double progress);
-void arrowToFrame(int line, int column);
-void checkmarkToFrame(int line, int column);
-void tabToFrame(int line, int column, const char *label, bool active);
-void flagToFrame(int line, int column, MCPRegion flag);
-void deviceToFrame(int line, int column, DEVICE_TYPE dev);
-int addErrorOverlay(const char *err);
-void removeErrorOverlay(int id);
-uint32_t getSpaceWidth();
+    bool initRenderer();
+    void shutdownRenderer() __attribute__((__cold__));
+    void pauseRenderer();
+    void resumeRenderer();
+    void colorStartNewFrame(uint32_t color);
+    void showFrame() __attribute__((__hot__));
+    void drawFrame();
+    void drawKeyboard(bool tv);
+    void textToFrameCut(int line, int column, const char *str, int maxWidth) __attribute__((__hot__));
+    int textToFrameMultiline(int x, int y, const char *text, size_t len);
+    void lineToFrame(int column, uint32_t color);
+    void boxToFrame(int lineStart, int lineEnd);
+    void barToFrame(int line, int column, uint32_t width, double progress);
+    void arrowToFrame(int line, int column);
+    void checkmarkToFrame(int line, int column);
+    void tabToFrame(int line, int column, const char *label, bool active);
+    void flagToFrame(int line, int column, MCPRegion flag);
+    void deviceToFrame(int line, int column, DEVICE_TYPE dev);
+    int addErrorOverlay(const char *err);
+    void removeErrorOverlay(int id);
+    uint32_t getSpaceWidth();
 
 #ifdef __cplusplus
 }

@@ -56,16 +56,17 @@ struct codecvt : std::codecvt<I, E, S>
     }
 };
 
-extern "C" {
+extern "C"
+{
 #endif
 
-typedef struct
-{
-    bool processing;
-    MCPError err;
-} McpData;
+    typedef struct
+    {
+        bool processing;
+        MCPError err;
+    } McpData;
 
-extern int mcpHandle;
+    extern int mcpHandle;
 
 #define isNumber(x)         (x >= '0' && x <= '9')
 #define isLowercase(x)      (x >= 'a' && x <= 'z')
@@ -82,16 +83,16 @@ extern int mcpHandle;
         if(isUppercase(x[y]))               \
             x[y] += 32;
 
-void hex(uint64_t i, int digits, char *out); // ex: 000050D1
-void secsToTime(uint32_t seconds, char *out);
-void getSpeedString(double bytePerSecond, char *out);
-void hexToByte(const char *hex, uint8_t *out);
-void glueMcpData(MCPInstallTitleInfo *info, McpData *data);
-void showMcpProgress(McpData *data, const char *game, const bool inst);
+    void hex(uint64_t i, int digits, char *out); // ex: 000050D1
+    void secsToTime(uint32_t seconds, char *out);
+    void getSpeedString(double bytePerSecond, char *out);
+    void hexToByte(const char *hex, uint8_t *out);
+    void glueMcpData(MCPInstallTitleInfo *info, McpData *data);
+    void showMcpProgress(McpData *data, const char *game, const bool inst);
 #ifdef NUSSPLI_DEBUG
-void debugInit();
-void debugPrintf(const char *str, ...);
-void checkStacks(const char *src);
+    void debugInit();
+    void debugPrintf(const char *str, ...);
+    void checkStacks(const char *src);
 #endif
 
 #ifdef __cplusplus

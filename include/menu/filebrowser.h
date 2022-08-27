@@ -21,10 +21,11 @@
 #include <wut-fixups.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-char *fileBrowserMenu();
+    char *fileBrowserMenu();
 
 #ifdef __cplusplus
 }

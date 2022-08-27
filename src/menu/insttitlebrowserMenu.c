@@ -78,77 +78,77 @@ static volatile INST_META *getInstalledTitle(size_t index, ACPMetaXml *meta, boo
         return title;
 
     if(block)
-        {
-            spinLock(title->lock);
-        }
+    {
+        spinLock(title->lock);
+    }
     else if(!spinTryLock(title->lock))
         return NULL;
 
     if(!title->ready)
+    {
+        MCPTitleListType *list = ititleEntries + index;
+        switch(list->indexedDevice[0])
         {
-            MCPTitleListType *list = ititleEntries + index;
-            switch(list->indexedDevice[0])
-                {
-                case 'u':
-                    title->dt = DEVICE_TYPE_USB;
-                    break;
-                case 'm':
-                    title->dt = DEVICE_TYPE_NAND;
-                    break;
-                default: // TODO: bt. drh, slc
-                    title->dt = DEVICE_TYPE_UNKNOWN;
-                }
+        case 'u':
+            title->dt = DEVICE_TYPE_USB;
+            break;
+        case 'm':
+            title->dt = DEVICE_TYPE_NAND;
+            break;
+        default: // TODO: bt. drh, slc
+            title->dt = DEVICE_TYPE_UNKNOWN;
+        }
 
-            const TitleEntry *e = getTitleEntryByTid(list->titleId);
-            if(e)
-                {
-                    strncpy((char *)title->name, e->name, MAX_ITITLEBROWSER_TITLE_LENGTH - 1);
-                    title->name[MAX_ITITLEBROWSER_TITLE_LENGTH - 1] = '\0';
+        const TitleEntry *e = getTitleEntryByTid(list->titleId);
+        if(e)
+        {
+            strncpy((char *)title->name, e->name, MAX_ITITLEBROWSER_TITLE_LENGTH - 1);
+            title->name[MAX_ITITLEBROWSER_TITLE_LENGTH - 1] = '\0';
 
-                    title->region = e->region;
-                    title->isDlc = isDLC(e);
-                    title->isUpdate = isUpdate(e);
+            title->region = e->region;
+            title->isDlc = isDLC(e);
+            title->isUpdate = isUpdate(e);
+            goto finishExit;
+        }
+
+        switch(getTidHighFromTid(list->titleId))
+        {
+        case TID_HIGH_UPDATE:
+            title->isDlc = false;
+            title->isUpdate = true;
+            break;
+        case TID_HIGH_DLC:
+            title->isDlc = true;
+            title->isUpdate = false;
+            break;
+        default:
+            title->isDlc = title->isUpdate = false;
+        }
+
+        if(ACPGetTitleMetaXmlByTitleListType(list, meta) == ACP_RESULT_SUCCESS)
+        {
+            size_t len = strlen(meta->longname_en);
+            if(++len < MAX_ITITLEBROWSER_TITLE_LENGTH)
+            {
+                if(strcmp(meta->longname_en, "Long Title Name (EN)"))
+                {
+                    OSBlockMove((void *)title->name, meta->longname_en, len, false);
+                    for(char *buf = (char *)title->name; *buf != '\0'; ++buf)
+                        if(*buf == '\n')
+                            *buf = ' ';
+
+                    title->region = meta->region;
                     goto finishExit;
                 }
-
-            switch(getTidHighFromTid(list->titleId))
-                {
-                case TID_HIGH_UPDATE:
-                    title->isDlc = false;
-                    title->isUpdate = true;
-                    break;
-                case TID_HIGH_DLC:
-                    title->isDlc = true;
-                    title->isUpdate = false;
-                    break;
-                default:
-                    title->isDlc = title->isUpdate = false;
-                }
-
-            if(ACPGetTitleMetaXmlByTitleListType(list, meta) == ACP_RESULT_SUCCESS)
-                {
-                    size_t len = strlen(meta->longname_en);
-                    if(++len < MAX_ITITLEBROWSER_TITLE_LENGTH)
-                        {
-                            if(strcmp(meta->longname_en, "Long Title Name (EN)"))
-                                {
-                                    OSBlockMove((void *)title->name, meta->longname_en, len, false);
-                                    for(char *buf = (char *)title->name; *buf != '\0'; ++buf)
-                                        if(*buf == '\n')
-                                            *buf = ' ';
-
-                                    title->region = meta->region;
-                                    goto finishExit;
-                                }
-                        }
-                }
-
-            hex(list->titleId, 16, (char *)title->name);
-            title->region = MCP_REGION_UNKNOWN;
-
-        finishExit:
-            title->ready = true;
+            }
         }
+
+        hex(list->titleId, 16, (char *)title->name);
+        title->region = MCP_REGION_UNKNOWN;
+
+    finishExit:
+        title->ready = true;
+    }
 
     spinReleaseLock(title->lock);
     return title;
@@ -158,8 +158,8 @@ static int asyncTitleLoader(int argc, const char **argv)
 {
     ACPMetaXml *meta = NULL;
     do
-        {
-            meta = MEMAllocFromDefaultHeapEx(sizeof(ACPMetaXml), 0x40);
+    {
+        meta = MEMAllocFromDefaultHeapEx(sizeof(ACPMetaXml), 0x40);
     } while(meta == NULL && asyncState && AppRunning());
 
     size_t min = MAX_ITITLEBROWSER_LINES >> 1;
@@ -167,21 +167,21 @@ static int asyncTitleLoader(int argc, const char **argv)
     size_t cur;
 
     while(min <= max && AppRunning())
+    {
+        switch(asyncState)
         {
-            switch(asyncState)
-                {
-                case ASYNC_STATE_FWD:
-                    cur = min++;
-                    break;
-                case ASYNC_STATE_BKWD:
-                    cur = max--;
-                    break;
-                case ASYNC_STATE_EXIT:
-                    goto asyncExit;
-                }
-
-            getInstalledTitle(cur, meta, false);
+        case ASYNC_STATE_FWD:
+            cur = min++;
+            break;
+        case ASYNC_STATE_BKWD:
+            cur = max--;
+            break;
+        case ASYNC_STATE_EXIT:
+            goto asyncExit;
         }
+
+        getInstalledTitle(cur, meta, false);
+    }
 
 asyncExit:
     if(meta != NULL)
@@ -208,28 +208,28 @@ static void drawITBMenuFrame(const size_t pos, const size_t cursor)
     volatile INST_META *im;
     ACPMetaXml *meta = MEMAllocFromDefaultHeapEx(sizeof(ACPMetaXml), 0x40);
     if(meta)
+    {
+        for(size_t i = 0, l = 1; i < max; ++i, ++l)
         {
-            for(size_t i = 0, l = 1; i < max; ++i, ++l)
-                {
-                    im = getInstalledTitle(pos + i, meta, true);
-                    if(im->isDlc)
-                        strcpy(toFrame, "[DLC] ");
-                    else if(im->isUpdate)
-                        strcpy(toFrame, "[UPD] ");
-                    else
-                        toFrame[0] = '\0';
+            im = getInstalledTitle(pos + i, meta, true);
+            if(im->isDlc)
+                strcpy(toFrame, "[DLC] ");
+            else if(im->isUpdate)
+                strcpy(toFrame, "[UPD] ");
+            else
+                toFrame[0] = '\0';
 
-                    if(cursor == i)
-                        arrowToFrame(l, 1);
+            if(cursor == i)
+                arrowToFrame(l, 1);
 
-                    deviceToFrame(l, 4, im->dt);
-                    flagToFrame(l, 7, im->region);
-                    strcat(toFrame, (const char *)im->name);
-                    textToFrameCut(l, 10, toFrame, (SCREEN_WIDTH - (FONT_SIZE << 1)) - (getSpaceWidth() * 11));
-                }
-
-            MEMFreeToDefaultHeap(meta);
+            deviceToFrame(l, 4, im->dt);
+            flagToFrame(l, 7, im->region);
+            strcat(toFrame, (const char *)im->name);
+            textToFrameCut(l, 10, toFrame, (SCREEN_WIDTH - (FONT_SIZE << 1)) - (getSpaceWidth() * 11));
         }
+
+        MEMFreeToDefaultHeap(meta);
+    }
 
     drawFrame();
 }
@@ -238,42 +238,42 @@ static OSThread *initITBMenu()
 {
     int32_t r = MCP_TitleCount(mcpHandle);
     if(r > 0)
+    {
+        uint32_t s = sizeof(MCPTitleListType) * (uint32_t)r;
+        ititleEntries = (MCPTitleListType *)MEMAllocFromDefaultHeap(s);
+        if(ititleEntries)
         {
-            uint32_t s = sizeof(MCPTitleListType) * (uint32_t)r;
-            ititleEntries = (MCPTitleListType *)MEMAllocFromDefaultHeap(s);
-            if(ititleEntries)
+            r = MCP_TitleList(mcpHandle, &s, ititleEntries, s);
+            if(r >= 0)
+            {
+                installedTitles = (INST_META *)MEMAllocFromDefaultHeap(s * sizeof(INST_META));
+                if(installedTitles)
                 {
-                    r = MCP_TitleList(mcpHandle, &s, ititleEntries, s);
-                    if(r >= 0)
-                        {
-                            installedTitles = (INST_META *)MEMAllocFromDefaultHeap(s * sizeof(INST_META));
-                            if(installedTitles)
-                                {
-                                    for(size_t i = 0; i < s; ++i)
-                                        {
-                                            spinCreateLock(installedTitles[i].lock, SPINLOCK_FREE);
-                                            installedTitles[i].ready = false;
-                                        }
+                    for(size_t i = 0; i < s; ++i)
+                    {
+                        spinCreateLock(installedTitles[i].lock, SPINLOCK_FREE);
+                        installedTitles[i].ready = false;
+                    }
 
-                                    ititleEntrySize = s;
-                                    asyncState = ASYNC_STATE_FWD;
-                                    OSThread *ret = startThread("NUSspli title loader", THREAD_PRIORITY_MEDIUM, ASYNC_STACKSIZE, asyncTitleLoader, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_CPU2);
-                                    if(ret)
-                                        return ret;
+                    ititleEntrySize = s;
+                    asyncState = ASYNC_STATE_FWD;
+                    OSThread *ret = startThread("NUSspli title loader", THREAD_PRIORITY_MEDIUM, ASYNC_STACKSIZE, asyncTitleLoader, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_CPU2);
+                    if(ret)
+                        return ret;
 
-                                    MEMFreeToDefaultHeap((void *)installedTitles);
-                                }
-                            else
-                                debugPrintf("Insttitlebrowser: OUT OF MEMORY!");
-                        }
-                    else
-                        debugPrintf("Insttitlebrowser: MCP_TitleList() returned %d", r);
-
-                    MEMFreeToDefaultHeap(ititleEntries);
+                    MEMFreeToDefaultHeap((void *)installedTitles);
                 }
+                else
+                    debugPrintf("Insttitlebrowser: OUT OF MEMORY!");
+            }
             else
-                debugPrintf("Insttitlebrowser: OUT OF MEMORY!");
+                debugPrintf("Insttitlebrowser: MCP_TitleList() returned %d", r);
+
+            MEMFreeToDefaultHeap(ititleEntries);
         }
+        else
+            debugPrintf("Insttitlebrowser: OUT OF MEMORY!");
+    }
     else
         debugPrintf("Insttitlebrowser: MCP_TitleCount() returned %d", r);
 
@@ -300,202 +300,202 @@ void ititleBrowserMenu()
 
 loopEntry:
     while(AppRunning())
+    {
+        if(app == APP_STATE_BACKGROUND)
+            continue;
+        if(app == APP_STATE_RETURNING)
+            drawITBMenuFrame(pos, cursor);
+
+        showFrame();
+        if(vpad.trigger & VPAD_BUTTON_A)
         {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawITBMenuFrame(pos, cursor);
-
-            showFrame();
-            if(vpad.trigger & VPAD_BUTTON_A)
-                {
-                    entry = ititleEntries + cursor + pos;
-                    break;
-                }
-
-            if(vpad.trigger & VPAD_BUTTON_B)
-                goto instExit;
-
-            if(vpad.hold & VPAD_BUTTON_UP)
-                {
-                    if(oldHold != VPAD_BUTTON_UP)
-                        {
-                            asyncState = ASYNC_STATE_BKWD;
-                            oldHold = VPAD_BUTTON_UP;
-                            frameCount = DPAD_COOLDOWN_FRAMES;
-                            dpadAction = true;
-                        }
-                    else if(frameCount == 0)
-                        dpadAction = true;
-                    else
-                        {
-                            --frameCount;
-                            dpadAction = false;
-                        }
-
-                    if(dpadAction)
-                        {
-                            if(cursor)
-                                cursor--;
-                            else
-                                {
-                                    if(mov)
-                                        {
-                                            if(pos)
-                                                {
-                                                    pos--;
-                                                }
-                                            else
-                                                {
-                                                    cursor = MAX_ITITLEBROWSER_LINES - 1;
-                                                    pos = ititleEntrySize - MAX_ITITLEBROWSER_LINES;
-                                                }
-                                        }
-                                    else
-                                        cursor = ititleEntrySize - 1;
-                                }
-
-                            redraw = true;
-                        }
-                }
-            else if(vpad.hold & VPAD_BUTTON_DOWN)
-                {
-                    if(oldHold != VPAD_BUTTON_DOWN)
-                        {
-                            asyncState = ASYNC_STATE_FWD;
-                            oldHold = VPAD_BUTTON_DOWN;
-                            frameCount = DPAD_COOLDOWN_FRAMES;
-                            dpadAction = true;
-                        }
-                    else if(frameCount == 0)
-                        dpadAction = true;
-                    else
-                        {
-                            --frameCount;
-                            dpadAction = false;
-                        }
-
-                    if(dpadAction)
-                        {
-                            if(cursor + pos >= ititleEntrySize - 1 || cursor >= MAX_ITITLEBROWSER_LINES - 1)
-                                {
-                                    if(!mov || ++pos + cursor >= ititleEntrySize)
-                                        cursor = pos = 0;
-                                }
-                            else
-                                ++cursor;
-
-                            redraw = true;
-                        }
-                }
-            else if(mov)
-                {
-                    if(vpad.hold & VPAD_BUTTON_RIGHT)
-                        {
-                            if(oldHold != VPAD_BUTTON_RIGHT)
-                                {
-                                    asyncState = ASYNC_STATE_FWD;
-                                    oldHold = VPAD_BUTTON_RIGHT;
-                                    frameCount = DPAD_COOLDOWN_FRAMES;
-                                    dpadAction = true;
-                                }
-                            else if(frameCount == 0)
-                                dpadAction = true;
-                            else
-                                {
-                                    --frameCount;
-                                    dpadAction = false;
-                                }
-
-                            if(dpadAction)
-                                {
-                                    pos += MAX_ITITLEBROWSER_LINES;
-                                    if(pos >= ititleEntrySize)
-                                        pos = 0;
-                                    cursor = 0;
-                                    redraw = true;
-                                }
-                        }
-                    else if(vpad.hold & VPAD_BUTTON_LEFT)
-                        {
-                            if(oldHold != VPAD_BUTTON_LEFT)
-                                {
-                                    asyncState = ASYNC_STATE_BKWD;
-                                    oldHold = VPAD_BUTTON_LEFT;
-                                    frameCount = DPAD_COOLDOWN_FRAMES;
-                                    dpadAction = true;
-                                }
-                            else if(frameCount == 0)
-                                dpadAction = true;
-                            else
-                                {
-                                    --frameCount;
-                                    dpadAction = false;
-                                }
-
-                            if(dpadAction)
-                                {
-                                    if(pos >= MAX_ITITLEBROWSER_LINES)
-                                        pos -= MAX_ITITLEBROWSER_LINES;
-                                    else
-                                        pos = ititleEntrySize - MAX_ITITLEBROWSER_LINES;
-                                    cursor = 0;
-                                    redraw = true;
-                                }
-                        }
-                }
-
-            if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
-                oldHold = 0;
-
-            if(redraw)
-                {
-                    drawITBMenuFrame(pos, cursor);
-                    mov = ititleEntrySize > MAX_ITITLEBROWSER_LINES;
-                    redraw = false;
-                }
+            entry = ititleEntries + cursor + pos;
+            break;
         }
+
+        if(vpad.trigger & VPAD_BUTTON_B)
+            goto instExit;
+
+        if(vpad.hold & VPAD_BUTTON_UP)
+        {
+            if(oldHold != VPAD_BUTTON_UP)
+            {
+                asyncState = ASYNC_STATE_BKWD;
+                oldHold = VPAD_BUTTON_UP;
+                frameCount = DPAD_COOLDOWN_FRAMES;
+                dpadAction = true;
+            }
+            else if(frameCount == 0)
+                dpadAction = true;
+            else
+            {
+                --frameCount;
+                dpadAction = false;
+            }
+
+            if(dpadAction)
+            {
+                if(cursor)
+                    cursor--;
+                else
+                {
+                    if(mov)
+                    {
+                        if(pos)
+                        {
+                            pos--;
+                        }
+                        else
+                        {
+                            cursor = MAX_ITITLEBROWSER_LINES - 1;
+                            pos = ititleEntrySize - MAX_ITITLEBROWSER_LINES;
+                        }
+                    }
+                    else
+                        cursor = ititleEntrySize - 1;
+                }
+
+                redraw = true;
+            }
+        }
+        else if(vpad.hold & VPAD_BUTTON_DOWN)
+        {
+            if(oldHold != VPAD_BUTTON_DOWN)
+            {
+                asyncState = ASYNC_STATE_FWD;
+                oldHold = VPAD_BUTTON_DOWN;
+                frameCount = DPAD_COOLDOWN_FRAMES;
+                dpadAction = true;
+            }
+            else if(frameCount == 0)
+                dpadAction = true;
+            else
+            {
+                --frameCount;
+                dpadAction = false;
+            }
+
+            if(dpadAction)
+            {
+                if(cursor + pos >= ititleEntrySize - 1 || cursor >= MAX_ITITLEBROWSER_LINES - 1)
+                {
+                    if(!mov || ++pos + cursor >= ititleEntrySize)
+                        cursor = pos = 0;
+                }
+                else
+                    ++cursor;
+
+                redraw = true;
+            }
+        }
+        else if(mov)
+        {
+            if(vpad.hold & VPAD_BUTTON_RIGHT)
+            {
+                if(oldHold != VPAD_BUTTON_RIGHT)
+                {
+                    asyncState = ASYNC_STATE_FWD;
+                    oldHold = VPAD_BUTTON_RIGHT;
+                    frameCount = DPAD_COOLDOWN_FRAMES;
+                    dpadAction = true;
+                }
+                else if(frameCount == 0)
+                    dpadAction = true;
+                else
+                {
+                    --frameCount;
+                    dpadAction = false;
+                }
+
+                if(dpadAction)
+                {
+                    pos += MAX_ITITLEBROWSER_LINES;
+                    if(pos >= ititleEntrySize)
+                        pos = 0;
+                    cursor = 0;
+                    redraw = true;
+                }
+            }
+            else if(vpad.hold & VPAD_BUTTON_LEFT)
+            {
+                if(oldHold != VPAD_BUTTON_LEFT)
+                {
+                    asyncState = ASYNC_STATE_BKWD;
+                    oldHold = VPAD_BUTTON_LEFT;
+                    frameCount = DPAD_COOLDOWN_FRAMES;
+                    dpadAction = true;
+                }
+                else if(frameCount == 0)
+                    dpadAction = true;
+                else
+                {
+                    --frameCount;
+                    dpadAction = false;
+                }
+
+                if(dpadAction)
+                {
+                    if(pos >= MAX_ITITLEBROWSER_LINES)
+                        pos -= MAX_ITITLEBROWSER_LINES;
+                    else
+                        pos = ititleEntrySize - MAX_ITITLEBROWSER_LINES;
+                    cursor = 0;
+                    redraw = true;
+                }
+            }
+        }
+
+        if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
+            oldHold = 0;
+
+        if(redraw)
+        {
+            drawITBMenuFrame(pos, cursor);
+            mov = ititleEntrySize > MAX_ITITLEBROWSER_LINES;
+            redraw = false;
+        }
+    }
 
     if(AppRunning())
+    {
+        volatile INST_META *im = installedTitles + cursor + pos;
+        char *toFrame = getToFrameBuffer();
+        strcpy(toFrame, gettext("Do you really want to uninstall"));
+        strcat(toFrame, "\n");
+        strcat(toFrame, (char *)im->name);
+        strcat(toFrame, "\n");
+        strcat(toFrame, gettext("from your"));
+        strcat(toFrame, " ");
+        strcat(toFrame, im->dt == DEVICE_TYPE_USB ? "USB" : im->dt == DEVICE_TYPE_NAND ? "NAND"
+                                                                                       : gettext("unknown"));
+        strcat(toFrame, " ");
+        strcat(toFrame, gettext("drive?"));
+        strcat(toFrame, "\n\n" BUTTON_A " ");
+        strcat(toFrame, gettext("Yes"));
+        strcat(toFrame, " || " BUTTON_B " ");
+        strcat(toFrame, gettext("No"));
+        int r = addErrorOverlay(toFrame);
+
+        while(AppRunning())
         {
-            volatile INST_META *im = installedTitles + cursor + pos;
-            char *toFrame = getToFrameBuffer();
-            strcpy(toFrame, gettext("Do you really want to uninstall"));
-            strcat(toFrame, "\n");
-            strcat(toFrame, (char *)im->name);
-            strcat(toFrame, "\n");
-            strcat(toFrame, gettext("from your"));
-            strcat(toFrame, " ");
-            strcat(toFrame, im->dt == DEVICE_TYPE_USB ? "USB" : im->dt == DEVICE_TYPE_NAND ? "NAND"
-                                                                                           : gettext("unknown"));
-            strcat(toFrame, " ");
-            strcat(toFrame, gettext("drive?"));
-            strcat(toFrame, "\n\n" BUTTON_A " ");
-            strcat(toFrame, gettext("Yes"));
-            strcat(toFrame, " || " BUTTON_B " ");
-            strcat(toFrame, gettext("No"));
-            int r = addErrorOverlay(toFrame);
+            showFrame();
 
-            while(AppRunning())
-                {
-                    showFrame();
-
-                    if(vpad.trigger & VPAD_BUTTON_B)
-                        {
-                            removeErrorOverlay(r);
-                            goto loopEntry;
-                        }
-                    if(vpad.trigger & VPAD_BUTTON_A)
-                        break;
-                }
-
-            removeErrorOverlay(r);
-
-            if(checkSystemTitle(entry->titleId, im->region) && AppRunning())
-                deinstall(entry, (const char *)im->name, false, false);
-            else
+            if(vpad.trigger & VPAD_BUTTON_B)
+            {
+                removeErrorOverlay(r);
                 goto loopEntry;
+            }
+            if(vpad.trigger & VPAD_BUTTON_A)
+                break;
         }
+
+        removeErrorOverlay(r);
+
+        if(checkSystemTitle(entry->titleId, im->region) && AppRunning())
+            deinstall(entry, (const char *)im->name, false, false);
+        else
+            goto loopEntry;
+    }
 
 instExit:
     asyncState = ASYNC_STATE_EXIT;

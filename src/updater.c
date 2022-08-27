@@ -70,17 +70,17 @@ static void showUpdateError(const char *msg)
     enableShutdown();
     drawErrorFrame(msg, ANY_RETURN);
     while(AppRunning())
-        {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawErrorFrame(msg, ANY_RETURN);
+    {
+        if(app == APP_STATE_BACKGROUND)
+            continue;
+        if(app == APP_STATE_RETURNING)
+            drawErrorFrame(msg, ANY_RETURN);
 
-            showFrame();
+        showFrame();
 
-            if(vpad.trigger)
-                return;
-        }
+        if(vpad.trigger)
+            return;
+    }
 }
 
 static void showUpdateErrorf(const char *msg, ...)
@@ -107,63 +107,63 @@ bool updateCheck()
 
     bool ret = false;
     if(downloadFile(updateChkUrl, "JSON", NULL, FILE_TYPE_JSON | FILE_TYPE_TORAM, false) == 0)
+    {
+        startNewFrame();
+        textToFrame(0, 0, gettext("Parsing JSON"));
+        writeScreenLog(1);
+        drawFrame();
+        showFrame();
+
+        json_t *json = json_loadb(getRamBuf(), getRamBufSize(), 0, NULL);
+        if(json != NULL)
         {
-            startNewFrame();
-            textToFrame(0, 0, gettext("Parsing JSON"));
-            writeScreenLog(1);
-            drawFrame();
-            showFrame();
-
-            json_t *json = json_loadb(getRamBuf(), getRamBufSize(), 0, NULL);
-            if(json != NULL)
+            json_t *jsonObj = json_object_get(json, "s");
+            if(jsonObj != NULL && json_is_integer(jsonObj))
+            {
+                switch(json_integer_value(jsonObj))
                 {
-                    json_t *jsonObj = json_object_get(json, "s");
-                    if(jsonObj != NULL && json_is_integer(jsonObj))
-                        {
-                            switch(json_integer_value(jsonObj))
-                                {
-                                case 0:
-                                    debugPrintf("Newest version!");
-                                    break;
-                                case 1: // Update
-                                    const char *newVer = json_string_value(json_object_get(json, "v"));
-                                    ret = newVer != NULL;
-                                    if(ret)
+                case 0:
+                    debugPrintf("Newest version!");
+                    break;
+                case 1: // Update
+                    const char *newVer = json_string_value(json_object_get(json, "v"));
+                    ret = newVer != NULL;
+                    if(ret)
 #ifdef NUSSPLI_HBL
-                                        ret = updateMenu(newVer, NUSSPLI_TYPE_HBL);
+                        ret = updateMenu(newVer, NUSSPLI_TYPE_HBL);
 #else
-                                        ret = updateMenu(newVer, isAroma() ? NUSSPLI_TYPE_AROMA : NUSSPLI_TYPE_CHANNEL);
+                        ret = updateMenu(newVer, isAroma() ? NUSSPLI_TYPE_AROMA : NUSSPLI_TYPE_CHANNEL);
 #endif
-                                    break;
-                                case 2: // Type deprecated, update to what the server suggests
-                                    const char *nv = json_string_value(json_object_get(json, "v"));
-                                    ret = nv != NULL;
-                                    if(ret)
-                                        {
-                                            int t = json_integer_value(json_object_get(json, "t"));
-                                            if(t)
-                                                ret = updateMenu(nv, t);
-                                            else
-                                                ret = false;
-                                        }
-                                    break;
-                                case 3: // TODO
-                                case 4:
-                                    showUpdateError(gettext("Internal server error!"));
-                                    break;
-                                default: // TODO
-                                    showUpdateErrorf("%s: %d", gettext("Invalid state value"), json_integer_value(jsonObj));
-                                    break;
-                                }
-                        }
-                    else
-                        debugPrintf("Invalid JSON data");
-
-                    json_decref(json);
+                    break;
+                case 2: // Type deprecated, update to what the server suggests
+                    const char *nv = json_string_value(json_object_get(json, "v"));
+                    ret = nv != NULL;
+                    if(ret)
+                    {
+                        int t = json_integer_value(json_object_get(json, "t"));
+                        if(t)
+                            ret = updateMenu(nv, t);
+                        else
+                            ret = false;
+                    }
+                    break;
+                case 3: // TODO
+                case 4:
+                    showUpdateError(gettext("Internal server error!"));
+                    break;
+                default: // TODO
+                    showUpdateErrorf("%s: %d", gettext("Invalid state value"), json_integer_value(jsonObj));
+                    break;
                 }
+            }
             else
                 debugPrintf("Invalid JSON data");
+
+            json_decref(json);
         }
+        else
+            debugPrintf("Invalid JSON data");
+    }
     else
         debugPrintf("Error downloading %s", updateChkUrl);
 
@@ -198,17 +198,17 @@ static long ZCALLBACK nus_ztell(voidpf opaque, voidpf stream)
 static long ZCALLBACK nus_zseek(voidpf opaque, voidpf stream, uLong offset, int origin)
 {
     switch(origin)
-        {
-        case ZLIB_FILEFUNC_SEEK_CUR:
-            *((long *)(stream)) += offset;
-            break;
-        case ZLIB_FILEFUNC_SEEK_END:
-            *((long *)(stream)) = getRamBufSize() + offset;
-            break;
-        case ZLIB_FILEFUNC_SEEK_SET:
-            *((long *)(stream)) = offset;
-            break;
-        }
+    {
+    case ZLIB_FILEFUNC_SEEK_CUR:
+        *((long *)(stream)) += offset;
+        break;
+    case ZLIB_FILEFUNC_SEEK_END:
+        *((long *)(stream)) = getRamBufSize() + offset;
+        break;
+    case ZLIB_FILEFUNC_SEEK_SET:
+        *((long *)(stream)) = offset;
+        break;
+    }
 
     return 0;
 }
@@ -235,127 +235,127 @@ static bool unzipUpdate()
     bool ret = false;
     unzFile zip = unzOpen2((const char *)&zPos, &rbfd);
     if(zip != NULL)
+    {
+        unz_global_info zipInfo;
+        if(unzGetGlobalInfo(zip, &zipInfo) == UNZ_OK)
         {
-            unz_global_info zipInfo;
-            if(unzGetGlobalInfo(zip, &zipInfo) == UNZ_OK)
+            uint8_t *buf = MEMAllocFromDefaultHeap(IO_BUFSIZE);
+            if(buf != NULL)
+            {
+                unz_file_info zipFileInfo;
+                char *zipFileName = getStaticPathBuffer(1);
+                char *path = getStaticPathBuffer(2);
+                char *fileName = getStaticPathBuffer(3);
+                strcpy(fileName, UPDATE_TEMP_FOLDER);
+                char *fnp = fileName + strlen(UPDATE_TEMP_FOLDER);
+                char *needle;
+                char *lastSlash;
+                char *lspp;
+                FSFileHandle *file;
+                size_t extracted;
+                ret = true;
+
+                do
                 {
-                    uint8_t *buf = MEMAllocFromDefaultHeap(IO_BUFSIZE);
-                    if(buf != NULL)
+                    if(unzGetCurrentFileInfo(zip, &zipFileInfo, zipFileName, FS_MAX_PATH - strlen(UPDATE_TEMP_FOLDER) - 1, NULL, 0, NULL, 0) == UNZ_OK)
+                    {
+                        if(unzOpenCurrentFile(zip) == UNZ_OK)
                         {
-                            unz_file_info zipFileInfo;
-                            char *zipFileName = getStaticPathBuffer(1);
-                            char *path = getStaticPathBuffer(2);
-                            char *fileName = getStaticPathBuffer(3);
-                            strcpy(fileName, UPDATE_TEMP_FOLDER);
-                            char *fnp = fileName + strlen(UPDATE_TEMP_FOLDER);
-                            char *needle;
-                            char *lastSlash;
-                            char *lspp;
-                            FSFileHandle *file;
-                            size_t extracted;
-                            ret = true;
-
-                            do
+                            needle = strchr(zipFileName, '/');
+                            if(needle != NULL)
+                            {
+                                lastSlash = needle;
+                                lspp = needle + 1;
+                                needle = strchr(lspp, '/');
+                                while(needle != NULL)
                                 {
-                                    if(unzGetCurrentFileInfo(zip, &zipFileInfo, zipFileName, FS_MAX_PATH - strlen(UPDATE_TEMP_FOLDER) - 1, NULL, 0, NULL, 0) == UNZ_OK)
+                                    lastSlash = needle;
+                                    lspp = needle + 1;
+                                    needle = strchr(lspp, '/');
+                                }
+
+                                if(lastSlash[1] == '\0')
+                                {
+                                    unzCloseCurrentFile(zip);
+                                    continue;
+                                }
+
+                                lastSlash[0] = '\0';
+                                strcpy(path, zipFileName);
+                                strcat(path, "/");
+                                strcpy(fnp, path);
+                                strcpy(zipFileName, lastSlash + 1);
+
+                                if(!createDirRecursive(fileName))
+                                {
+                                    showUpdateErrorf("%s: %s", gettext("Error creating directory"), prettyDir(fileName));
+                                    ret = false;
+                                }
+                            }
+                            else
+                                path[0] = '\0';
+
+                            if(ret)
+                            {
+                                sprintf(fnp, "%s%s", path, zipFileName);
+                                file = openFile(fileName, "w", 0);
+                                if(file != NULL)
+                                {
+                                    while(ret)
+                                    {
+                                        extracted = unzReadCurrentFile(zip, buf, IO_BUFSIZE);
+                                        if(extracted < 0)
                                         {
-                                            if(unzOpenCurrentFile(zip) == UNZ_OK)
-                                                {
-                                                    needle = strchr(zipFileName, '/');
-                                                    if(needle != NULL)
-                                                        {
-                                                            lastSlash = needle;
-                                                            lspp = needle + 1;
-                                                            needle = strchr(lspp, '/');
-                                                            while(needle != NULL)
-                                                                {
-                                                                    lastSlash = needle;
-                                                                    lspp = needle + 1;
-                                                                    needle = strchr(lspp, '/');
-                                                                }
-
-                                                            if(lastSlash[1] == '\0')
-                                                                {
-                                                                    unzCloseCurrentFile(zip);
-                                                                    continue;
-                                                                }
-
-                                                            lastSlash[0] = '\0';
-                                                            strcpy(path, zipFileName);
-                                                            strcat(path, "/");
-                                                            strcpy(fnp, path);
-                                                            strcpy(zipFileName, lastSlash + 1);
-
-                                                            if(!createDirRecursive(fileName))
-                                                                {
-                                                                    showUpdateErrorf("%s: %s", gettext("Error creating directory"), prettyDir(fileName));
-                                                                    ret = false;
-                                                                }
-                                                        }
-                                                    else
-                                                        path[0] = '\0';
-
-                                                    if(ret)
-                                                        {
-                                                            sprintf(fnp, "%s%s", path, zipFileName);
-                                                            file = openFile(fileName, "w", 0);
-                                                            if(file != NULL)
-                                                                {
-                                                                    while(ret)
-                                                                        {
-                                                                            extracted = unzReadCurrentFile(zip, buf, IO_BUFSIZE);
-                                                                            if(extracted < 0)
-                                                                                {
-                                                                                    showUpdateErrorf("%s: %s", gettext("Error extracting file"), prettyDir(fileName));
-                                                                                    ret = false;
-                                                                                    break;
-                                                                                }
-
-                                                                            if(extracted != 0)
-                                                                                {
-                                                                                    if(addToIOQueue(buf, 1, extracted, file) != extracted)
-                                                                                        {
-                                                                                            showUpdateErrorf("%s: %s", gettext("Error writing file"), prettyDir(fileName));
-                                                                                            ret = false;
-                                                                                            break;
-                                                                                        }
-                                                                                }
-                                                                            else
-                                                                                break;
-                                                                        }
-
-                                                                    addToIOQueue(NULL, 0, 0, file);
-                                                                }
-                                                            else
-                                                                {
-                                                                    showUpdateErrorf("%s: %s", gettext("Error opening file"), prettyDir(fileName));
-                                                                    ret = false;
-                                                                }
-                                                        }
-
-                                                    unzCloseCurrentFile(zip);
-                                                }
-                                            else
-                                                {
-                                                    showUpdateError(gettext("Error opening zip file"));
-                                                    ret = false;
-                                                }
-                                        }
-                                    else
-                                        {
-                                            showUpdateError(gettext("Error extracting zip"));
+                                            showUpdateErrorf("%s: %s", gettext("Error extracting file"), prettyDir(fileName));
                                             ret = false;
+                                            break;
                                         }
-                            } while(ret && unzGoToNextFile(zip) == UNZ_OK);
 
-                            MEMFreeToDefaultHeap(buf);
+                                        if(extracted != 0)
+                                        {
+                                            if(addToIOQueue(buf, 1, extracted, file) != extracted)
+                                            {
+                                                showUpdateErrorf("%s: %s", gettext("Error writing file"), prettyDir(fileName));
+                                                ret = false;
+                                                break;
+                                            }
+                                        }
+                                        else
+                                            break;
+                                    }
+
+                                    addToIOQueue(NULL, 0, 0, file);
+                                }
+                                else
+                                {
+                                    showUpdateErrorf("%s: %s", gettext("Error opening file"), prettyDir(fileName));
+                                    ret = false;
+                                }
+                            }
+
+                            unzCloseCurrentFile(zip);
                         }
-                }
-            else
-                showUpdateError(gettext("Error getting zip info"));
+                        else
+                        {
+                            showUpdateError(gettext("Error opening zip file"));
+                            ret = false;
+                        }
+                    }
+                    else
+                    {
+                        showUpdateError(gettext("Error extracting zip"));
+                        ret = false;
+                    }
+                } while(ret && unzGoToNextFile(zip) == UNZ_OK);
 
-            unzClose(zip);
+                MEMFreeToDefaultHeap(buf);
+            }
         }
+        else
+            showUpdateError(gettext("Error getting zip info"));
+
+        unzClose(zip);
+    }
     else
         showUpdateError(gettext("Error opening zip!"));
 
@@ -368,35 +368,35 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
     OSDynLoad_Module mod;
     int (*RL_UnmountCurrentRunningBundle)();
     if(!isChannel() && isAroma())
+    {
+        OSDynLoad_Error err = OSDynLoad_Acquire("homebrew_rpx_loader", &mod);
+        if(err == OS_DYNLOAD_OK)
         {
-            OSDynLoad_Error err = OSDynLoad_Acquire("homebrew_rpx_loader", &mod);
-            if(err == OS_DYNLOAD_OK)
-                {
-                    err = OSDynLoad_FindExport(mod, false, "RL_UnmountCurrentRunningBundle", (void **)&RL_UnmountCurrentRunningBundle);
-                    if(err != OS_DYNLOAD_OK)
-                        OSDynLoad_Release(mod);
-                }
+            err = OSDynLoad_FindExport(mod, false, "RL_UnmountCurrentRunningBundle", (void **)&RL_UnmountCurrentRunningBundle);
             if(err != OS_DYNLOAD_OK)
-                {
-                    showUpdateError(gettext("Aroma version too old to allow auto-updates"));
-                    return;
-                }
+                OSDynLoad_Release(mod);
         }
+        if(err != OS_DYNLOAD_OK)
+        {
+            showUpdateError(gettext("Aroma version too old to allow auto-updates"));
+            return;
+        }
+    }
 #endif
 
     disableShutdown();
     removeDirectory(UPDATE_TEMP_FOLDER);
     FSStatus err = createDirectory(UPDATE_TEMP_FOLDER);
     if(err != FS_STATUS_OK)
-        {
-            char *toScreen = getToFrameBuffer();
-            strcpy(toScreen, gettext("Error creating temporary directory!"));
-            strcat(toScreen, "\n\n");
-            strcat(toScreen, translateFSErr(err));
+    {
+        char *toScreen = getToFrameBuffer();
+        strcpy(toScreen, gettext("Error creating temporary directory!"));
+        strcat(toScreen, "\n\n");
+        strcat(toScreen, translateFSErr(err));
 
-            showUpdateError(toScreen);
-            goto updateError;
-        }
+        showUpdateError(toScreen);
+        goto updateError;
+    }
 
     char *path = getStaticPathBuffer(2);
     strcpy(path, UPDATE_DOWNLOAD_URL);
@@ -405,29 +405,29 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
     strcat(path, newVersion);
 
     switch(type)
-        {
-        case NUSSPLI_TYPE_AROMA:
-            strcat(path, "-Aroma");
-            break;
-        case NUSSPLI_TYPE_CHANNEL:
-            strcat(path, "-Channel");
-            break;
-        case NUSSPLI_TYPE_HBL:
-            strcat(path, "-HBL");
-            break;
-        default:
-            showUpdateError("Internal error!");
-            goto updateError;
-        }
+    {
+    case NUSSPLI_TYPE_AROMA:
+        strcat(path, "-Aroma");
+        break;
+    case NUSSPLI_TYPE_CHANNEL:
+        strcat(path, "-Channel");
+        break;
+    case NUSSPLI_TYPE_HBL:
+        strcat(path, "-HBL");
+        break;
+    default:
+        showUpdateError("Internal error!");
+        goto updateError;
+    }
 
     strcat(path, NUSSPLI_DLVER ".zip");
 
     if(downloadFile(path, "NUSspli.zip", NULL, FILE_TYPE_JSON | FILE_TYPE_TORAM, false) != 0)
-        {
-            clearRamBuf();
-            showUpdateErrorf("%s %s", gettext("Error downloading"), path);
-            goto updateError;
-        }
+    {
+        clearRamBuf();
+        showUpdateErrorf("%s %s", gettext("Error downloading"), path);
+        goto updateError;
+    }
 
     startNewFrame();
     textToFrame(0, 0, gettext("Updating, please wait..."));
@@ -436,10 +436,10 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
     showFrame();
 
     if(!unzipUpdate())
-        {
-            clearRamBuf();
-            goto updateError;
-        }
+    {
+        clearRamBuf();
+        goto updateError;
+    }
 
     clearRamBuf();
     bool toUSB = getUSB() != NUSDEV_NONE;
@@ -447,71 +447,71 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
     // Uninstall currently running type/version
 #ifdef NUSSPLI_HBL
     if(!dirExists(UPDATE_HBL_FOLDER))
-        {
-            showUpdateError(gettext("Couldn't find NUSspli folder on the SD card"));
-            goto updateError;
-        }
+    {
+        showUpdateError(gettext("Couldn't find NUSspli folder on the SD card"));
+        goto updateError;
+    }
 
     removeDirectory(UPDATE_HBL_FOLDER);
 #else
     if(isChannel())
+    {
+        MCPTitleListType ownInfo;
+        MCPError err = MCP_GetOwnTitleInfo(mcpHandle, &ownInfo);
+        if(err != 0)
         {
-            MCPTitleListType ownInfo;
-            MCPError err = MCP_GetOwnTitleInfo(mcpHandle, &ownInfo);
-            if(err != 0)
-                {
-                    showUpdateErrorf("%s: %#010x", gettext("Error getting own title info"), err);
-                    goto updateError;
-                }
-
-            if(toUSB)
-                toUSB = ownInfo.indexedDevice[0] == 'u';
-
-            deinstall(&ownInfo, "NUSspli v" NUSSPLI_VERSION, true, false);
-            OSSleepTicks(OSSecondsToTicks(10)); // channelHaxx...
+            showUpdateErrorf("%s: %#010x", gettext("Error getting own title info"), err);
+            goto updateError;
         }
+
+        if(toUSB)
+            toUSB = ownInfo.indexedDevice[0] == 'u';
+
+        deinstall(&ownInfo, "NUSspli v" NUSSPLI_VERSION, true, false);
+        OSSleepTicks(OSSecondsToTicks(10)); // channelHaxx...
+    }
     else if(isAroma())
+    {
+        if(!fileExists(UPDATE_AROMA_FOLDER UPDATE_AROMA_FILE))
         {
-            if(!fileExists(UPDATE_AROMA_FOLDER UPDATE_AROMA_FILE))
-                {
-                    showUpdateError(gettext("Couldn't find NUSspli file on the SD card"));
-                    goto updateError;
-                }
-
-            RL_UnmountCurrentRunningBundle();
-            OSDynLoad_Release(mod);
-            strcpy(path, UPDATE_AROMA_FOLDER UPDATE_AROMA_FILE);
-            FSRemove(__wut_devoptab_fs_client, getCmdBlk(), path, FS_ERROR_FLAG_ALL);
+            showUpdateError(gettext("Couldn't find NUSspli file on the SD card"));
+            goto updateError;
         }
+
+        RL_UnmountCurrentRunningBundle();
+        OSDynLoad_Release(mod);
+        strcpy(path, UPDATE_AROMA_FOLDER UPDATE_AROMA_FILE);
+        FSRemove(__wut_devoptab_fs_client, getCmdBlk(), path, FS_ERROR_FLAG_ALL);
+    }
 #endif
 
     // Install new type/version
     flushIOQueue();
     switch(type)
-        {
-        case NUSSPLI_TYPE_AROMA:
-            strcpy(path, UPDATE_TEMP_FOLDER UPDATE_AROMA_FILE);
-            char *path2 = getStaticPathBuffer(0);
-            strcpy(path2, UPDATE_AROMA_FOLDER UPDATE_AROMA_FILE);
-            FSRename(__wut_devoptab_fs_client, getCmdBlk(), path, path2, FS_ERROR_FLAG_ALL);
-            break;
-        case NUSSPLI_TYPE_CHANNEL:
-            strcpy(path, UPDATE_TEMP_FOLDER);
-            strcpy(path + strlen(UPDATE_TEMP_FOLDER), "NUSspli");
+    {
+    case NUSSPLI_TYPE_AROMA:
+        strcpy(path, UPDATE_TEMP_FOLDER UPDATE_AROMA_FILE);
+        char *path2 = getStaticPathBuffer(0);
+        strcpy(path2, UPDATE_AROMA_FOLDER UPDATE_AROMA_FILE);
+        FSRename(__wut_devoptab_fs_client, getCmdBlk(), path, path2, FS_ERROR_FLAG_ALL);
+        break;
+    case NUSSPLI_TYPE_CHANNEL:
+        strcpy(path, UPDATE_TEMP_FOLDER);
+        strcpy(path + strlen(UPDATE_TEMP_FOLDER), "NUSspli");
 
-            install("Update", false, NUSDEV_SD, path, toUSB, true, 0);
-            break;
-        case NUSSPLI_TYPE_HBL:
+        install("Update", false, NUSDEV_SD, path, toUSB, true, 0);
+        break;
+    case NUSSPLI_TYPE_HBL:
 #ifdef NUSSPLI_DEBUG
-            FSStatus err =
+        FSStatus err =
 #endif
-                moveDirectory(UPDATE_TEMP_FOLDER "NUSspli", UPDATE_HBL_FOLDER);
+            moveDirectory(UPDATE_TEMP_FOLDER "NUSspli", UPDATE_HBL_FOLDER);
 #ifdef NUSSPLI_DEBUG
-            if(err != FS_STATUS_OK)
-                debugPrintf("Error moving directory: %s", translateFSErr(err));
+        if(err != FS_STATUS_OK)
+            debugPrintf("Error moving directory: %s", translateFSErr(err));
 #endif
-            break;
-        }
+        break;
+    }
 
     removeDirectory(UPDATE_TEMP_FOLDER);
     enableShutdown();
@@ -523,24 +523,24 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
     drawFrame();
 
     while(AppRunning())
+    {
+        if(app == APP_STATE_BACKGROUND)
+            continue;
+        if(app == APP_STATE_RETURNING)
         {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                {
-                    colorStartNewFrame(SCREEN_COLOR_D_GREEN);
-                    textToFrame(0, 0, gettext("Update"));
-                    textToFrame(1, 0, gettext("Installed successfully!"));
-                    writeScreenLog(2);
-                    drawFrame();
-                }
-
-            showFrame();
-
-            if(vpad.trigger)
-                break;
-            ;
+            colorStartNewFrame(SCREEN_COLOR_D_GREEN);
+            textToFrame(0, 0, gettext("Update"));
+            textToFrame(1, 0, gettext("Installed successfully!"));
+            writeScreenLog(2);
+            drawFrame();
         }
+
+        showFrame();
+
+        if(vpad.trigger)
+            break;
+        ;
+    }
 
     stopNotification();
     return;

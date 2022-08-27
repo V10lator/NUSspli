@@ -25,35 +25,36 @@
 #include <stdint.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-typedef enum
-{
-    APP_STATE_STOPPING,
-    APP_STATE_HOME,
-    APP_STATE_STOPPED,
-    APP_STATE_RUNNING,
-    APP_STATE_BACKGROUND,
-    APP_STATE_RETURNING,
+    typedef enum
+    {
+        APP_STATE_STOPPING,
+        APP_STATE_HOME,
+        APP_STATE_STOPPED,
+        APP_STATE_RUNNING,
+        APP_STATE_BACKGROUND,
+        APP_STATE_RETURNING,
 
-} APP_STATE;
+    } APP_STATE;
 
-extern APP_STATE app;
+    extern APP_STATE app;
 
-void initState() __attribute__((__cold__));
-void enableApd();
-void disableApd();
-void enableShutdown();
-void disableShutdown();
-bool isAroma();
+    void initState() __attribute__((__cold__));
+    void enableApd();
+    void disableApd();
+    void enableShutdown();
+    void disableShutdown();
+    bool isAroma();
 #ifdef NUSSPLI_HBL
 #define isChannel() false
 #else
 bool isChannel();
 #endif
-bool AppRunning() __attribute__((__hot__));
-uint32_t homeButtonCallback(void *dummy);
+    bool AppRunning() __attribute__((__hot__));
+    uint32_t homeButtonCallback(void *dummy);
 
 #ifdef __cplusplus
 }

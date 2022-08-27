@@ -82,10 +82,10 @@ void Swkbd_SetInputFormString(const char *str)
         len = strlen(str);
 
     if(len == 0)
-        {
-            nn::swkbd::SetInputFormString(u"");
-            return;
-        }
+    {
+        nn::swkbd::SetInputFormString(u"");
+        return;
+    }
 
     auto *cppStr = (char16_t *)MEMAllocFromDefaultHeap(sizeof(char16_t) * ++len);
     if(cppStr == nullptr)

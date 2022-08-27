@@ -57,56 +57,56 @@ static const char *md5File[MD5_FILES] = {
 bool sanityCheck()
 {
     if(isChannel())
+    {
+        MCPTitleListType title;
+        OSTime t = OSGetTime();
+        if(MCP_GetTitleInfo(mcpHandle, OSGetTitleID(), &title))
         {
-            MCPTitleListType title;
-            OSTime t = OSGetTime();
-            if(MCP_GetTitleInfo(mcpHandle, OSGetTitleID(), &title))
-                {
-                    debugPrintf("Sanity error: Can't get MCPTitleListType");
-                    return false;
-                }
-
-            if(strlen(title.path) != 46)
-                {
-                    debugPrintf("Sanity error: Incorrect length of path");
-                    return false;
-                }
-
-            char *newPath = getStaticPathBuffer(0);
-            size_t s;
-            void *buf;
-            uint8_t m[16];
-
-            strcpy(newPath, title.path);
-            strcat(newPath, "/meta/");
-            char *pr = newPath + strlen(newPath);
-
-            for(int i = 0; i < MD5_FILES; ++i)
-                {
-                    strcpy(pr, md5File[i]);
-
-                    s = readFile(newPath, &buf);
-                    if(buf == NULL)
-                        return false;
-
-                    getMD5(buf, s, m);
-                    for(int j = 0; j < 16; ++j)
-                        {
-                            if(m[j] != md5[i][j])
-                                {
-                                    debugPrintf("Sanity error: Data integrity error");
-                                    MEMFreeToDefaultHeap(buf);
-                                    return false;
-                                }
-                        }
-
-                    MEMFreeToDefaultHeap(buf);
-                }
-
-            t = OSGetTime() - t;
-            addEntropy(&t, sizeof(OSTime));
-            return true;
+            debugPrintf("Sanity error: Can't get MCPTitleListType");
+            return false;
         }
+
+        if(strlen(title.path) != 46)
+        {
+            debugPrintf("Sanity error: Incorrect length of path");
+            return false;
+        }
+
+        char *newPath = getStaticPathBuffer(0);
+        size_t s;
+        void *buf;
+        uint8_t m[16];
+
+        strcpy(newPath, title.path);
+        strcat(newPath, "/meta/");
+        char *pr = newPath + strlen(newPath);
+
+        for(int i = 0; i < MD5_FILES; ++i)
+        {
+            strcpy(pr, md5File[i]);
+
+            s = readFile(newPath, &buf);
+            if(buf == NULL)
+                return false;
+
+            getMD5(buf, s, m);
+            for(int j = 0; j < 16; ++j)
+            {
+                if(m[j] != md5[i][j])
+                {
+                    debugPrintf("Sanity error: Data integrity error");
+                    MEMFreeToDefaultHeap(buf);
+                    return false;
+                }
+            }
+
+            MEMFreeToDefaultHeap(buf);
+        }
+
+        t = OSGetTime() - t;
+        addEntropy(&t, sizeof(OSTime));
+        return true;
+    }
 
     // else / isAroma()
     // TODO

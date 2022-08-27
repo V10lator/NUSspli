@@ -78,13 +78,13 @@ static void addMSG(const char *msgid, const char *msgstr)
     if(baseMSG == NULL)
         baseMSG = msg;
     else
-        {
-            MSG *last = baseMSG;
-            while(last->next != NULL)
-                last = last->next;
+    {
+        MSG *last = baseMSG;
+        while(last->next != NULL)
+            last = last->next;
 
-            last->next = msg;
-        }
+        last->next = msg;
+    }
 
     return;
 }
@@ -92,12 +92,12 @@ static void addMSG(const char *msgid, const char *msgstr)
 void gettextCleanUp()
 {
     while(baseMSG)
-        {
-            MSG *nextMsg = baseMSG->next;
-            MEMFreeToDefaultHeap((void *)(baseMSG->msgstr));
-            MEMFreeToDefaultHeap(baseMSG);
-            baseMSG = nextMsg;
-        }
+    {
+        MSG *nextMsg = baseMSG->next;
+        MEMFreeToDefaultHeap((void *)(baseMSG->msgstr));
+        MEMFreeToDefaultHeap(baseMSG);
+        baseMSG = nextMsg;
+    }
 }
 
 bool gettextLoadLanguage(const char *langFile)
@@ -117,33 +117,33 @@ bool gettextLoadLanguage(const char *langFile)
     json_t *json = json_loadb(buffer, size, 0, NULL);
 #endif
     if(json)
+    {
+        size = json_object_size(json);
+        if(size != 0)
         {
-            size = json_object_size(json);
-            if(size != 0)
-                {
-                    const char *key;
-                    json_t *value;
-                    json_object_foreach(json, key, value)
-                    {
-                        if(json_is_string(value))
-                            addMSG(key, json_string_value(value));
-                        else
-                            debugPrintf("Not a string: %s", key);
-                    }
-                }
-            else
-                {
-                    debugPrintf("Error parsing json!");
-                    ret = false;
-                }
-
-            json_decref(json);
+            const char *key;
+            json_t *value;
+            json_object_foreach(json, key, value)
+            {
+                if(json_is_string(value))
+                    addMSG(key, json_string_value(value));
+                else
+                    debugPrintf("Not a string: %s", key);
+            }
         }
-    else
+        else
         {
-            debugPrintf("Error parsing json: %s", jerr.text);
+            debugPrintf("Error parsing json!");
             ret = false;
         }
+
+        json_decref(json);
+    }
+    else
+    {
+        debugPrintf("Error parsing json: %s", jerr.text);
+        ret = false;
+    }
 
     MEMFreeToDefaultHeap(buffer);
     return ret;

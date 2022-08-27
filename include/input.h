@@ -44,46 +44,47 @@
 #define BUTTON_HOME       "\uE044"
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-extern VPADStatus vpad;
+    extern VPADStatus vpad;
 
-typedef enum
-{
-    CHECK_NONE, // No check
-    CHECK_NUMERICAL, // Only numbers
-    CHECK_HEXADECIMAL, // Only hex
-    CHECK_ALPHANUMERICAL, // Only letters or numbers
-    CHECK_URL,
-} KeyboardChecks;
+    typedef enum
+    {
+        CHECK_NONE, // No check
+        CHECK_NUMERICAL, // Only numbers
+        CHECK_HEXADECIMAL, // Only hex
+        CHECK_ALPHANUMERICAL, // Only letters or numbers
+        CHECK_URL,
+    } KeyboardChecks;
 
-typedef enum
-{
-    KEYBOARD_TYPE_RESTRICTED,
-    KEYBOARD_TYPE_NORMAL
-} KeyboardType;
+    typedef enum
+    {
+        KEYBOARD_TYPE_RESTRICTED,
+        KEYBOARD_TYPE_NORMAL
+    } KeyboardType;
 
-typedef enum
-{
-    KEYBOARD_LAYOUT_NORMAL = 0,
-    KEYBOARD_LAYOUT_TID = 2,
-} KeyboardLayout;
+    typedef enum
+    {
+        KEYBOARD_LAYOUT_NORMAL = 0,
+        KEYBOARD_LAYOUT_TID = 2,
+    } KeyboardLayout;
 
-typedef enum
-{
-    CT_WPAD_0 = WPAD_CHAN_0,
-    CT_WPAD_1 = WPAD_CHAN_1,
-    CT_WPAD_2 = WPAD_CHAN_2,
-    CT_WPAD_3 = WPAD_CHAN_3,
-    CT_VPAD_0 = 4 + VPAD_CHAN_0,
-} ControllerType;
+    typedef enum
+    {
+        CT_WPAD_0 = WPAD_CHAN_0,
+        CT_WPAD_1 = WPAD_CHAN_1,
+        CT_WPAD_2 = WPAD_CHAN_2,
+        CT_WPAD_3 = WPAD_CHAN_3,
+        CT_VPAD_0 = 4 + VPAD_CHAN_0,
+    } ControllerType;
 
-bool SWKBD_Init() __attribute__((__cold__));
-void SWKBD_Shutdown() __attribute__((__cold__));
+    bool SWKBD_Init() __attribute__((__cold__));
+    void SWKBD_Shutdown() __attribute__((__cold__));
 
-void readInput() __attribute__((__hot__));
-bool showKeyboard(KeyboardLayout layout, KeyboardType type, char *output, KeyboardChecks check, int maxlength, bool limit, const char *input, const char *okStr);
+    void readInput() __attribute__((__hot__));
+    bool showKeyboard(KeyboardLayout layout, KeyboardType type, char *output, KeyboardChecks check, int maxlength, bool limit, const char *input, const char *okStr);
 
 #ifdef __cplusplus
 }

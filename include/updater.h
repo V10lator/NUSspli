@@ -21,18 +21,19 @@
 #include <wut-fixups.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-typedef enum
-{
-    NUSSPLI_TYPE_AROMA = 0,
-    NUSSPLI_TYPE_CHANNEL = 1,
-    NUSSPLI_TYPE_HBL = 2
-} NUSSPLI_TYPE;
+    typedef enum
+    {
+        NUSSPLI_TYPE_AROMA = 0,
+        NUSSPLI_TYPE_CHANNEL = 1,
+        NUSSPLI_TYPE_HBL = 2
+    } NUSSPLI_TYPE;
 
-bool updateCheck();
-void update(const char *newVersion, NUSSPLI_TYPE type) __attribute__((__cold__));
+    bool updateCheck();
+    void update(const char *newVersion, NUSSPLI_TYPE type) __attribute__((__cold__));
 
 #ifdef __cplusplus
 }

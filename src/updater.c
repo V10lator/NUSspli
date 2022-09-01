@@ -16,6 +16,8 @@
  * with this program; if not, If not, see <http://www.gnu.org/licenses/>.  *
  ***************************************************************************/
 
+#define _GNU_SOURCE
+
 #include <wut-fixups.h>
 
 #include <config.h>
@@ -52,8 +54,8 @@
 
 #include <jansson.h>
 
-#define UPDATE_CHECK_URL    NAPI_URL "s?t="
 #define UPDATE_DOWNLOAD_URL "https://github.com/V10lator/NUSspli/releases/download/v"
+#define UPDATE_GITHUB_API "https://api.github.com/repos/V10lator/NUSspli/releases/latest"
 #define UPDATE_TEMP_FOLDER  NUSDIR_SD "NUSspli_temp/"
 #define UPDATE_AROMA_FOLDER NUSDIR_SD "wiiu/apps/"
 #define UPDATE_AROMA_FILE   "NUSspli.wuhb"
@@ -64,6 +66,17 @@
 #else
 #define NUSSPLI_DLVER ""
 #endif
+
+static bool isBeta()
+{
+	if (strstr(NUSSPLI_VERSION, "BETA") != NULL) 
+		return true;
+
+	if (strstr(NUSSPLI_VERSION, "ALPHA") != NULL) 
+		return true;
+
+	return false;
+}
 
 static void showUpdateError(const char *msg)
 {
@@ -95,18 +108,11 @@ static void showUpdateErrorf(const char *msg, ...)
 
 bool updateCheck()
 {
-    if(!updateCheckEnabled())
-        return false;
-
-    const char *updateChkUrl =
-#ifdef NUSSPLI_HBL
-        UPDATE_CHECK_URL "h";
-#else
-        !isChannel() && isAroma() ? UPDATE_CHECK_URL "a" : UPDATE_CHECK_URL "c";
-#endif
+    if(!updateCheckEnabled() || isBeta())
+		return false;
 
     bool ret = false;
-    if(downloadFile(updateChkUrl, "JSON", NULL, FILE_TYPE_JSON | FILE_TYPE_TORAM, false) == 0)
+    if(downloadFile(UPDATE_GITHUB_API, "JSON", NULL, FILE_TYPE_JSON | FILE_TYPE_TORAM, false) == 0)
     {
         startNewFrame();
         textToFrame(0, 0, gettext("Parsing JSON"));
@@ -117,43 +123,57 @@ bool updateCheck()
         json_t *json = json_loadb(getRamBuf(), getRamBufSize(), 0, NULL);
         if(json != NULL)
         {
-            json_t *jsonObj = json_object_get(json, "s");
-            if(jsonObj != NULL && json_is_integer(jsonObj))
+            json_t *jsonObj = json_object_get(json, "name");
+			json_t *jsonAssetsObj = json_object_get(json, "assets");
+            if(jsonObj != NULL && json_is_string(jsonObj))
             {
-                switch(json_integer_value(jsonObj))
-                {
-                    case 0:
-                        debugPrintf("Newest version!");
-                        break;
-                    case 1: // Update
-                        const char *newVer = json_string_value(json_object_get(json, "v"));
-                        ret = newVer != NULL;
-                        if(ret)
-#ifdef NUSSPLI_HBL
-                            ret = updateMenu(newVer, NUSSPLI_TYPE_HBL);
+                char serverVersion[16];
+				strcpy(serverVersion, json_string_value(jsonObj) + 1);
+
+                debugPrintf("currentVersion: %s", NUSSPLI_VERSION);
+				debugPrintf("serverVersion: %s", serverVersion);
+
+                char newVerZipName[256];
+                if(strverscmp(NUSSPLI_VERSION, serverVersion) < 0)
+				{
+                    const char *newVer = json_string_value(jsonObj) + 1;
+					strcpy(newVerZipName, "NUSspli-");
+					strcat(newVerZipName, newVer);
+				#ifdef NUSSPLI_HBL
+					strcat(newVerZipName, "-HBL");
 #else
-                            ret = updateMenu(newVer, isAroma() ? NUSSPLI_TYPE_AROMA : NUSSPLI_TYPE_CHANNEL);
+					strcat(newVerZipName, isAroma() ? "-Aroma" : "-Channel");
 #endif
-                        break;
-                    case 2: // Type deprecated, update to what the server suggests
-                        const char *nv = json_string_value(json_object_get(json, "v"));
-                        ret = nv != NULL;
-                        if(ret)
-                        {
-                            int t = json_integer_value(json_object_get(json, "t"));
-                            if(t)
-                                ret = updateMenu(nv, t);
-                            else
-                                ret = false;
-                        }
-                        break;
-                    case 3: // TODO
-                    case 4:
-                        showUpdateError(gettext("Internal server error!"));
-                        break;
-                    default: // TODO
-                        showUpdateErrorf("%s: %d", gettext("Invalid state value"), json_integer_value(jsonObj));
-                        break;
+					strcat(newVerZipName, NUSSPLI_DLVER ".zip");
+                    size_t index;
+					json_t *value;
+					bool foundZip = false;
+
+					json_array_foreach(jsonAssetsObj, index, value)
+					{
+						char serverZipName[256];
+						json_t *serverZipNameObj = json_object_get(value, "name");
+						if(serverZipNameObj != NULL && json_is_string(serverZipNameObj))
+						{
+							strcpy(serverZipName, json_string_value(serverZipNameObj));
+							if(strcmp(newVerZipName, serverZipName) == 0)
+							{
+								foundZip = true;
+								break;
+							}
+						}
+					}
+                    #ifdef NUSSPLI_HBL
+					if(foundZip)
+						ret = updateMenu(newVer, NUSSPLI_TYPE_HBL);
+					else
+						showUpdateErrorf("%s not found in the server,\nperhaps this version is deprecated?", newVerZipName);
+#else
+					if(foundZip)
+						ret = updateMenu(newVer, isAroma() ? NUSSPLI_TYPE_AROMA : NUSSPLI_TYPE_CHANNEL);
+					else
+						showUpdateErrorf("%s not found in the server,\nperhaps this version is deprecated?", newVerZipName);
+#endif
                 }
             }
             else
@@ -165,7 +185,7 @@ bool updateCheck()
             debugPrintf("Invalid JSON data");
     }
     else
-        debugPrintf("Error downloading %s", updateChkUrl);
+        debugPrintf("Error downloading %s", UPDATE_GITHUB_API);
 
     clearRamBuf();
     return ret;

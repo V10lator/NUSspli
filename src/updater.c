@@ -55,7 +55,7 @@
 #include <jansson.h>
 
 #define UPDATE_DOWNLOAD_URL "https://github.com/V10lator/NUSspli/releases/download/v"
-#define UPDATE_GITHUB_API "https://api.github.com/repos/V10lator/NUSspli/releases/latest"
+#define UPDATE_GITHUB_API   "https://api.github.com/repos/V10lator/NUSspli/releases/latest"
 #define UPDATE_TEMP_FOLDER  NUSDIR_SD "NUSspli_temp/"
 #define UPDATE_AROMA_FOLDER NUSDIR_SD "wiiu/apps/"
 #define UPDATE_AROMA_FILE   "NUSspli.wuhb"
@@ -69,13 +69,13 @@
 
 static bool isBeta()
 {
-	if (strstr(NUSSPLI_VERSION, "BETA") != NULL) 
-		return true;
+    if(strstr(NUSSPLI_VERSION, "BETA") != NULL)
+        return true;
 
-	if (strstr(NUSSPLI_VERSION, "ALPHA") != NULL) 
-		return true;
+    if(strstr(NUSSPLI_VERSION, "ALPHA") != NULL)
+        return true;
 
-	return false;
+    return false;
 }
 
 static void showUpdateError(const char *msg)
@@ -109,7 +109,7 @@ static void showUpdateErrorf(const char *msg, ...)
 bool updateCheck()
 {
     if(!updateCheckEnabled() || isBeta())
-		return false;
+        return false;
 
     bool ret = false;
     if(downloadFile(UPDATE_GITHUB_API, "JSON", NULL, FILE_TYPE_JSON | FILE_TYPE_TORAM, false) == 0)
@@ -124,55 +124,55 @@ bool updateCheck()
         if(json != NULL)
         {
             json_t *jsonObj = json_object_get(json, "name");
-			json_t *jsonAssetsObj = json_object_get(json, "assets");
+            json_t *jsonAssetsObj = json_object_get(json, "assets");
             if(jsonObj != NULL && json_is_string(jsonObj))
             {
                 char serverVersion[16];
-				strcpy(serverVersion, json_string_value(jsonObj) + 1);
+                strcpy(serverVersion, json_string_value(jsonObj) + 1);
 
                 debugPrintf("currentVersion: %s", NUSSPLI_VERSION);
-				debugPrintf("serverVersion: %s", serverVersion);
+                debugPrintf("serverVersion: %s", serverVersion);
 
                 char newVerZipName[256];
                 if(strverscmp(NUSSPLI_VERSION, serverVersion) < 0)
-				{
+                {
                     const char *newVer = json_string_value(jsonObj) + 1;
-					strcpy(newVerZipName, "NUSspli-");
-					strcat(newVerZipName, newVer);
-				#ifdef NUSSPLI_HBL
-					strcat(newVerZipName, "-HBL");
+                    strcpy(newVerZipName, "NUSspli-");
+                    strcat(newVerZipName, newVer);
+#ifdef NUSSPLI_HBL
+                    strcat(newVerZipName, "-HBL");
 #else
-					strcat(newVerZipName, isAroma() ? "-Aroma" : "-Channel");
+                    strcat(newVerZipName, isAroma() ? "-Aroma" : "-Channel");
 #endif
-					strcat(newVerZipName, NUSSPLI_DLVER ".zip");
+                    strcat(newVerZipName, NUSSPLI_DLVER ".zip");
                     size_t index;
-					json_t *value;
-					bool foundZip = false;
+                    json_t *value;
+                    bool foundZip = false;
 
-					json_array_foreach(jsonAssetsObj, index, value)
-					{
-						char serverZipName[256];
-						json_t *serverZipNameObj = json_object_get(value, "name");
-						if(serverZipNameObj != NULL && json_is_string(serverZipNameObj))
-						{
-							strcpy(serverZipName, json_string_value(serverZipNameObj));
-							if(strcmp(newVerZipName, serverZipName) == 0)
-							{
-								foundZip = true;
-								break;
-							}
-						}
-					}
-                    #ifdef NUSSPLI_HBL
-					if(foundZip)
-						ret = updateMenu(newVer, NUSSPLI_TYPE_HBL);
-					else
-						showUpdateErrorf("%s not found in the server,\nperhaps this version is deprecated?", newVerZipName);
+                    json_array_foreach(jsonAssetsObj, index, value)
+                    {
+                        char serverZipName[256];
+                        json_t *serverZipNameObj = json_object_get(value, "name");
+                        if(serverZipNameObj != NULL && json_is_string(serverZipNameObj))
+                        {
+                            strcpy(serverZipName, json_string_value(serverZipNameObj));
+                            if(strcmp(newVerZipName, serverZipName) == 0)
+                            {
+                                foundZip = true;
+                                break;
+                            }
+                        }
+                    }
+#ifdef NUSSPLI_HBL
+                    if(foundZip)
+                        ret = updateMenu(newVer, NUSSPLI_TYPE_HBL);
+                    else
+                        showUpdateErrorf("%s not found in the server,\nperhaps this version is deprecated?", newVerZipName);
 #else
-					if(foundZip)
-						ret = updateMenu(newVer, isAroma() ? NUSSPLI_TYPE_AROMA : NUSSPLI_TYPE_CHANNEL);
-					else
-						showUpdateErrorf("%s not found in the server,\nperhaps this version is deprecated?", newVerZipName);
+                    if(foundZip)
+                        ret = updateMenu(newVer, isAroma() ? NUSSPLI_TYPE_AROMA : NUSSPLI_TYPE_CHANNEL);
+                    else
+                        showUpdateErrorf("%s not found in the server,\nperhaps this version is deprecated?", newVerZipName);
 #endif
                 }
             }

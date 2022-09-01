@@ -144,22 +144,16 @@ bool updateCheck()
 			json_t *jsonAssetsObj = json_object_get(json, "assets");
 			if(jsonObj != NULL && json_is_string(jsonObj))
 			{
-				char serverVersionChar[16];
-				strcpy(serverVersionChar, json_string_value(jsonObj) + 1);
-				removeChars(serverVersionChar, '.');
-				for (int i = 0; i < strlen(NUSSPLI_DLVER); i++)
-					removeChars(serverVersionChar, NUSSPLI_DLVER[i]);
-				const int serverVersion = atoi(serverVersionChar);
+				char serverVersion[16];
+				strcpy(serverVersion, json_string_value(jsonObj) + 1);
 
-				char *currentVersionChar = NUSSPLI_VERSION;
-				removeChars(currentVersionChar, '.');
-				const int currentVersion = atoi(currentVersionChar);
+				char *currentVersion = NUSSPLI_VERSION;
 
 				debugPrintf("currentVersion: %i", currentVersion);
 				debugPrintf("serverVersion: %i", serverVersion);
 
 				char newVerZipName[256];
-				if(serverVersion > currentVersion)
+				if(strverscmp(currentVersion, serverVersion) < 0)
 				{
 					const char *newVer = json_string_value(jsonObj) + 1;
 					strcat(newVerZipName, "NUSspli-");

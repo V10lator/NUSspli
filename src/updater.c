@@ -67,16 +67,6 @@
 	#define NUSSPLI_DLVER ""
 #endif
 
-static void removeChars(char* s, char c)
-{
-    int j, n = strlen(s);
-    for (int i = j = 0; i < n; i++)
-        if (s[i] != c)
-            s[j++] = s[i];
- 
-    s[j] = '\0';
-}
-
 static bool isBeta()
 {
 	if (strstr(NUSSPLI_VERSION, "BETA") != NULL) 

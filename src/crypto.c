@@ -176,7 +176,7 @@ static const OSSL_DISPATCH custom_rand_method[] = {
     { 0, NULL }
 };
 
-static int custom_rand_provider_init(ossl_unused const OSSL_CORE_HANDLE *handle,ossl_unused  const OSSL_DISPATCH *in, const OSSL_DISPATCH **out, void **provctx)
+static int custom_rand_provider_init(ossl_unused const OSSL_CORE_HANDLE *handle, ossl_unused const OSSL_DISPATCH *in, const OSSL_DISPATCH **out, void **provctx)
 {
     *provctx = OSSL_LIB_CTX_new();
     if(*provctx == NULL)

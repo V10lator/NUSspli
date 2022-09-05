@@ -89,3 +89,8 @@ if not isBeta:
     for file in tmpArray:
         shutil.copy(file, "out/HBL/NUSspli")
     shutil.make_archive(f"zips/NUSspli-{version}-HBL", "zip", "out/HBL", ".")
+
+os.chmod("out" , 0o777)
+for root,dirs,_ in os.walk("out"):
+    for d in dirs:
+        os.chmod(os.path.join(root, d) , 0o777)

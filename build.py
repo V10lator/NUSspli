@@ -4,7 +4,7 @@ import xml.etree.cElementTree as ET
 import os
 import shutil
 
-nuspacker = "../nuspacker/NUSPacker.jar"    # Set path to NUSPacker.jar here. will be downloaded if empty
+cnuspacker = "../CNUSPacker/CNUSPacker.run" # Set path to NUSPacker.jar here. will be downloaded if empty
 wuhbtool = ""                               # Set path to wuhbtool. Will use the one from PATH if empty
 ForceRelease = False                        # set to True to force release builds even if we'e building ALPHA/BETA
 
@@ -62,7 +62,7 @@ tmpArray = ["NUSspli.rpx", "NUStmp/meta/app.xml",  "NUStmp/meta/cos.xml"]
 for file in tmpArray:
     shutil.move(file, "NUStmp/code")
 shutil.copytree("data", "NUStmp/content")
-os.system(f"java -jar {nuspacker} -in NUStmp -out out/Channel-DEBUG/NUSspli")
+os.system(f"{cnuspacker} --target cnuspacker_tmp -- -in ../NUStmp -out ../out/Channel-DEBUG/NUSspli")
 shutil.make_archive(f"zips/NUSspli-{version}-Channel-DEBUG", "zip", "out/Channel-DEBUG", ".")
 
 if not isBeta:
@@ -72,9 +72,10 @@ if not isBeta:
     os.remove("NUStmp/code/NUSspli.rpx")
     shutil.move("NUSspli.rpx", "NUStmp/code")
     os.makedirs("out/Channel")
-    os.system(f"java -jar {nuspacker} -in NUStmp -out out/Channel/NUSspli")
+    os.system(f"{cnuspacker} --target cnuspacker_tmp -- -in ../NUStmp -out ../out/Channel/NUSspli")
     shutil.make_archive(f"zips/NUSspli-{version}-Channel", "zip", "out/Channel", ".")
 
+shutil.rmtree("cnuspacker_tmp")
 shutil.rmtree("NUStmp")
 os.system("make clean && make HBL=1 -j$(nproc) debug")
 tmpArray = ["NUSspli.rpx", "meta/hbl/meta.xml", "meta/hbl/icon.png"]

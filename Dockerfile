@@ -3,7 +3,6 @@ FROM wiiuenv/devkitppc:20220806 AS final
 
 ENV openssl_ver=3.0.5 \
  curl_ver=7.85.0 \
- DEBIAN_FRONTEND=noninteractive \
  PATH=$DEVKITPPC/bin:$PATH \
  WUT_ROOT=$DEVKITPRO/wut
 WORKDIR /
@@ -11,7 +10,7 @@ WORKDIR /
 RUN mkdir -p /usr/share/man/man1 /usr/share/man/man2 && \
  /bin/bash -c "$(curl -sL https://raw.githubusercontent.com/V10lator/NUSspli/master/apt-fast/install.sh)" && \
  apt-fast -y --no-install-recommends upgrade && \
- apt-fast -y install --no-install-recommends autoconf automake libtool openjdk-11-jre-headless && \
+ apt-fast -y install --no-install-recommends autoconf automake libtool && \
  apt-fast clean && \
  wget https://www.openssl.org/source/openssl-$openssl_ver.tar.gz && \
  mkdir /openssl && \
@@ -111,8 +110,9 @@ PKG_CONFIG=$DEVKITPRO/portlibs/wiiu/bin/powerpc-eabi-pkg-config && \
  make install && \
  cd .. && \
  rm -rf libromfs-wiiu && \
- mkdir /nuspacker && \
- cd /nuspacker && \
- wget https://github.com/Maschell/nuspacker/raw/master/NUSPacker.jar
+ mkdir /CNUSPacker && \
+ cd /CNUSPacker && \
+ wget https://github.com/Xpl0itU/CNUS_Packer/releases/download/v1.2/CNUSPacker.run && \
+ chmod +x CNUSPacker.run
 
 WORKDIR /project

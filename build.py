@@ -91,6 +91,8 @@ if not isBeta:
     shutil.make_archive(f"zips/NUSspli-{version}-HBL", "zip", "out/HBL", ".")
 
 os.chmod("out" , 0o777)
-for root,dirs,_ in os.walk("out"):
+for root, dirs, files in os.walk("out"):
     for d in dirs:
         os.chmod(os.path.join(root, d) , 0o777)
+    for f in files:
+        os.chmod(os.path.join(root, f) , 0o777)

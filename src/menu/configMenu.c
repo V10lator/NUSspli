@@ -201,7 +201,7 @@ void configMenu()
     drawConfigMenu();
 
     bool redraw = false;
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;

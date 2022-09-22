@@ -160,13 +160,13 @@ static int asyncTitleLoader(int argc, const char **argv)
     do
     {
         meta = MEMAllocFromDefaultHeapEx(sizeof(ACPMetaXml), 0x40);
-    } while(meta == NULL && asyncState && AppRunning());
+    } while(meta == NULL && asyncState && AppRunning(false));
 
     size_t min = MAX_ITITLEBROWSER_LINES >> 1;
     size_t max = ititleEntrySize - 1;
     size_t cur;
 
-    while(min <= max && AppRunning())
+    while(min <= max && AppRunning(false))
     {
         switch(asyncState)
         {
@@ -299,7 +299,7 @@ void ititleBrowserMenu()
     bool dpadAction;
 
 loopEntry:
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
@@ -456,7 +456,7 @@ loopEntry:
         }
     }
 
-    if(AppRunning())
+    if(AppRunning(true))
     {
         volatile INST_META *im = installedTitles + cursor + pos;
         char *toFrame = getToFrameBuffer();
@@ -476,7 +476,7 @@ loopEntry:
         strcat(toFrame, gettext("No"));
         int r = addErrorOverlay(toFrame);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             showFrame();
 
@@ -491,7 +491,7 @@ loopEntry:
 
         removeErrorOverlay(r);
 
-        if(checkSystemTitle(entry->titleId, MCP_REGION_UNKNOWN) && AppRunning())
+        if(checkSystemTitle(entry->titleId, MCP_REGION_UNKNOWN) && AppRunning(true))
             deinstall(entry, (const char *)im->name, false, false);
         else
             goto loopEntry;

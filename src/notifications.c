@@ -45,7 +45,6 @@ static uint32_t pId;
 
 static int rumbleThreadMain(int argc, const char **argv)
 {
-    int i;
     OSMessage msg;
 
     do
@@ -53,19 +52,13 @@ static int rumbleThreadMain(int argc, const char **argv)
         OSReceiveMessage(&rumble_queue, &msg, OS_MESSAGE_FLAGS_BLOCKING);
         if(msg.message == NUSSPLI_MESSAGE_NONE)
         {
-            i = 3;
-            for(; i > 1; i--)
-                VPADControlMotor(VPAD_CHAN_0, (uint8_t *)pattern, 120);
+            for(WPADChan j = 0; j < 4; ++j)
+                WPADControlMotor(j, 1);
 
-            for(; i > -1; i--)
-            {
-                for(WPADChan j = 0; j < 4; ++j)
-                    WPADControlMotor(j, i);
+            OSSleepTicks(OSSecondsToTicks(1));
 
-                OSSleepTicks(OSSecondsToTicks(i));
-            }
-
-            VPADStopMotor(VPAD_CHAN_0);
+            for(WPADChan j = 0; j < 4; ++j)
+                WPADControlMotor(j, 0);
         }
     } while(msg.message != NUSSPLI_MESSAGE_EXIT);
 
@@ -96,6 +89,7 @@ void startNotification()
     {
         OSMessage msg = { .message = NUSSPLI_MESSAGE_NONE };
         OSSendMessage(&rumble_queue, &msg, OS_MESSAGE_FLAGS_NONE);
+        VPADControlMotor(VPAD_CHAN_0, (uint8_t *)pattern, 120);
     }
     if(getNotificationMethod() & NOTIF_METHOD_LED)
         ACPTurnOnDrcLed(pId, LED_ON);

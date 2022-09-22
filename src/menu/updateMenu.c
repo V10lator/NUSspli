@@ -56,7 +56,7 @@ bool updateMenu(const char *newVersion, NUSSPLI_TYPE type)
 {
     drawUpdateMenuFrame(newVersion);
 
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;

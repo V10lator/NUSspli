@@ -41,6 +41,47 @@
 
 int mcpHandle;
 
+bool isNumber(char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+bool isLowercase(char c)
+{
+    return c >= 'a' && c <= 'z';
+}
+
+bool isUppercase(char c)
+{
+    return c >= 'A' && c <= 'Z';
+}
+
+bool isAlphanumerical(char c)
+{
+    return isLowercase(c) || isUppercase(c) || isNumber(c);
+}
+
+// Keep it to ASCII for FTPiiU compat.
+bool isAllowedInFilename(char c)
+{
+    return c >= ' ' && c <= '~' && c != '/' && c != '\\' && c != '"' && c != '*' && c != ':' && c != '<' && c != '>' && c != '?' && c != '|';
+}
+
+bool isLowercaseHexa(char c)
+{
+    return isNumber(c) || (c >= 'a' && c <= 'f');
+}
+
+bool isUppercaseHexa(char c)
+{
+    return isNumber(c) || (c >= 'A' && c <= 'F');
+}
+
+bool isHexa(char c)
+{
+    return isLowercaseHexa(c) || isUppercaseHexa(c);
+}
+
 void hex(uint64_t i, int digits, char *out)
 {
     char x[8]; // max 99 digits!

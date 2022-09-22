@@ -50,6 +50,7 @@
 
 #include <coreinit/filesystem.h>
 #include <coreinit/memdefaultheap.h>
+#include <coreinit/memory.h>
 #include <coreinit/thread.h>
 #include <coreinit/time.h>
 #include <curl/curl.h>
@@ -57,17 +58,14 @@
 #include <nn/result.h>
 #include <nsysnet/_socket.h>
 
-#include <openssl/err.h>
-#include <openssl/rand.h>
-#include <openssl/ssl.h>
-#include <openssl/x509.h>
+#include <mbedtls/entropy.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/x509_crt.h>
 
 #define USERAGENT        "NUSspli/" NUSSPLI_VERSION // TODO: Spoof eShop here?
 #define DLBGT_STACK_SIZE 0x1000
 #define DLT_STACK_SIZE   0x4000
 #define SOCKLIB_BUFSIZE  (IO_BUFSIZE * 2) // double buffering
-
-static STACK_OF(X509_INFO) * inf;
 
 static volatile char *ramBuf = NULL;
 static volatile size_t ramBufSize = 0;
@@ -98,7 +96,7 @@ typedef struct
 static int progressCallback(void *rawData, double dltotal, double dlnow, double ultotal, double ulnow)
 {
     curlProgressData *data = (curlProgressData *)rawData;
-    if(!AppRunning())
+    if(!AppRunning(false))
         data->error = CURLE_ABORTED_BY_CALLBACK;
 
     if(data->error != CURLE_OK)
@@ -215,30 +213,10 @@ static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
     return CURL_SOCKOPT_OK;
 }
 
-static CURLcode certloader(CURL *curl, void *sslctx, void *parm)
+static CURLcode ssl_ctx_init(CURL *curl, void *sslctx, void *parm)
 {
-    if(inf == NULL)
-        return CURLE_OK;
-
-    X509_STORE *cts = SSL_CTX_get_cert_store((SSL_CTX *)sslctx);
-    if(cts != NULL)
-    {
-        X509_INFO *itmp;
-        int i = 0;
-        for(; i < sk_X509_INFO_num(inf); ++i)
-        {
-            itmp = sk_X509_INFO_value(inf, i);
-            if(itmp->x509)
-                X509_STORE_add_cert(cts, itmp->x509);
-            if(itmp->crl)
-                X509_STORE_add_crl(cts, itmp->crl);
-        }
-        debugPrintf("%d certs loaded!", i);
-        return CURLE_OK;
-    }
-
-    debugPrintf("SSL_CTX_get_cert_store failed!");
-    return CURLE_ABORTED_BY_CALLBACK;
+    mbedtls_ssl_conf_rng((mbedtls_ssl_config *)sslctx, NUSrng, NULL);
+    return CURLE_OK;
 }
 
 #define killDlbgThread()                  \
@@ -276,86 +254,80 @@ bool initDownloader()
     if(dlbgThread == NULL)
         return false;
 
-    inf = sk_X509_INFO_new_null();
-    if(inf != NULL)
+    char *fn = getStaticPathBuffer(2);
+    strcpy(fn, ROMFS_PATH "ca-certificates/");
+    struct curl_blob blob = { .data = NULL, .len = 0, .flags = CURL_BLOB_COPY };
+
+#ifndef NUSSPLI_HBL
+    FSDirectoryHandle dir;
+    if(FSOpenDir(__wut_devoptab_fs_client, getCmdBlk(), fn, &dir, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+#else
+    DIR *dir = opendir(fn);
+    if(dir != NULL)
+#endif
     {
-        char *fn = getStaticPathBuffer(2);
-        strcpy(fn, ROMFS_PATH "ca-certificates/");
+        char *ptr = fn + strlen(fn);
         void *buf;
         size_t bufsize;
-        BIO *bio;
+        size_t oldcertsize = 0;
+        void *tmp;
 #ifndef NUSSPLI_HBL
-        FSDirectoryHandle dir;
-        if(FSOpenDir(__wut_devoptab_fs_client, getCmdBlk(), fn, &dir, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+        FSDirectoryEntry entry;
+        while(FSReadDir(__wut_devoptab_fs_client, getCmdBlk(), dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
         {
-            char *ptr = fn + strlen(fn);
-            STACK_OF(X509_INFO) * inft;
-            FSDirectoryEntry entry;
-            while(FSReadDir(__wut_devoptab_fs_client, getCmdBlk(), dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
-            {
-                strcpy(ptr, entry.name);
-                bufsize = readFile(fn, &buf);
-                if(buf == NULL)
-                    continue;
+            if(entry.name[0] == '.')
+                continue;
 
-                bio = BIO_new_mem_buf(buf, bufsize);
-                if(bio != NULL)
-                {
-                    inft = PEM_X509_INFO_read_bio(bio, inf, NULL, NULL);
-#ifdef NUSSPLI_DEBUG
-                    if(inft == NULL)
-                        debugPrintf("Error reading %s: %s!", fn, ERR_reason_error_string(ERR_get_error()));
-                    else
-                        debugPrintf("Cert %s loaded!", fn);
-#endif
-                }
-                else
-                    debugPrintf("Error creating BIO for %s!", fn);
-
-                BIO_free(bio); // BIO_get_close(bio) == BIO_CLOSE, so it frees the underlying buffer for us.
-            }
-
-            FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
-        }
+            strcpy(ptr, entry.name);
 #else
-        DIR *dir = opendir(fn);
-        if(dir != NULL)
+        for(struct dirent *entry = readdir(dir); entry != NULL; entry = readdir(dir))
         {
-            char *ptr = fn + strlen(fn);
-            STACK_OF(X509_INFO) * inft;
-            for(struct dirent *entry = readdir(dir); entry != NULL; entry = readdir(dir))
-            {
-                if(entry->d_name[0] == '.')
-                    continue;
+            if(entry->d_name[0] == '.')
+                continue;
 
-                strcpy(ptr, entry->d_name);
-                bufsize = readFile(fn, &buf);
-                if(buf == NULL)
-                    continue;
-
-                bio = BIO_new_mem_buf(buf, bufsize);
-                if(bio != NULL)
-                {
-                    inft = PEM_X509_INFO_read_bio(bio, inf, NULL, NULL);
-#ifdef NUSSPLI_DEBUG
-                    if(inft == NULL)
-                        debugPrintf("Error reading %s: %s!", fn, ERR_reason_error_string(ERR_get_error()));
-                    else
-                        debugPrintf("Cert %s loaded!", fn);
+            strcpy(ptr, entry->d_name);
 #endif
-                }
-                else
-                    debugPrintf("Error creating BIO for %s!", fn);
+            bufsize = readFile(fn, &buf);
+            if(buf == NULL)
+                continue;
 
-                BIO_free(bio); // BIO_get_close(bio) == BIO_CLOSE, so it frees the underlying buffer for us.
+            oldcertsize = blob.len;
+            blob.len += bufsize;
+            if(blob.data == NULL)
+            {
+                blob.data = MEMAllocFromDefaultHeap(blob.len);
+                if(blob.data == NULL)
+                {
+                    blob.len = 0;
+                    continue;
+                }
+            }
+            else
+            {
+                tmp = blob.data;
+                blob.data = MEMAllocFromDefaultHeap(blob.len);
+                if(blob.data == NULL)
+                {
+                    blob.data = tmp;
+                    blob.len -= bufsize;
+                    continue;
+                }
+
+                OSBlockMove(blob.data, tmp, oldcertsize, false);
+                MEMFreeToDefaultHeap(tmp);
             }
 
-            closedir(dir);
+            OSBlockMove(blob.data + oldcertsize, buf, bufsize, false);
         }
+
+#ifndef NUSSPLI_HBL
+        FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
+#else
+        closedir(dir);
 #endif
-        else
-            debugPrintf("Error opening %s!", fn);
     }
+    else
+        debugPrintf("Error opening %s!", fn);
 
     CURLcode ret = curl_global_init(CURL_GLOBAL_DEFAULT & ~(CURL_GLOBAL_SSL));
     if(ret == CURLE_OK)
@@ -384,9 +356,26 @@ bool initDownloader()
                                 ret = curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
                                 if(ret == CURLE_OK)
                                 {
-                                    ret = curl_easy_setopt(curl, CURLOPT_SSL_CTX_FUNCTION, certloader);
+                                    ret = curl_easy_setopt(curl, CURLOPT_SSL_CTX_FUNCTION, ssl_ctx_init);
                                     if(ret == CURLE_OK)
-                                        return true;
+                                    {
+                                        ret = curl_easy_setopt(curl, CURLOPT_CAINFO_BLOB, blob);
+                                        if(ret == CURLE_OK)
+                                        {
+                                            ret = curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1L);
+                                            if(ret == CURLE_OK)
+                                            {
+                                                ret = curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 60L);
+                                                if(ret == CURLE_OK)
+                                                {
+                                                    if(blob.data != NULL)
+                                                        MEMFreeToDefaultHeap(blob.data);
+
+                                                    return true;
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -407,21 +396,14 @@ bool initDownloader()
     }
 
     killDlbgThread();
-    if(inf != NULL)
-    {
-        sk_X509_INFO_free(inf);
-        inf = NULL;
-    }
+    if(blob.data != NULL)
+        MEMFreeToDefaultHeap(blob.data);
+
     return false;
 }
 
 void deinitDownloader()
 {
-    if(inf != NULL)
-    {
-        sk_X509_INFO_free(inf);
-        inf = NULL;
-    }
     if(curl != NULL)
     {
         curl_easy_cleanup(curl);
@@ -447,44 +429,44 @@ static int dlThreadMain(int argc, const char **argv)
         x.dlnow = x.dltotal = 0.0D;              \
     }
 
-static const char *translateCurlError(CURLcode err, char *curlError)
+static const char *translateCurlError(CURLcode err, const char *curlError)
 {
     const char *ret;
     switch(err)
     {
         case CURLE_COULDNT_RESOLVE_HOST:
-            ret = gettext("Couldn't resolve hostname");
+            ret = "Couldn't resolve hostname";
             break;
         case CURLE_COULDNT_CONNECT:
-            ret = gettext("Couldn't connect to server");
+            ret = "Couldn't connect to server";
             break;
         case CURLE_OPERATION_TIMEDOUT:
-            ret = gettext("Operation timed out");
+            ret = "Operation timed out";
             break;
         case CURLE_GOT_NOTHING:
-            ret = gettext("The server didn't return any data");
+            ret = "The server didn't return any data";
             break;
         case CURLE_SEND_ERROR:
         case CURLE_RECV_ERROR:
         case CURLE_PARTIAL_FILE:
-            ret = gettext("I/O error");
+            ret = "I/O error";
             break;
         case CURLE_PEER_FAILED_VERIFICATION:
-            ret = gettext("Verification failed");
+            ret = "Verification failed";
             break;
         case CURLE_SSL_CONNECT_ERROR:
-            ret = gettext("Handshake failed");
+            ret = "Handshake failed";
             break;
 
         case CURLE_FAILED_INIT:
         case CURLE_READ_ERROR:
         case CURLE_OUT_OF_MEMORY:
-            return gettext("Internal error");
+            return "Internal error";
         default:
-            return gettext("Unknown libcurl error");
+            return curlError[0] == '\0' ? "Unknown libcurl error" : curlError;
     }
 
-    return curlError[0] == '\0' ? ret : curlError;
+    return ret;
 }
 
 int downloadFile(const char *url, char *file, downloadData *data, FileType type, bool resume)
@@ -609,7 +591,6 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     OSTick lastTransfair = OSGetTick();
     OSTick ent;
     int frames = 1;
-    int ltframes = 0;
     uint32_t fileeta;
     uint32_t totaleta;
     while(cdata.running)
@@ -690,14 +671,6 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
                 }
 
                 lastTransfair = now;
-                if(dltotal < 0.01D)
-                {
-                    if(++ltframes == 30)
-                        cdata.error = CURLE_OPERATION_TIMEDOUT;
-                }
-                else
-                    ltframes = 0;
-
                 getSpeedString(dltotal, toScreen);
                 textToFrame(0, ALIGNED_RIGHT, toScreen);
             }
@@ -765,7 +738,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
 
         showFrame();
 
-        if(!AppRunning())
+        if(!AppRunning(true))
             break;
 
         if(cancelOverlayId < 0)
@@ -838,11 +811,11 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
             case CURLE_SEND_ERROR:
             case CURLE_RECV_ERROR:
             case CURLE_PARTIAL_FILE:
-                sprintf(toScreen, "%s:\n\t%s\n\n%s", gettext("Network error"), te, gettext("check the network settings and try again"));
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", "Network error", te, "check the network settings and try again");
                 break;
             case CURLE_PEER_FAILED_VERIFICATION:
             case CURLE_SSL_CONNECT_ERROR:
-                sprintf(toScreen, "%s:\n\t%s!\n\n%s", gettext("SSL error"), te, gettext("check your Wii Us date and time settings"));
+                sprintf(toScreen, "%s:\n\t%s!\n\n%s", "SSL error", te, "check your Wii Us date and time settings");
                 break;
             default:
                 sprintf(toScreen, "%s:\n\t%d %s", te, ret, curlError);
@@ -871,7 +844,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
             drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
 
         int s;
-        while(AppRunning())
+        while(AppRunning(true))
         {
             if(app == APP_STATE_BACKGROUND)
                 continue;
@@ -933,7 +906,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
             strcat(toScreen, gettext("The title cannot be found on the NUS, maybe the provided title ID doesn't exists or\nthe TMD was deleted"));
             drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
 
-            while(AppRunning())
+            while(AppRunning(true))
             {
                 if(app == APP_STATE_BACKGROUND)
                     continue;
@@ -964,7 +937,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
 
             drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
 
-            while(AppRunning())
+            while(AppRunning(true))
             {
                 if(app == APP_STATE_BACKGROUND)
                     continue;
@@ -1035,7 +1008,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
             strcpy(toScreen, translateFSErr(err));
             drawErrorFrame(toScreen, ANY_RETURN);
 
-            while(AppRunning())
+            while(AppRunning(true))
             {
                 if(app == APP_STATE_BACKGROUND)
                     continue;
@@ -1069,7 +1042,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
             strcpy(toScreen, translateFSErr(err));
             drawErrorFrame(toScreen, ANY_RETURN);
 
-            while(AppRunning())
+            while(AppRunning(true))
             {
                 if(app == APP_STATE_BACKGROUND)
                     continue;
@@ -1095,7 +1068,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     {
         drawErrorFrame("Can't save title.tmd file!", ANY_RETURN);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             if(app == APP_STATE_BACKGROUND)
                 continue;
@@ -1197,7 +1170,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     else
         addToScreenLog("title.tik skipped!");
 
-    if(!AppRunning())
+    if(!AppRunning(true))
         return false;
 
     strcpy(idp, "title.cert");
@@ -1214,7 +1187,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
         else
             return false;
 
-        if(!AppRunning())
+        if(!AppRunning(true))
             return false;
     }
     else
@@ -1241,7 +1214,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     char *dupp = dup + 8;
     char *idpp = idp + 8;
     char cid[9];
-    for(int i = 0; i < tmd->num_contents && AppRunning(); ++i)
+    for(int i = 0; i < tmd->num_contents && AppRunning(true); ++i)
     {
         hex(tmd->contents[i].cid, 8, cid);
         strcpy(dup, cid);
@@ -1273,7 +1246,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     if(cancelOverlayId >= 0)
         closeCancelOverlay();
 
-    if(!AppRunning())
+    if(!AppRunning(true))
     {
         enableApd();
         return false;
@@ -1283,7 +1256,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     if(inst)
     {
         *idp = '\0';
-        ret = install(titleEntry->name, hasDependencies, dlDev, installDir, toUSB, keepFiles, tmd->tid);
+        ret = install(titleEntry->name, hasDependencies, dlDev, installDir, toUSB, keepFiles, tmd);
     }
     else
         ret = true;

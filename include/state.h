@@ -54,7 +54,7 @@ extern "C"
 #else
 bool isChannel();
 #endif
-    bool AppRunning() __attribute__((__hot__));
+    bool AppRunning(bool mainthread) __attribute__((__hot__));
     uint32_t homeButtonCallback(void *dummy);
 
 #ifdef __cplusplus

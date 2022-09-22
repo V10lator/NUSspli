@@ -124,9 +124,8 @@ refreshDirList:
         size_t len;
         FSDirectoryEntry entry;
         while(FSReadDir(__wut_devoptab_fs_client, getCmdBlk(), dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
-            if(entry.info.flags & FS_STAT_DIRECTORY) // Check if it's a directory
+            if(entry.info.flags & FS_STAT_DIRECTORY && entry.name[0] != '.') // Check if it's a directory
             {
-
                 len = strlen(entry.name);
                 name = MEMAllocFromDefaultHeap(len + 2);
                 if(name == NULL)
@@ -159,7 +158,7 @@ refreshDirList:
     uint32_t oldHold = 0;
     size_t frameCount = 0;
     bool dpadAction;
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;

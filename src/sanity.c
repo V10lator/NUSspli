@@ -33,6 +33,8 @@
 #include <coreinit/time.h>
 #include <coreinit/title.h>
 
+#include <mbedtls/md5.h>
+
 #define MD5_FILES 2
 
 static const uint32_t md5[MD5_FILES][16] = {
@@ -58,7 +60,7 @@ bool sanityCheck()
         if(buf == NULL)
             return false;
 
-        getMD5(buf, s, m);
+        mbedtls_md5(buf, s, (unsigned char *)m);
         for(int j = 0; j < 4; ++j)
         {
             if(m[j] != md5[i][j])

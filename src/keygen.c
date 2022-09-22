@@ -18,7 +18,8 @@
 
 #include <wut-fixups.h>
 
-#include <openssl/evp.h>
+#include <mbedtls/md5.h>
+#include <mbedtls/pkcs5.h>
 
 #include <crypto.h>
 #include <otp.h>
@@ -81,13 +82,14 @@ bool generateKey(const TitleEntry *te, char *out)
     // The salt is a md5 hash of the keygen secret + part of the title key
     OSBlockMove(key, KEYGEN_SECRET, 10, false);
     OSBlockMove(key + 10, ++ti, i, false);
-    if(!getMD5(key, j, key))
-        return false;
+    mbedtls_md5(key, j, key);
 
     // The key is the password salted with the md5 hash from above
     const char *pw = transformPassword(te->key);
     debugPrintf("Using password \"%s\"", pw);
-    if(PKCS5_PBKDF2_HMAC_SHA1(pw, strlen(pw), key, 16, 20, 16, key) == 0)
+    mbedtls_md_context_t ctx;
+    mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA1), 1);
+    if(mbedtls_pkcs5_pbkdf2_hmac(&ctx, (const unsigned char *)pw, strlen(pw), key, 16, 20, 16, key) != 0)
         return false;
 
     // The final key needs to be AES encrypted with the Wii U common key and part of the title ID padded with zeroes as IV

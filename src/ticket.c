@@ -54,7 +54,7 @@ bool generateTik(const char *path, const TitleEntry *titleEntry)
         sprintf(err, "%s\n%s", gettext("Could not open path"), prettyDir(path));
         drawErrorFrame(err, ANY_RETURN);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             showFrame();
 
@@ -122,7 +122,7 @@ bool generateCert(const char *path)
         sprintf(err, "%s\n%s", gettext("Could not open path"), prettyDir(path));
         drawErrorFrame(err, ANY_RETURN);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             showFrame();
 
@@ -204,7 +204,7 @@ void generateFakeTicket()
     {
         drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             showFrame();
 
@@ -221,7 +221,7 @@ void generateFakeTicket()
 
     drawTicketFrame(tmd->tid);
 
-    while(AppRunning())
+    while(AppRunning(true))
     {
         showFrame();
 
@@ -259,7 +259,7 @@ void generateFakeTicket()
             textToFrame(3, 0, gettext("Press any key to return"));
             drawFrame();
 
-            while(AppRunning())
+            while(AppRunning(true))
             {
                 showFrame();
 

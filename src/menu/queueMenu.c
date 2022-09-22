@@ -116,7 +116,7 @@ bool queueMenu()
     bool mov = getListSize(titleQueue) >= MAX_ENTRIES;
     drawQueueMenu(titleQueue, cursor, pos);
 
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;

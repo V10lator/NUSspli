@@ -70,7 +70,7 @@ static void showUpdateError(const char *msg)
 {
     enableShutdown();
     drawErrorFrame(msg, ANY_RETURN);
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
@@ -494,7 +494,7 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
             strcpy(path, UPDATE_TEMP_FOLDER);
             strcpy(path + strlen(UPDATE_TEMP_FOLDER), "NUSspli");
 
-            install("Update", false, NUSDEV_SD, path, toUSB, true, 0);
+            install("Update", false, NUSDEV_SD, path, toUSB, true, NULL);
             break;
         case NUSSPLI_TYPE_HBL:
             err = moveDirectory(UPDATE_TEMP_FOLDER "NUSspli", UPDATE_HBL_FOLDER);

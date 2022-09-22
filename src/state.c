@@ -153,12 +153,12 @@ void deinitState()
         RPXLoader_DeInitLibrary();
 }
 
-bool AppRunning()
+bool AppRunning(bool mainthread)
 {
     if(app == APP_STATE_STOPPING || app == APP_STATE_HOME || app == APP_STATE_STOPPED)
         return false;
 
-    if(OSIsMainCore())
+    if(mainthread)
     {
         switch(ProcUIProcessMessages(true))
         {

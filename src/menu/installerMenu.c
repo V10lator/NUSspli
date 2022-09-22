@@ -81,7 +81,7 @@ void installerMenu(const char *dir)
 
     drawInstallerMenuFrame(nd, dev, keepFiles);
 
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
@@ -97,7 +97,7 @@ void installerMenu(const char *dir)
             {
                 if(checkSystemTitleFromTid(tmd->tid))
                 {
-                    if(install(nd, false, dev, dir, vpad.trigger & VPAD_BUTTON_A, keepFiles, tmd->tid))
+                    if(install(nd, false, dev, dir, vpad.trigger & VPAD_BUTTON_A, keepFiles, tmd))
                         showFinishedScreen(nd, FINISHING_OPERATION_INSTALL);
                 }
 
@@ -107,7 +107,7 @@ void installerMenu(const char *dir)
             {
                 drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
 
-                while(AppRunning())
+                while(AppRunning(true))
                 {
                     if(app == APP_STATE_BACKGROUND)
                         continue;

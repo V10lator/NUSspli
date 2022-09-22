@@ -98,16 +98,6 @@ static int calcThreadMain(int argc, const char **argv)
     return 0;
 }
 
-static bool isH(char c)
-{
-    return isHexa(c);
-}
-
-static bool isA(char c)
-{
-    return isAllowedInFilename(c);
-}
-
 static void SWKBD_Render(SWKBD_Args *args, KeyboardChecks check)
 {
     if(args->globalMaxlength != -1)
@@ -122,10 +112,10 @@ static void SWKBD_Render(SWKBD_Args *args, KeyboardChecks check)
                 switch(check)
                 {
                     case CHECK_HEXADECIMAL:
-                        cf = &isH;
+                        cf = &isHexa;
                         break;
                     case CHECK_ALPHANUMERICAL:
-                        cf = &isA;
+                        cf = &isAllowedInFilename;
                         break;
                     case CHECK_URL:
                         cf = &isUrl;
@@ -275,10 +265,7 @@ bool SWKBD_Init()
 
     createArg.workMemory = MEMAllocFromDefaultHeap(Swkbd_GetWorkMemorySize(0));
     if(createArg.workMemory == NULL)
-    {
-        debugPrintf("SWKBD: Can't allocate memory!");
         return false;
-    }
 
     OSBlockSet(swkbd_msg, 0, sizeof(OSMessage) * SWKBD_QUEUE_SIZE);
     OSInitMessageQueueEx(&swkbd_queue, swkbd_msg, SWKBD_QUEUE_SIZE, "NUSspli SWKBD calc queue");
@@ -306,42 +293,39 @@ bool SWKBD_Init()
     }
 
     createArg.fsClient = __wut_devoptab_fs_client;
-    OSDynLoadAllocFn oAlloc;
-    OSDynLoadFreeFn oFree;
-    OSDynLoad_GetAllocator(&oAlloc, &oFree);
-    bool ret = Swkbd_Create(&createArg);
-    OSDynLoad_SetAllocator(oAlloc, oFree);
+    if(Swkbd_Create(&createArg))
+    {
+        debugPrintf("B");
+        OSBlockSet(&appearArg, 0, sizeof(Swkbd_AppearArg));
+        appearArg.keyboardArg.configArg.accessFlags = 0xFFFFFFFF;
+        appearArg.keyboardArg.configArg.unk_0x14 = -1;
+        appearArg.keyboardArg.configArg.framerate = FRAMERATE_60FPS;
+        appearArg.keyboardArg.configArg.showCursor = true;
+        appearArg.keyboardArg.configArg.unk_0xA4 = -1;
+        appearArg.keyboardArg.configArg.disableNewLine = true;
 
-    OSBlockSet(&appearArg, 0, sizeof(Swkbd_AppearArg));
-    appearArg.keyboardArg.configArg.accessFlags = 0xFFFFFFFF;
-    appearArg.keyboardArg.configArg.unk_0x14 = -1;
-    appearArg.keyboardArg.configArg.framerate = FRAMERATE_60FPS;
-    appearArg.keyboardArg.configArg.showCursor = true;
-    appearArg.keyboardArg.configArg.unk_0xA4 = -1;
-    appearArg.keyboardArg.configArg.disableNewLine = true;
+        appearArg.keyboardArg.receiverArg.unk_0x14 = 2;
 
-    appearArg.keyboardArg.receiverArg.unk_0x14 = 2;
+        appearArg.inputFormArg.unk_0x04 = -1;
+        appearArg.inputFormArg.initialText = NULL;
+        appearArg.inputFormArg.hintText = NULL;
+        appearArg.inputFormArg.pwMode = Swkbd_PW_mode__None;
+        appearArg.inputFormArg.unk_0x18 = 0x00008000; // Monospace seperator after 16 chars (for 32 char keys)
+        appearArg.inputFormArg.drawInput0Cursor = true;
+        appearArg.inputFormArg.higlightInitialText = true;
+        appearArg.inputFormArg.showCopyPasteButtons = true;
 
-    appearArg.inputFormArg.unk_0x04 = -1;
-    appearArg.inputFormArg.initialText = NULL;
-    appearArg.inputFormArg.hintText = NULL;
-    appearArg.inputFormArg.pwMode = Swkbd_PW_mode__None;
-    appearArg.inputFormArg.unk_0x18 = 0x00008000; // Monospace seperator after 16 chars (for 32 char keys)
-    appearArg.inputFormArg.drawInput0Cursor = true;
-    appearArg.inputFormArg.higlightInitialText = true;
-    appearArg.inputFormArg.showCopyPasteButtons = true;
+        return true;
+    }
 
-    return ret;
+    MEMFreeToDefaultHeap(createArg.workMemory);
+    return false;
 }
 
 void SWKBD_Shutdown()
 {
-    if(createArg.workMemory)
-    {
-        Swkbd_Destroy();
-        MEMFreeToDefaultHeap(createArg.workMemory);
-        createArg.workMemory = NULL;
-    }
+    Swkbd_Destroy();
+    MEMFreeToDefaultHeap(createArg.workMemory);
 }
 
 void readInput()

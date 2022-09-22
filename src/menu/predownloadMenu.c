@@ -377,7 +377,7 @@ downloadTMD:
 
         drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             if(app == APP_STATE_BACKGROUND)
                 continue;
@@ -405,7 +405,7 @@ naNedNa:
     redraw = toQueue = false;
     drawPDMenuFrame(entry, titleVer, dls, installed, folderName, usbMounted, dlDev, instDev);
 
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
@@ -488,7 +488,7 @@ naNedNa:
         }
     }
 
-    if(!AppRunning())
+    if(!AppRunning(true))
     {
         clearRamBuf();
         return false;
@@ -512,7 +512,7 @@ naNedNa:
         {
             int ovl = drawPDDemoFrame(entry, operation == OPERATION_INSTALL);
 
-            while(AppRunning())
+            while(AppRunning(true))
             {
                 if(app == APP_STATE_BACKGROUND)
                     continue;
@@ -544,7 +544,7 @@ naNedNa:
 
             "Are you sure you want to do this?"));
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             showFrame();
 
@@ -561,31 +561,17 @@ naNedNa:
     }
 
     uint64_t freeSpace;
-    const char *nd = dlDev == NUSDEV_USB01 ? NUSDIR_USB1 : (dlDev == NUSDEV_USB02 ? NUSDIR_USB2 : (dlDev == NUSDEV_SD ? NUSDIR_SD : NUSDIR_MLC)); // TODO: Make const
+    const char *nd = dlDev == NUSDEV_USB01 ? NUSDIR_USB1 : (dlDev == NUSDEV_USB02 ? NUSDIR_USB2 : (dlDev == NUSDEV_SD ? NUSDIR_SD : NUSDIR_MLC));
+    bool ret;
     if(FSGetFreeSpaceSize(__wut_devoptab_fs_client, getCmdBlk(), (char *)nd, &freeSpace, FS_ERROR_FLAG_ALL) == FS_STATUS_OK && dls > freeSpace)
     {
-        char *toFrame = getToFrameBuffer();
-        const char *i10n = gettext("Not enough free space on");
-        strcpy(toFrame, i10n);
-        sprintf(toFrame + strlen(i10n), "  %s\n\n", prettyDir(nd));
-        strcat(toFrame, gettext("Press any key to return"));
-        int ovl = addErrorOverlay(toFrame);
+        showNoSpaceOverlay(dlDev);
+        if(AppRunning(true))
+            goto naNedNa;
 
-        while(AppRunning())
-        {
-            showFrame();
-
-            if(vpad.trigger)
-            {
-                removeErrorOverlay(ovl);
-                goto naNedNa;
-            }
-        }
-
-        removeErrorOverlay(ovl);
+        ret = false;
+        goto exitPDM;
     }
-
-    bool ret;
 
     if(toQueue)
     {
@@ -631,6 +617,7 @@ naNedNa:
     else
         ret = true;
 
+exitPDM:
     clearRamBuf();
     return ret;
 }

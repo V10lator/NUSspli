@@ -77,7 +77,7 @@ void mainMenu()
 {
     drawMainMenuFrame();
 
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;

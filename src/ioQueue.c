@@ -160,8 +160,7 @@ void shutdownIOThread()
     if(!ioRunning)
         return;
 
-    while(!checkForQueueErrors() && queueEntries[activeWriteBuffer].file != NULL)
-        OSSleepTicks(OSMillisecondsToTicks(10));
+    flushIOQueue();
 
     ioRunning = false;
 #ifdef NUSSPLI_DEBUG

@@ -215,7 +215,7 @@ loop:
     drawTBMenuFrame(tab, pos, cursor, search);
     bool mov = filteredTitleEntrySize >= MAX_TITLEBROWSER_LINES;
 
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
@@ -421,7 +421,7 @@ loop:
             redraw = false;
         }
     }
-    if(!AppRunning())
+    if(!AppRunning(true))
     {
         MEMFreeToDefaultHeap(filteredTitleEntries);
         return;

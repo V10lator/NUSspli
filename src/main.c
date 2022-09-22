@@ -331,7 +331,7 @@ int main()
         if(app == APP_STATE_HOME)
         {
             app = APP_STATE_RUNNING;
-            while(AppRunning())
+            while(AppRunning(true))
                 ;
         }
 

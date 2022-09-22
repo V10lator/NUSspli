@@ -295,7 +295,6 @@ bool SWKBD_Init()
     createArg.fsClient = __wut_devoptab_fs_client;
     if(Swkbd_Create(&createArg))
     {
-        debugPrintf("B");
         OSBlockSet(&appearArg, 0, sizeof(Swkbd_AppearArg));
         appearArg.keyboardArg.configArg.accessFlags = 0xFFFFFFFF;
         appearArg.keyboardArg.configArg.unk_0x14 = -1;

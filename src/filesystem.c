@@ -27,10 +27,16 @@
 #include <stdbool.h>
 
 static FSAClientHandle handle;
-static NUSDEV usb = NUSDEV_SD;
+static NUSDEV usb;
 
 bool initFS()
 {
+    if(dirExists(NUSDIR_USB1 "usr"))
+        usb = NUSDEV_USB01;
+    else if(dirExists(NUSDIR_USB2 "usr"))
+        usb = NUSDEV_USB02;
+    else
+        usb = NUSDEV_NONE;
 
     if(FSAInit() == FS_ERROR_OK)
     {
@@ -59,15 +65,5 @@ void deinitFS()
 
 NUSDEV getUSB()
 {
-    if(usb == NUSDEV_SD)
-    {
-        if(dirExists(NUSDIR_USB1 "usr"))
-            usb = NUSDEV_USB01;
-        else if(dirExists(NUSDIR_USB2 "usr"))
-            usb = NUSDEV_USB02;
-        else
-            usb = NUSDEV_NONE;
-    }
-
     return usb;
 }

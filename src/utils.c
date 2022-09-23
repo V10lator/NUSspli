@@ -41,6 +41,47 @@
 
 int mcpHandle;
 
+bool isNumber(char c)
+{
+    return c >= '0' && c <= '9';
+}
+
+bool isLowercase(char c)
+{
+    return c >= 'a' && c <= 'z';
+}
+
+bool isUppercase(char c)
+{
+    return c >= 'A' && c <= 'Z';
+}
+
+bool isAlphanumerical(char c)
+{
+    return isLowercase(c) || isUppercase(c) || isNumber(c);
+}
+
+// Keep it to ASCII for FTPiiU compat.
+bool isAllowedInFilename(char c)
+{
+    return c >= ' ' && c <= '~' && c != '/' && c != '\\' && c != '"' && c != '*' && c != ':' && c != '<' && c != '>' && c != '?' && c != '|';
+}
+
+bool isLowercaseHexa(char c)
+{
+    return isNumber(c) || (c >= 'a' && c <= 'f');
+}
+
+bool isUppercaseHexa(char c)
+{
+    return isNumber(c) || (c >= 'A' && c <= 'F');
+}
+
+bool isHexa(char c)
+{
+    return isLowercaseHexa(c) || isUppercaseHexa(c);
+}
+
 void hex(uint64_t i, int digits, char *out)
 {
     char x[8]; // max 99 digits!
@@ -71,47 +112,27 @@ void getSpeedString(double bytePerSecond, char *out)
 
 void secsToTime(uint32_t seconds, char *out)
 {
-    uint32_t minute, hour;
-
-    hour = seconds / 3600;
-    hour = hour % 3600;
-    minute = seconds / 60;
-    minute = minute % 60;
-    seconds = seconds % 60;
+    uint32_t hour = seconds / 3600 % 3600;
+    uint32_t minute = seconds / 60 % 60;
+    seconds %= 60;
 
     bool visible = false;
-    const char *i10n;
 
     if(hour)
     {
-        sprintf(out, "%u ", hour);
+        sprintf(out, "%u %s ", hour, gettext("hours"));
         out += strlen(out);
-        i10n = gettext("hours");
-        strcpy(out, i10n);
-        out += strlen(i10n);
-        strcpy(out++, " ");
         visible = true;
     }
     if(minute || visible)
     {
-        sprintf(out, "%02u ", minute);
-        out += 3;
-        i10n = gettext("minutes");
-        strcpy(out, i10n);
-        out += strlen(i10n);
-        strcpy(out++, " ");
+        sprintf(out, "%02u %s ", minute, gettext("minutes"));
+        out += strlen(out);
         visible = true;
     }
 
     if(seconds || visible)
-    {
-        sprintf(out, "%02u ", seconds);
-        out += 3;
-        i10n = gettext("seconds");
-        strcpy(out, i10n);
-        out += strlen(i10n);
-        strcpy(out, " ");
-    }
+        sprintf(out, "%02u %s", seconds, gettext("seconds"));
     else
         strcpy(out, "N/A");
 }

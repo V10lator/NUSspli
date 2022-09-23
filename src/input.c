@@ -98,16 +98,6 @@ static int calcThreadMain(int argc, const char **argv)
     return 0;
 }
 
-static bool isH(char c)
-{
-    return isHexa(c);
-}
-
-static bool isA(char c)
-{
-    return isAllowedInFilename(c);
-}
-
 static void SWKBD_Render(SWKBD_Args *args, KeyboardChecks check)
 {
     if(args->globalMaxlength != -1)
@@ -122,10 +112,10 @@ static void SWKBD_Render(SWKBD_Args *args, KeyboardChecks check)
                 switch(check)
                 {
                     case CHECK_HEXADECIMAL:
-                        cf = &isH;
+                        cf = &isHexa;
                         break;
                     case CHECK_ALPHANUMERICAL:
-                        cf = &isA;
+                        cf = &isAllowedInFilename;
                         break;
                     case CHECK_URL:
                         cf = &isUrl;
@@ -275,10 +265,7 @@ bool SWKBD_Init()
 
     createArg.workMemory = MEMAllocFromDefaultHeap(Swkbd_GetWorkMemorySize(0));
     if(createArg.workMemory == NULL)
-    {
-        debugPrintf("SWKBD: Can't allocate memory!");
         return false;
-    }
 
     OSBlockSet(swkbd_msg, 0, sizeof(OSMessage) * SWKBD_QUEUE_SIZE);
     OSInitMessageQueueEx(&swkbd_queue, swkbd_msg, SWKBD_QUEUE_SIZE, "NUSspli SWKBD calc queue");
@@ -306,42 +293,38 @@ bool SWKBD_Init()
     }
 
     createArg.fsClient = __wut_devoptab_fs_client;
-    OSDynLoadAllocFn oAlloc;
-    OSDynLoadFreeFn oFree;
-    OSDynLoad_GetAllocator(&oAlloc, &oFree);
-    bool ret = Swkbd_Create(&createArg);
-    OSDynLoad_SetAllocator(oAlloc, oFree);
+    if(Swkbd_Create(&createArg))
+    {
+        OSBlockSet(&appearArg, 0, sizeof(Swkbd_AppearArg));
+        appearArg.keyboardArg.configArg.accessFlags = 0xFFFFFFFF;
+        appearArg.keyboardArg.configArg.unk_0x14 = -1;
+        appearArg.keyboardArg.configArg.framerate = FRAMERATE_60FPS;
+        appearArg.keyboardArg.configArg.showCursor = true;
+        appearArg.keyboardArg.configArg.unk_0xA4 = -1;
+        appearArg.keyboardArg.configArg.disableNewLine = true;
 
-    OSBlockSet(&appearArg, 0, sizeof(Swkbd_AppearArg));
-    appearArg.keyboardArg.configArg.accessFlags = 0xFFFFFFFF;
-    appearArg.keyboardArg.configArg.unk_0x14 = -1;
-    appearArg.keyboardArg.configArg.framerate = FRAMERATE_60FPS;
-    appearArg.keyboardArg.configArg.showCursor = true;
-    appearArg.keyboardArg.configArg.unk_0xA4 = -1;
-    appearArg.keyboardArg.configArg.disableNewLine = true;
+        appearArg.keyboardArg.receiverArg.unk_0x14 = 2;
 
-    appearArg.keyboardArg.receiverArg.unk_0x14 = 2;
+        appearArg.inputFormArg.unk_0x04 = -1;
+        appearArg.inputFormArg.initialText = NULL;
+        appearArg.inputFormArg.hintText = NULL;
+        appearArg.inputFormArg.pwMode = Swkbd_PW_mode__None;
+        appearArg.inputFormArg.unk_0x18 = 0x00008000; // Monospace seperator after 16 chars (for 32 char keys)
+        appearArg.inputFormArg.drawInput0Cursor = true;
+        appearArg.inputFormArg.higlightInitialText = true;
+        appearArg.inputFormArg.showCopyPasteButtons = true;
 
-    appearArg.inputFormArg.unk_0x04 = -1;
-    appearArg.inputFormArg.initialText = NULL;
-    appearArg.inputFormArg.hintText = NULL;
-    appearArg.inputFormArg.pwMode = Swkbd_PW_mode__None;
-    appearArg.inputFormArg.unk_0x18 = 0x00008000; // Monospace seperator after 16 chars (for 32 char keys)
-    appearArg.inputFormArg.drawInput0Cursor = true;
-    appearArg.inputFormArg.higlightInitialText = true;
-    appearArg.inputFormArg.showCopyPasteButtons = true;
+        return true;
+    }
 
-    return ret;
+    MEMFreeToDefaultHeap(createArg.workMemory);
+    return false;
 }
 
 void SWKBD_Shutdown()
 {
-    if(createArg.workMemory)
-    {
-        Swkbd_Destroy();
-        MEMFreeToDefaultHeap(createArg.workMemory);
-        createArg.workMemory = NULL;
-    }
+    Swkbd_Destroy();
+    MEMFreeToDefaultHeap(createArg.workMemory);
 }
 
 void readInput()
@@ -354,7 +337,7 @@ void readInput()
         OSBlockSet(&vpad, 0, sizeof(VPADStatus));
     else if(vpad.trigger)
     {
-        vpad.trigger &= ~(VPAD_STICK_R_EMULATION_LEFT | VPAD_STICK_R_EMULATION_RIGHT | VPAD_STICK_R_EMULATION_UP | VPAD_STICK_R_EMULATION_DOWN);
+        vpad.trigger &= ~(VPAD_STICK_R_EMULATION_LEFT | VPAD_STICK_R_EMULATION_RIGHT | VPAD_STICK_R_EMULATION_UP | VPAD_STICK_R_EMULATION_DOWN | VPAD_BUTTON_HOME);
 
         if(vpad.trigger && kbdHidden)
             lastUsedController = CT_VPAD_0;
@@ -413,8 +396,6 @@ void readInput()
                     vpad.trigger |= VPAD_BUTTON_PLUS;
                 if(tv & WPAD_CLASSIC_BUTTON_MINUS)
                     vpad.trigger |= VPAD_BUTTON_MINUS;
-                if(tv & WPAD_CLASSIC_BUTTON_HOME)
-                    vpad.trigger |= VPAD_BUTTON_HOME;
                 if(tv & WPAD_CLASSIC_BUTTON_R)
                     vpad.trigger |= VPAD_BUTTON_R;
                 if(tv & WPAD_CLASSIC_BUTTON_L)
@@ -475,8 +456,6 @@ void readInput()
                 vpad.trigger |= VPAD_BUTTON_PLUS;
             if(tv & WPAD_BUTTON_MINUS)
                 vpad.trigger |= VPAD_BUTTON_MINUS;
-            if(tv & WPAD_BUTTON_HOME)
-                vpad.trigger |= VPAD_BUTTON_HOME;
             if(tv & WPAD_BUTTON_Z)
                 vpad.trigger |= VPAD_BUTTON_ZR;
             if(tv & WPAD_BUTTON_C)
@@ -537,39 +516,38 @@ bool showKeyboard(KeyboardLayout layout, KeyboardType type, char *output, Keyboa
     {
         drawErrorFrame("Error showing SWKBD:\nnn::swkbd::AppearInputForm failed", ANY_RETURN);
 
-        while(true)
+        while(AppRunning(true))
         {
             showFrame();
             if(vpad.trigger)
-                return false;
+                break;
         }
+
+        return false;
     }
     debugPrintf("SWKBD initialised successfully");
 
     if(input != NULL)
         Swkbd_SetInputFormString(input);
 
-    bool dummy;
+    bool close = false;
     OSTime t = OSGetSystemTime();
-    while(true)
+    while(AppRunning(true))
     {
         VPADGetTPCalibratedPoint(VPAD_CHAN_0, &vpad.tpFiltered1, &vpad.tpNormal);
         vpad.tpFiltered2 = vpad.tpNormal = vpad.tpFiltered1;
         SWKBD_Render(&args, check);
         //		sleepTillFrameEnd();
 
-        if(args.okButtonEnabled && (Swkbd_IsDecideOkButton(&dummy) || vpad.trigger & VPAD_BUTTON_PLUS))
+        if(args.okButtonEnabled && (Swkbd_IsDecideOkButton(&close) || vpad.trigger & VPAD_BUTTON_PLUS))
         {
             debugPrintf("SWKBD Ok button pressed");
-            char *outputStr = Swkbd_GetInputFormString();
-            strcpy(output, outputStr);
-            SWKBD_Hide(&args);
-            t = OSGetSystemTime() - t;
-            addEntropy(&t, sizeof(OSTime));
-            return true;
+            strcpy(output, Swkbd_GetInputFormString());
+            close = true;
+            break;
         }
 
-        bool close = vpad.trigger & VPAD_BUTTON_B || vpad.trigger & VPAD_BUTTON_MINUS;
+        close = vpad.trigger & VPAD_BUTTON_B || vpad.trigger & VPAD_BUTTON_MINUS;
         if(close)
         {
             char *inputFormString = Swkbd_GetInputFormString();
@@ -577,13 +555,18 @@ bool showKeyboard(KeyboardLayout layout, KeyboardType type, char *output, Keyboa
                 close = strlen(inputFormString) == 0;
         }
 
-        if(close || Swkbd_IsDecideCancelButton(&dummy))
+        if(close || Swkbd_IsDecideCancelButton(&close))
         {
             debugPrintf("SWKBD Cancel button pressed");
-            SWKBD_Hide(&args);
-            t = OSGetSystemTime() - t;
-            addEntropy(&t, sizeof(OSTime));
-            return false;
+            close = false;
+            break;
         }
+
+        close = false;
     }
+
+    SWKBD_Hide(&args);
+    t = OSGetSystemTime() - t;
+    addEntropy(&t, sizeof(OSTime));
+    return close;
 }

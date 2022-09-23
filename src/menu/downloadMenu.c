@@ -43,7 +43,7 @@ bool downloadMenu()
     if(!showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_RESTRICTED, titleID, CHECK_HEXADECIMAL, 16, true, "00050000101", NULL))
         return false;
 
-    if(!AppRunning())
+    if(!AppRunning(true))
         return true;
 
     toLowercase(titleID);

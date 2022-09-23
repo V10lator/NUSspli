@@ -1,6 +1,6 @@
 /***************************************************************************
  * This file is part of NUSspli.                                           *
- * Copyright (c) 2021 V10lator <v10lator@myway.de>                         *
+ * Copyright (c) 2021-2022 V10lator <v10lator@myway.de>                    *
  *                                                                         *
  * This program is free software; you can redistribute it and/or modify    *
  * it under the terms of the GNU General Public License as published by    *
@@ -22,8 +22,13 @@
 
 #include <stdbool.h>
 
-#ifdef NUSSPLI_HBL
-#define sanityCheck() true
-#else
-bool sanityCheck();
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+    bool sanityCheck();
+
+#ifdef __cplusplus
+}
 #endif

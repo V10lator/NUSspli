@@ -210,7 +210,7 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region)
     int ovl = addErrorOverlay(toFrame);
 
     bool ret = true;
-    while(AppRunning())
+    while(AppRunning(true))
     {
         showFrame();
 
@@ -233,7 +233,7 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region)
             gettext("No"));
         ovl = addErrorOverlay(toFrame);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             showFrame();
 
@@ -257,7 +257,7 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region)
             gettext("No"));
         ovl = addErrorOverlay(toFrame);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             showFrame();
 
@@ -318,6 +318,18 @@ const char *prettyDir(const char *dir)
     return ret;
 }
 
+static inline void drawFinishedScreen(const char *titleName, const char *text, FINISHING_OPERATION op)
+{
+    colorStartNewFrame(SCREEN_COLOR_D_GREEN);
+    int i = 0;
+    if(op != FINISHING_OPERATION_QUEUE)
+        textToFrame(i++, 0, titleName);
+
+    textToFrame(i++, 0, text);
+    writeScreenLog(i++);
+    drawFrame();
+}
+
 void showFinishedScreen(const char *titleName, FINISHING_OPERATION op)
 {
     const char *text;
@@ -337,32 +349,15 @@ void showFinishedScreen(const char *titleName, FINISHING_OPERATION op)
             break;
     }
 
-    colorStartNewFrame(SCREEN_COLOR_D_GREEN);
-    int i = 0;
-    if(op != FINISHING_OPERATION_QUEUE)
-        textToFrame(i++, 0, titleName);
-
-    textToFrame(i++, 0, text);
-    writeScreenLog(i++);
-    drawFrame();
-
+    drawFinishedScreen(titleName, text, op);
     startNotification();
 
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
         if(app == APP_STATE_RETURNING)
-        {
-            colorStartNewFrame(SCREEN_COLOR_D_GREEN);
-            i = 0;
-            if(op != FINISHING_OPERATION_QUEUE)
-                textToFrame(i++, 0, titleName);
-
-            textToFrame(i++, 0, text);
-            writeScreenLog(i++);
-            drawFrame();
-        }
+            drawFinishedScreen(titleName, text, op);
 
         showFrame();
 
@@ -371,4 +366,36 @@ void showFinishedScreen(const char *titleName, FINISHING_OPERATION op)
     }
 
     stopNotification();
+}
+
+void showNoSpaceOverlay(NUSDEV dev)
+{
+    const char *nd;
+    switch((int)dev)
+    {
+        case NUSDEV_USB01:
+        case NUSDEV_USB02:
+        case NUSDEV_USB:
+            nd = "USB";
+            break;
+        case NUSDEV_SD:
+            nd = "SD";
+            break;
+        case NUSDEV_MLC:
+            nd = "MLC";
+    }
+
+    char *toFrame = getToFrameBuffer();
+    sprintf(toFrame, "%s  %s\n\n%s", gettext("Not enough free space on"), nd, gettext("Press any key to return"));
+
+    int ovl = addErrorOverlay(toFrame);
+    while(AppRunning(true))
+    {
+        showFrame();
+
+        if(vpad.trigger)
+            break;
+    }
+
+    removeErrorOverlay(ovl);
 }

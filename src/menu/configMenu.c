@@ -198,17 +198,21 @@ static inline void switchRegion()
 
 void configMenu()
 {
-    drawConfigMenu();
-
-    bool redraw = false;
-    while(AppRunning())
+    bool redraw = true;
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
         if(app == APP_STATE_RETURNING)
-            drawConfigMenu();
+            redraw = true;
 
+        if(redraw)
+        {
+            drawConfigMenu();
+            redraw = false;
+        }
         showFrame();
+
         if(vpad.trigger & VPAD_BUTTON_B)
         {
             saveConfig(false);
@@ -251,12 +255,6 @@ void configMenu()
             if(cursorPos > ENTRY_COUNT)
                 cursorPos = 0;
             redraw = true;
-        }
-
-        if(redraw)
-        {
-            drawConfigMenu();
-            redraw = false;
         }
     }
 }

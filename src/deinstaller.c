@@ -79,6 +79,7 @@ bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool
 
     if(channelHaxx)
     {
+        OSSleepTicks(OSSecondsToTicks(10));
         MEMFreeToDefaultHeap(info);
         return true;
     }

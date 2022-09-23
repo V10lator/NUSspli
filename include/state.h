@@ -40,9 +40,10 @@ extern "C"
 
     } APP_STATE;
 
-    extern APP_STATE app;
+    extern volatile APP_STATE app;
 
     void initState() __attribute__((__cold__));
+    void deinitState() __attribute__((__cold__));
     void enableApd();
     void disableApd();
     void enableShutdown();
@@ -53,7 +54,7 @@ extern "C"
 #else
 bool isChannel();
 #endif
-    bool AppRunning() __attribute__((__hot__));
+    bool AppRunning(bool mainthread) __attribute__((__hot__));
     uint32_t homeButtonCallback(void *dummy);
 
 #ifdef __cplusplus

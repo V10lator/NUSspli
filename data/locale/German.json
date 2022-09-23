@@ -23,6 +23,11 @@
     "\uE002 to switch to USB": "\uE002 um zu USB zu wechseln",
     "Searching on": "Suche in",
 
+    "Press \uE000 to install to USB": "Drücke \uE000 um zu USB zu installieren",
+    "Press \uE002 to install to NAND": "Drücke \uE002 um zu NAND zu installieren",
+    "Press \uE07B to delete files after the installation": "Drücke \uE07B um die Dateien nach der Installation zu löschen",
+    "Press \uE07B to keep files after the installation": "Drücke \uE07B um die Dateien nach der Installation zu behalten",
+
     "Press \uE000 to delete": "Drücke \uE000 um zu deinstallieren",
 
     "Press \uE000 to continue": "Drücke \uE000 um fortzufahren",
@@ -58,9 +63,11 @@
     "Aroma version too old to allow auto-updates": "Aroma Version zu alt für auto updates",
     "Error creating temporary directory!": "Kann temporären Ordner nicht erstellen!",
     "Error downloading": "Fehler beim Download von",
-    "Couldn't find NUSspli folder on the SD card": "Konnte NUSspli Ordner nicht auf der SD Karte finden",
     "Error getting own title info": "Konnte eigene Titel ID nicht abfragen",
-    "Couldn't find NUSspli file on the SD card": "Konnte NUSspli Datei nicht auf der SD Karte finden",
+    "Error removing file": "Fehler beim löschen der Datei",
+    "Error removing directory": "Fehler beim löschen des Ordners",
+    "Error moving file": "Fehler beim verschieben der Datei",
+    "Error moving directory": "Fehler beim verschieben des Ordners",
 
     "Size:": "Größe:",
     "Provided title version": "Titelversion",
@@ -124,7 +131,7 @@
     "Not enough free space on": "Nicht genug freier Speicher bei",
     "No title.tmd found at": "Keine title.tmd Datei bei",
     "Internal error installing": "Interner Fehler beim Installieren von",
-    "We're supporting HBL on Tiramisu and HBLC v2.1 fix by Gary only!": "NUSspli läuft nur auf HBL von Tiramisu oderHBLC v2.1 fix by Gary!",
+    "We're supporting HBL on Tiramisu only!": "NUSspli läuft nur auf Tiramisus HBL!",
     "Error getting info for": "Fehler Information für",
     "from MCP": "von MCP zu bekommen",
     "Error opening USB device": "Fehler beim öffnen des USB Laufwerks",

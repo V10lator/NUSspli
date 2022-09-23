@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 
+#include <file.h>
 #include <titles.h>
 
 #include <coreinit/mcp.h>
@@ -58,6 +59,7 @@ extern "C"
     bool checkSystemTitleFromListType(MCPTitleListType *entry);
     const char *prettyDir(const char *dir);
     void showFinishedScreen(const char *titleName, FINISHING_OPERATION op);
+    void showNoSpaceOverlay(NUSDEV dev);
 
 #ifdef __cplusplus
 }

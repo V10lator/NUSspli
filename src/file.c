@@ -38,6 +38,8 @@
 #include <coreinit/memory.h>
 #include <coreinit/time.h>
 
+#include <mbedtls/sha256.h>
+
 static FSCmdBlock cmdBlk;
 
 FSCmdBlock *getCmdBlk()
@@ -131,11 +133,12 @@ bool dirExists(const char *path)
     return FSGetStat(__wut_devoptab_fs_client, &cmdBlk, path, &stat, FS_ERROR_FLAG_ALL) == FS_STATUS_OK && (stat.flags & FS_STAT_DIRECTORY);
 }
 
-void removeDirectory(const char *path)
+FSStatus removeDirectory(const char *path)
 {
     size_t len = strlen(path);
     char *newPath = getStaticPathBuffer(0);
-    strcpy(newPath, path);
+    if(newPath != path)
+        OSBlockMove(newPath, path, len + 1, false);
 
     if(newPath[len - 1] != '/')
     {
@@ -146,26 +149,38 @@ void removeDirectory(const char *path)
     char *inSentence = newPath + len;
     FSDirectoryHandle dir;
     OSTime t = OSGetTime();
-    if(FSOpenDir(__wut_devoptab_fs_client, &cmdBlk, newPath, &dir, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+    FSStatus ret = FSOpenDir(__wut_devoptab_fs_client, &cmdBlk, newPath, &dir, FS_ERROR_FLAG_ALL);
+    if(ret == FS_STATUS_OK)
     {
         FSDirectoryEntry entry;
         while(FSReadDir(__wut_devoptab_fs_client, &cmdBlk, dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
         {
+            if(entry.name[0] == '.')
+                continue;
+
             strcpy(inSentence, entry.name);
             if(entry.info.flags & FS_STAT_DIRECTORY)
-                removeDirectory(newPath);
+                ret = removeDirectory(newPath);
             else
-                FSRemove(__wut_devoptab_fs_client, &cmdBlk, newPath, FS_ERROR_FLAG_ALL);
+                ret = FSRemove(__wut_devoptab_fs_client, &cmdBlk, newPath, FS_ERROR_FLAG_ALL);
+
+            if(ret != FS_STATUS_OK)
+                break;
         }
+
         FSCloseDir(__wut_devoptab_fs_client, &cmdBlk, dir, FS_ERROR_FLAG_ALL);
-        newPath[len - 1] = '\0';
-        FSRemove(__wut_devoptab_fs_client, &cmdBlk, newPath, FS_ERROR_FLAG_ALL);
+        if(ret == FS_STATUS_OK)
+        {
+            newPath[--len] = '\0';
+            ret = FSRemove(__wut_devoptab_fs_client, &cmdBlk, newPath, FS_ERROR_FLAG_ALL);
+        }
     }
     else
         debugPrintf("Path \"%s\" not found!", newPath);
 
     t = OSGetTime() - t;
     addEntropy(&t, sizeof(OSTime));
+    return ret;
 }
 
 FSStatus moveDirectory(const char *src, const char *dest)
@@ -207,6 +222,9 @@ FSStatus moveDirectory(const char *src, const char *dest)
             FSDirectoryEntry entry;
             while(ret == FS_STATUS_OK && FSReadDir(__wut_devoptab_fs_client, &cmdBlk, dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
             {
+                if(entry.name[0] == '.')
+                    continue;
+
                 len = strlen(entry.name);
                 OSBlockMove(inSrc, entry.name, ++len, false);
                 OSBlockMove(inDest, entry.name, len, false);
@@ -360,60 +378,52 @@ bool verifyTmd(const TMD *tmd, size_t size)
                     // Validate TMD hash
                     uint32_t hash[8];
                     uint8_t *ptr = ((uint8_t *)tmd) + (sizeof(TMD) - (sizeof(TMD_CONTENT_INFO) * 64));
-                    if(getSHA256(ptr, sizeof(TMD_CONTENT_INFO) * 64, hash))
+                    mbedtls_sha256(ptr, sizeof(TMD_CONTENT_INFO) * 64, (unsigned char *)hash, 0);
+                    for(int i = 0; i < 8; ++i)
                     {
-                        for(int i = 0; i < 8; ++i)
+                        if(hash[i] != tmd->hash[i])
                         {
-                            if(hash[i] != tmd->hash[i])
-                            {
-                                debugPrintf("Invalid title.tmd file (tmd hash mismatch)");
-                                return false;
-                            }
+                            debugPrintf("Invalid title.tmd file (tmd hash mismatch)");
+                            return false;
                         }
-
-                        // Validate content hash
-                        ptr += sizeof(TMD_CONTENT_INFO) * 64;
-                        if(getSHA256(ptr, sizeof(TMD_CONTENT) * tmd->num_contents, hash))
-                        {
-                            for(int i = 0; i < 8; ++i)
-                            {
-                                if(hash[i] != tmd->content_infos[0].hash[i])
-                                {
-                                    debugPrintf("Invalid title.tmd file (content hash mismatch)");
-                                    return false;
-                                }
-                            }
-
-                            // Validate content
-                            for(int i = 0; i < tmd->num_contents; ++i)
-                            {
-                                // Validate content index
-                                if(tmd->contents[i].index != i)
-                                {
-                                    debugPrintf("Invalid title.tmd file (content: %d, index: %u)", i, tmd->contents[i].index);
-                                    return false;
-                                }
-                                // Validate content type
-                                if(!((tmd->contents[i].type & TMD_CONTENT_TYPE_CONTENT) && (tmd->contents[i].type & TMD_CONTENT_TYPE_ENCRYPTED)))
-                                {
-                                    debugPrintf("Invalid title.tmd file (content: %u, type: 0x%04X)", i, tmd->contents[i].type);
-                                    return false;
-                                }
-                                // Validate content size
-                                if(tmd->contents[i].size < 32 * 1024 || tmd->contents[i].size > (uint64_t)1024 * 1024 * 1024 * 4)
-                                {
-                                    debugPrintf("Invalid title.tmd file (content: %d, size: %llu)", i, tmd->contents[i].size);
-                                    return false;
-                                }
-                            }
-
-                            return true;
-                        }
-                        else
-                            debugPrintf("Error calculating content hash for title.tmd file!");
                     }
-                    else
-                        debugPrintf("Error calculating tmd hash for title.tmd file!");
+
+                    // Validate content hash
+                    ptr += sizeof(TMD_CONTENT_INFO) * 64;
+                    mbedtls_sha256(ptr, sizeof(TMD_CONTENT) * tmd->num_contents, (unsigned char *)hash, 0);
+                    for(int i = 0; i < 8; ++i)
+                    {
+                        if(hash[i] != tmd->content_infos[0].hash[i])
+                        {
+                            debugPrintf("Invalid title.tmd file (content hash mismatch)");
+                            return false;
+                        }
+                    }
+
+                    // Validate content
+                    for(int i = 0; i < tmd->num_contents; ++i)
+                    {
+                        // Validate content index
+                        if(tmd->contents[i].index != i)
+                        {
+                            debugPrintf("Invalid title.tmd file (content: %d, index: %u)", i, tmd->contents[i].index);
+                            return false;
+                        }
+                        // Validate content type
+                        if(!((tmd->contents[i].type & TMD_CONTENT_TYPE_CONTENT) && (tmd->contents[i].type & TMD_CONTENT_TYPE_ENCRYPTED)))
+                        {
+                            debugPrintf("Invalid title.tmd file (content: %u, type: 0x%04X)", i, tmd->contents[i].type);
+                            return false;
+                        }
+                        // Validate content size
+                        if(tmd->contents[i].size < 32 * 1024 || tmd->contents[i].size > (uint64_t)1024 * 1024 * 1024 * 4)
+                        {
+                            debugPrintf("Invalid title.tmd file (content: %d, size: %llu)", i, tmd->contents[i].size);
+                            return false;
+                        }
+                    }
+
+                    return true;
                 }
                 else
                     debugPrintf("Wrong title.tmd filesize (num_contents: %u, filesize: 0x%X)", tmd->num_contents, size);
@@ -516,6 +526,8 @@ const char *translateFSErr(FSStatus err)
         case FS_STATUS_FILE_TOO_BIG:
         case FS_STATUS_STORAGE_FULL:
             return "Not enough free space";
+        case FS_STATUS_ALREADY_OPEN:
+            return "File held open by another process";
         default:
             break;
     }

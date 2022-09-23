@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <coreinit/filesystem.h>
 #include <coreinit/ios.h>
 #include <coreinit/mcp.h>
 #include <coreinit/memdefaultheap.h>
@@ -83,12 +84,12 @@ static void cleanupCancelledInstallation(NUSDEV dev, const char *path, bool toUs
     }
 }
 
-bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool toUsb, bool keepFiles, uint64_t tid)
+bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool toUsb, bool keepFiles, const TMD *tmd)
 {
-    if(tid != 0)
+    if(tmd != NULL)
     {
         MCPTitleListType titleEntry;
-        if(MCP_GetTitleInfo(mcpHandle, tid, &titleEntry) == 0)
+        if(MCP_GetTitleInfo(mcpHandle, tmd->tid, &titleEntry) == 0)
             deinstall(&titleEntry, game, false, true);
     }
 
@@ -103,6 +104,24 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     writeScreenLog(2);
     drawFrame();
     showFrame();
+
+    if(tmd != NULL)
+    {
+        uint64_t size = 0;
+        for(uint16_t i = 0; i < tmd->num_contents; ++i)
+            size += tmd->contents[i].size;
+
+        uint64_t freeSpace;
+        const char *nd = toUsb ? (getUSB() == NUSDEV_USB01 ? NUSDIR_USB1 : NUSDIR_USB2) : NUSDIR_MLC;
+        if(toUsb ? dev & NUSDEV_USB : dev == NUSDEV_MLC)
+            flushIOQueue();
+
+        if(FSGetFreeSpaceSize(__wut_devoptab_fs_client, getCmdBlk(), (char *)nd, &freeSpace, FS_ERROR_FLAG_ALL) == FS_STATUS_OK && size > freeSpace)
+        {
+            showNoSpaceOverlay(toUsb ? NUSDEV_USB : NUSDEV_MLC);
+            return !(AppRunning(true));
+        }
+    }
 
     MCPInstallTitleInfo *info = MEMAllocFromDefaultHeapEx(sizeof(MCPInstallTitleInfo), 0x40);
     if(info == NULL)
@@ -133,7 +152,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
                     gettext("Internal error installing"), path
 #ifdef NUSSPLI_HBL
                     ,
-                    gettext("We're supporting HBL on Tiramisu and HBLC v2.1 fix by Gary only!")
+                    gettext("We're supporting HBL on Tiramisu only!")
 #endif
                 );
                 break;
@@ -145,7 +164,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         addToScreenLog("Installation failed!");
         drawErrorFrame(toScreen, ANY_RETURN);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             if(app == APP_STATE_BACKGROUND)
                 continue;
@@ -176,7 +195,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         addToScreenLog("Installation failed!");
         drawErrorFrame(err, ANY_RETURN);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             if(app == APP_STATE_BACKGROUND)
                 continue;
@@ -209,7 +228,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         addToScreenLog("Installation failed!");
         drawErrorFrame(toScreen, ANY_RETURN);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             if(app == APP_STATE_BACKGROUND)
                 continue;
@@ -288,7 +307,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         addToScreenLog("Installation failed!");
         drawErrorFrame(toScreen, ANY_RETURN);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             if(app == APP_STATE_BACKGROUND)
                 continue;

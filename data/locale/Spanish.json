@@ -23,6 +23,11 @@
     "\uE002 to switch to NAND": "\uE002 para ir a NAND",
     "\uE002 to switch to USB": "\uE002 para ir a USB",
     "Searching on": "Buscando en",
+    
+    "Press \uE000 to install to USB": "Presiona \uE000 para instalar a USB",
+    "Press \uE002 to install to NAND": "Presiona \uE002 para instalar a NAND",
+    "Press \uE07B to delete files after the installation": "Presiona \uE07B para eliminar los archivos después de instalar",
+    "Press \uE07B to keep files after the installation": "Presiona \uE07B para mantener los archivos después de instalar",
 
     "Press \uE000 to delete": "Presiona \uE000 para desinstalar",
 
@@ -63,9 +68,7 @@
     "Aroma version too old to allow auto-updates": "Versión de Aroma muy antigua para permitir actualizaciones automáticas",
     "Error creating temporary directory!": "¡Error creando la carpeta temporal!",
     "Error downloading": "Error descargando",
-    "Couldn't find NUSspli folder on the SD card": "No se ha podido encontrar la carpeta de NUSspli en la tarjeta SD",
     "Error getting own title info": "Error al obtener la información del título propio",
-    "Couldn't find NUSspli file on the SD card": "No se ha podido encontrar el archivo de NUSspli en la tarjeta SD",
 
     "Name:": "Nombre:",
     "Size:": "Tamaño:",
@@ -142,7 +145,7 @@
     "Not enough free space on": "No hay suficiente espacio en",
     "No title.tmd found at": "No se ha podido encontrar title.tmd en",
     "Internal error installing": "Error interno al instalar",
-    "We're supporting HBL on Tiramisu and HBLC v2.1 fix by Gary only!": "¡NUSspli sólo soporta HBL de Tiramisu y HBLC 2.1 de Gary!",
+    "We're supporting HBL on Tiramisu only!": "¡NUSspli sólo soporta HBL de Tiramisu!",
     "Error getting info for": "Error al obtener la información de",
     "from MCP": "de MCP",
     "Error opening USB device": "Error al abrir el dispositivo USB",

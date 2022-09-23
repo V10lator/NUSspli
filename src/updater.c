@@ -40,6 +40,7 @@
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 #include <coreinit/thread.h>
+#include <rpxloader/rpxloader.h>
 
 #include <ioapi.h>
 #include <unzip.h>
@@ -69,7 +70,7 @@ static void showUpdateError(const char *msg)
 {
     enableShutdown();
     drawErrorFrame(msg, ANY_RETURN);
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
@@ -373,26 +374,6 @@ static inline void showUpdateFrame()
 
 void update(const char *newVersion, NUSSPLI_TYPE type)
 {
-#ifndef NUSSPLI_HBL
-    OSDynLoad_Module mod;
-    int (*RL_UnmountCurrentRunningBundle)();
-    if(!isChannel() && isAroma())
-    {
-        OSDynLoad_Error err = OSDynLoad_Acquire("homebrew_rpx_loader", &mod);
-        if(err == OS_DYNLOAD_OK)
-        {
-            err = OSDynLoad_FindExport(mod, false, "RL_UnmountCurrentRunningBundle", (void **)&RL_UnmountCurrentRunningBundle);
-            if(err != OS_DYNLOAD_OK)
-                OSDynLoad_Release(mod);
-        }
-        if(err != OS_DYNLOAD_OK)
-        {
-            showUpdateError(gettext("Aroma version too old to allow auto-updates"));
-            return;
-        }
-    }
-#endif
-
     disableShutdown();
     showUpdateFrame();
     removeDirectory(UPDATE_TEMP_FOLDER);
@@ -452,21 +433,19 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
 
     // Uninstall currently running type/version
 #ifdef NUSSPLI_HBL
-    if(!dirExists(UPDATE_HBL_FOLDER))
+    if(removeDirectory(UPDATE_HBL_FOLDER) != FS_STATUS_OK)
     {
-        showUpdateError(gettext("Couldn't find NUSspli folder on the SD card"));
+        showUpdateErrorf("%s: %s", gettext("Error removing directory"), translateFSErr(err));
         goto updateError;
     }
-
-    removeDirectory(UPDATE_HBL_FOLDER);
 #else
     if(isChannel())
     {
         MCPTitleListType ownInfo;
-        MCPError err = MCP_GetOwnTitleInfo(mcpHandle, &ownInfo);
-        if(err != 0)
+        MCPError e = MCP_GetOwnTitleInfo(mcpHandle, &ownInfo);
+        if(e != 0)
         {
-            showUpdateErrorf("%s: %#010x", gettext("Error getting own title info"), err);
+            showUpdateErrorf("%s: %#010x", gettext("Error getting own title info"), e);
             goto updateError;
         }
 
@@ -474,20 +453,25 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
             toUSB = ownInfo.indexedDevice[0] == 'u';
 
         deinstall(&ownInfo, "NUSspli v" NUSSPLI_VERSION, true, false);
-        OSSleepTicks(OSSecondsToTicks(10)); // channelHaxx...
     }
     else if(isAroma())
     {
-        if(!fileExists(UPDATE_AROMA_FOLDER UPDATE_AROMA_FILE))
+        RPXLoaderStatus rs = RPXLoader_UnmountCurrentRunningBundle();
+        if(rs == RPX_LOADER_RESULT_SUCCESS)
         {
-            showUpdateError(gettext("Couldn't find NUSspli file on the SD card"));
+            strcpy(path, UPDATE_AROMA_FOLDER UPDATE_AROMA_FILE);
+            err = FSRemove(__wut_devoptab_fs_client, getCmdBlk(), path, FS_ERROR_FLAG_ALL);
+            if(err != FS_STATUS_OK)
+            {
+                showUpdateErrorf("%s: %s", gettext("Error removing file"), translateFSErr(err));
+                goto updateError;
+            }
+        }
+        else
+        {
+            showUpdateErrorf("%s: 0x%08X", gettext("Aroma error"), rs);
             goto updateError;
         }
-
-        RL_UnmountCurrentRunningBundle();
-        OSDynLoad_Release(mod);
-        strcpy(path, UPDATE_AROMA_FOLDER UPDATE_AROMA_FILE);
-        FSRemove(__wut_devoptab_fs_client, getCmdBlk(), path, FS_ERROR_FLAG_ALL);
     }
 #endif
 
@@ -499,23 +483,26 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
             strcpy(path, UPDATE_TEMP_FOLDER UPDATE_AROMA_FILE);
             char *path2 = getStaticPathBuffer(0);
             strcpy(path2, UPDATE_AROMA_FOLDER UPDATE_AROMA_FILE);
-            FSRename(__wut_devoptab_fs_client, getCmdBlk(), path, path2, FS_ERROR_FLAG_ALL);
+            err = FSRename(__wut_devoptab_fs_client, getCmdBlk(), path, path2, FS_ERROR_FLAG_ALL);
+            if(err != FS_STATUS_OK)
+            {
+                showUpdateErrorf("%s: %s", gettext("Error moving file"), translateFSErr(err));
+                goto updateError;
+            }
             break;
         case NUSSPLI_TYPE_CHANNEL:
             strcpy(path, UPDATE_TEMP_FOLDER);
             strcpy(path + strlen(UPDATE_TEMP_FOLDER), "NUSspli");
 
-            install("Update", false, NUSDEV_SD, path, toUSB, true, 0);
+            install("Update", false, NUSDEV_SD, path, toUSB, true, NULL);
             break;
         case NUSSPLI_TYPE_HBL:
-#ifdef NUSSPLI_DEBUG
-            FSStatus err =
-#endif
-                moveDirectory(UPDATE_TEMP_FOLDER "NUSspli", UPDATE_HBL_FOLDER);
-#ifdef NUSSPLI_DEBUG
+            err = moveDirectory(UPDATE_TEMP_FOLDER "NUSspli", UPDATE_HBL_FOLDER);
             if(err != FS_STATUS_OK)
-                debugPrintf("Error moving directory: %s", translateFSErr(err));
-#endif
+            {
+                showUpdateErrorf("%s: %s", gettext("Error moving directory"), translateFSErr(err));
+                goto updateError;
+            }
             break;
     }
 
@@ -525,9 +512,6 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
     return;
 
 updateError:
-#ifndef NUSSPLI_HBL
-    if(!isChannel() && isAroma())
-        OSDynLoad_Release(mod);
-#endif
     removeDirectory(UPDATE_TEMP_FOLDER);
+    enableShutdown();
 }

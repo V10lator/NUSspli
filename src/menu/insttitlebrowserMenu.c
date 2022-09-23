@@ -160,13 +160,13 @@ static int asyncTitleLoader(int argc, const char **argv)
     do
     {
         meta = MEMAllocFromDefaultHeapEx(sizeof(ACPMetaXml), 0x40);
-    } while(meta == NULL && asyncState && AppRunning());
+    } while(meta == NULL && asyncState && AppRunning(false));
 
     size_t min = MAX_ITITLEBROWSER_LINES >> 1;
     size_t max = ititleEntrySize - 1;
     size_t cur;
 
-    while(min <= max && AppRunning())
+    while(min <= max && AppRunning(false))
     {
         switch(asyncState)
         {
@@ -240,7 +240,7 @@ static OSThread *initITBMenu()
     if(r > 0)
     {
         uint32_t s = sizeof(MCPTitleListType) * (uint32_t)r;
-        ititleEntries = (MCPTitleListType *)MEMAllocFromDefaultHeap(s);
+        ititleEntries = (MCPTitleListType *)MEMAllocFromDefaultHeapEx(s, 0x40);
         if(ititleEntries)
         {
             r = MCP_TitleList(mcpHandle, &s, ititleEntries, s);
@@ -289,24 +289,29 @@ void ititleBrowserMenu()
     size_t cursor = 0;
     size_t pos = 0;
 
-    drawITBMenuFrame(pos, cursor);
-
-    bool mov = ititleEntrySize >= MAX_ITITLEBROWSER_LINES;
-    bool redraw = false;
+    bool mov;
+    bool redraw = true;
     MCPTitleListType *entry;
     uint32_t oldHold = VPAD_BUTTON_RIGHT;
     size_t frameCount = DPAD_COOLDOWN_FRAMES;
     bool dpadAction;
 
 loopEntry:
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
         if(app == APP_STATE_RETURNING)
-            drawITBMenuFrame(pos, cursor);
+            redraw = true;
 
+        if(redraw)
+        {
+            drawITBMenuFrame(pos, cursor);
+            mov = ititleEntrySize > MAX_ITITLEBROWSER_LINES;
+            redraw = false;
+        }
         showFrame();
+
         if(vpad.trigger & VPAD_BUTTON_A)
         {
             entry = ititleEntries + cursor + pos;
@@ -447,16 +452,9 @@ loopEntry:
 
         if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
             oldHold = 0;
-
-        if(redraw)
-        {
-            drawITBMenuFrame(pos, cursor);
-            mov = ititleEntrySize > MAX_ITITLEBROWSER_LINES;
-            redraw = false;
-        }
     }
 
-    if(AppRunning())
+    if(AppRunning(true))
     {
         volatile INST_META *im = installedTitles + cursor + pos;
         char *toFrame = getToFrameBuffer();
@@ -476,7 +474,7 @@ loopEntry:
         strcat(toFrame, gettext("No"));
         int r = addErrorOverlay(toFrame);
 
-        while(AppRunning())
+        while(AppRunning(true))
         {
             showFrame();
 
@@ -491,7 +489,7 @@ loopEntry:
 
         removeErrorOverlay(r);
 
-        if(checkSystemTitle(entry->titleId, MCP_REGION_UNKNOWN) && AppRunning())
+        if(checkSystemTitle(entry->titleId, MCP_REGION_UNKNOWN) && AppRunning(true))
             deinstall(entry, (const char *)im->name, false, false);
         else
             goto loopEntry;

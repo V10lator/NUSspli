@@ -67,8 +67,12 @@ static void drawTBMenuFrame(const TITLE_CATEGORY tab, const size_t pos, const si
     textToFrame(MAX_LINES - 2, ALIGNED_CENTER, toFrame);
 
     strcpy(toFrame, gettext(BUTTON_Y " to search"));
-    strcat(toFrame, " || ");
-    strcat(toFrame, gettext(BUTTON_MINUS " to open the queue"));
+    if(getListSize(getTitleQueue()))
+    {
+        strcat(toFrame, " || ");
+        strcat(toFrame, gettext(BUTTON_MINUS " to open the queue"));
+    }
+
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, toFrame);
 
     size_t j;
@@ -202,23 +206,30 @@ void titleBrowserMenu()
     char search[129];
     search[0] = u'\0';
     oldPos = 99;
-    bool redraw = false;
+    bool redraw;
     const TitleEntry *entry;
     uint32_t oldHold = 0;
     size_t frameCount = 0;
     bool dpadAction;
+    bool mov;
 loop:
-    drawTBMenuFrame(tab, pos, cursor, search);
-    bool mov = filteredTitleEntrySize >= MAX_TITLEBROWSER_LINES;
+    redraw = true;
 
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
         if(app == APP_STATE_RETURNING)
-            drawTBMenuFrame(tab, pos, cursor, search);
+            redraw = true;
 
+        if(redraw)
+        {
+            drawTBMenuFrame(tab, pos, cursor, search);
+            mov = filteredTitleEntrySize > MAX_TITLEBROWSER_LINES;
+            redraw = false;
+        }
         showFrame();
+
         if(vpad.trigger & VPAD_BUTTON_A)
         {
             entry = filteredTitleEntries[cursor + pos];
@@ -362,9 +373,11 @@ loop:
             return;
         }
 
-        if(vpad.trigger & VPAD_BUTTON_MINUS)
+        if(vpad.trigger & VPAD_BUTTON_MINUS && getListSize(getTitleQueue()))
         {
-            queueMenu();
+            if(queueMenu())
+                return;
+
             redraw = true;
         }
 
@@ -407,15 +420,8 @@ loop:
 
         if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
             oldHold = 0;
-
-        if(redraw)
-        {
-            drawTBMenuFrame(tab, pos, cursor, search);
-            mov = filteredTitleEntrySize > MAX_TITLEBROWSER_LINES;
-            redraw = false;
-        }
     }
-    if(!AppRunning())
+    if(!AppRunning(true))
     {
         MEMFreeToDefaultHeap(filteredTitleEntries);
         return;

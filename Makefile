@@ -6,6 +6,8 @@ ifeq ($(strip $(DEVKITPRO)),)
 $(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/devkitpro")
 endif
 
+WUMS_ROOT := $(DEVKITPRO)/wums
+
 TOPDIR ?= $(CURDIR)
 
 include $(DEVKITPRO)/wut/share/wut_rules
@@ -55,13 +57,13 @@ CXXFLAGS	:=	$(CFLAGS) -std=c++20 -fpermissive
 ASFLAGS		:=	-g $(ARCH)
 LDFLAGS		:=	-g $(ARCH) $(RPXSPECS) $(CFLAGS) -Wl,-Map,$(notdir $*.map)
 
-LIBS		:=	-lcurl -lssl -lcrypto `$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image jansson` -lwut -lmocha $(ROMFS_LIBS)
+LIBS		:=	-lcurl -lmbedtls -lmbedx509 -lmbedcrypto `$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image jansson` -lwut -lmocha -lrpxloader $(ROMFS_LIBS)
 
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level
 # containing include and lib
 #-------------------------------------------------------------------------------
-LIBDIRS	:= $(PORTLIBS) $(WUT_ROOT) $(WUT_ROOT)/usr
+LIBDIRS	:= $(WUMS_ROOT) $(PORTLIBS) $(WUT_ROOT) $(WUT_ROOT)/usr
 
 
 #-------------------------------------------------------------------------------

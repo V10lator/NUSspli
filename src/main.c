@@ -84,7 +84,7 @@ static void innerMain(bool validCfw)
 {
     OSThread *mainThread = OSGetCurrentThread();
     OSSetThreadName(mainThread, "NUSspli");
-#ifdef NUSSPLI_HBL
+#ifdef NUSSPLI_DEBUG
     OSSetThreadStackUsage(mainThread);
 #endif
 
@@ -126,10 +126,10 @@ static void innerMain(bool validCfw)
 
                 if(initFS())
                 {
-                    drawLoadingScreen("Filesystem initialized!", "Loading OpenSSL..");
+                    drawLoadingScreen("Filesystem initialized!", "Loading Crypto...");
                     if(initCrypto())
                     {
-                        drawLoadingScreen("OpenSSL initialized!", "Loading MCP...");
+                        drawLoadingScreen("Crypto initialized!", "Loading MCP...");
                         mcpHandle = MCP_Open();
                         if(mcpHandle != 0)
                         {
@@ -162,6 +162,8 @@ static void innerMain(bool validCfw)
                                                             checkStacks("main");
                                                             debugPrintf("Deinitializing libraries...");
                                                         }
+                                                        else
+                                                            drawByeFrame();
 
                                                         shutdownQueue();
                                                     }
@@ -206,10 +208,10 @@ static void innerMain(bool validCfw)
                             lerr = "Couldn't initialize MCP!";
 
                         deinitCrypto();
-                        debugPrintf("OpenSSL closed");
+                        debugPrintf("Crypto closed");
                     }
                     else
-                        lerr = "Couldn't initialize OpenSSL!";
+                        lerr = "Couldn't initialize Crypto!";
 
                     deinitFS();
                     debugPrintf("Filesystem closed");
@@ -218,7 +220,7 @@ static void innerMain(bool validCfw)
                     lerr = "Couldn't initialize filesystem!";
             }
             else
-                lerr = "Unsupported environment.\nEither you're not using Tiramisu or your Tiramisu version is out of date.";
+                lerr = "Unsupported environment.\nEither you're not using Tiramisu/Aroma or your Tiramisu version is out of date.";
 
             if(lerr != NULL)
             {
@@ -227,6 +229,8 @@ static void innerMain(bool validCfw)
 
                 while(!(vpad.trigger))
                     showFrame();
+
+                drawByeFrame();
             }
 
             shutdownRenderer();
@@ -307,7 +311,7 @@ int main()
     }
 
     if(mochaReady)
-        Mocha_DeinitLibrary();
+        Mocha_DeInitLibrary();
 
 #ifdef NUSSPLI_DEBUG
     checkStacks("main");
@@ -331,7 +335,7 @@ int main()
         if(app == APP_STATE_HOME)
         {
             app = APP_STATE_RUNNING;
-            while(AppRunning())
+            while(AppRunning(true))
                 ;
         }
 
@@ -347,6 +351,7 @@ int main()
         } while(ps != PROCUI_STATUS_EXITING);
     }
 
+    deinitState();
     ProcUIShutdown();
     return 0;
 }

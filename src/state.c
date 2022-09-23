@@ -26,7 +26,6 @@
 #include <utils.h>
 
 #include <coreinit/core.h>
-#include <coreinit/dynload.h>
 #include <coreinit/energysaver.h>
 #include <coreinit/foreground.h>
 #include <coreinit/ios.h>
@@ -34,10 +33,11 @@
 #include <coreinit/time.h>
 #include <coreinit/title.h>
 #include <proc_ui/procui.h>
+#include <rpxloader/rpxloader.h>
 
 #include <stdbool.h>
 
-APP_STATE app;
+volatile APP_STATE app;
 static bool shutdownEnabled = true;
 #ifndef NUSSPLI_HBL
 static bool channel;
@@ -111,6 +111,7 @@ uint32_t homeButtonCallback(void *dummy)
     {
         shutdownEnabled = false;
         app = APP_STATE_HOME;
+        drawByeFrame();
     }
 
     return 0;
@@ -129,11 +130,7 @@ void initState()
     ProcUIRegisterCallback(PROCUI_CALLBACK_HOME_BUTTON_DENIED, &homeButtonCallback, NULL, 100);
     OSEnableHomeButtonMenu(false);
 
-    OSDynLoad_Module mod;
-    aroma = OSDynLoad_Acquire("homebrew_kernel", &mod) == OS_DYNLOAD_OK;
-    if(aroma)
-        OSDynLoad_Release(mod);
-
+    aroma = RPXLoader_InitLibrary() == RPX_LOADER_RESULT_SUCCESS;
 #ifndef NUSSPLI_HBL
     channel = OSGetTitleID() == 0x0005000010155373;
 #endif
@@ -151,24 +148,30 @@ void initState()
     addEntropy(&t, sizeof(OSTime));
 }
 
-bool AppRunning()
+void deinitState()
+{
+    if(aroma)
+        RPXLoader_DeInitLibrary();
+}
+
+bool AppRunning(bool mainthread)
 {
     if(app == APP_STATE_STOPPING || app == APP_STATE_HOME || app == APP_STATE_STOPPED)
         return false;
 
-    if(OSIsMainCore())
+    if(mainthread)
     {
         switch(ProcUIProcessMessages(true))
         {
             case PROCUI_STATUS_EXITING:
                 // Real exit request from CafeOS
                 app = APP_STATE_STOPPED;
-                break;
+                return false;
             case PROCUI_STATUS_RELEASE_FOREGROUND:
                 // Exit with power button
-                shutdownRenderer();
                 app = APP_STATE_STOPPING;
-                break;
+                drawByeFrame();
+                return false;
             default:
                 // Normal loop execution
                 break;

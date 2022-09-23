@@ -24,7 +24,7 @@
 extern "C"
 {
 #endif
-    void queueMenu();
+    bool queueMenu();
 #ifdef __cplusplus
 }
 #endif

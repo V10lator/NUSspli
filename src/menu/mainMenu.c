@@ -75,46 +75,56 @@ static void drawMainMenuFrame()
 
 void mainMenu()
 {
-    drawMainMenuFrame();
-
-    while(AppRunning())
+    bool redraw = true;
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
         if(app == APP_STATE_RETURNING)
-            drawMainMenuFrame();
+            redraw = true;
 
+        if(redraw)
+        {
+            drawMainMenuFrame();
+            redraw = false;
+        }
         showFrame();
 
         if(vpad.trigger & VPAD_BUTTON_A)
         {
             titleBrowserMenu();
-            drawMainMenuFrame();
+            redraw = true;
         }
         else if(vpad.trigger & VPAD_BUTTON_X)
         {
             char *dir = fileBrowserMenu();
+            if(!AppRunning(true))
+                return;
+
             if(dir != NULL)
                 installerMenu(dir);
 
-            drawMainMenuFrame();
+            redraw = true;
         }
         else if(vpad.trigger & VPAD_BUTTON_LEFT)
         {
             configMenu();
-            drawMainMenuFrame();
+            redraw = true;
         }
         else if(vpad.trigger & VPAD_BUTTON_Y)
         {
             generateFakeTicket();
-            drawMainMenuFrame();
+            redraw = true;
         }
         else if(vpad.trigger & VPAD_BUTTON_RIGHT)
         {
             ititleBrowserMenu();
-            drawMainMenuFrame();
+            redraw = true;
         }
         else if(vpad.trigger & VPAD_BUTTON_B)
+        {
+            drawByeFrame();
             return;
+        }
     }
 }

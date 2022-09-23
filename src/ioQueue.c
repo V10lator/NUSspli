@@ -37,7 +37,7 @@
 
 #define IOT_STACK_SIZE       0x1000
 #define IO_MAX_FILE_BUFFER   (1024 * 1024) // 1 MB
-#define MAX_IO_QUEUE_ENTRIES (512 * (IO_MAX_FILE_BUFFER / (1024 * 1024))) // 512 MB
+#define MAX_IO_QUEUE_ENTRIES (64 * (IO_MAX_FILE_BUFFER / (1024 * 1024))) // 64 MB
 
 typedef struct WUT_PACKED
 {
@@ -56,24 +56,21 @@ static volatile uint32_t activeWriteBuffer;
 static volatile FSStatus fwriteErrno = FS_STATUS_OK;
 static volatile int fwriteOverlay = -1;
 
-static int ioThreadMain(int argc, const char **argv) __attribute__((__hot__));
 static int ioThreadMain(int argc, const char **argv)
 {
-    uint32_t asl;
-    WriteQueueEntry *entry;
     FSCmdBlock cmdBlk;
-    FSStatus err;
-
     FSInitCmdBlock(&cmdBlk);
     FSSetCmdPriority(&cmdBlk, 1);
 
-    while(ioRunning && fwriteErrno == FS_STATUS_OK)
+    FSStatus err;
+    uint32_t asl = activeWriteBuffer;
+    WriteQueueEntry *entry = queueEntries + asl;
+
+    while(ioRunning)
     {
-        asl = activeWriteBuffer;
-        entry = queueEntries + asl;
         if(entry->file == NULL)
         {
-            OSSleepTicks(256);
+            OSSleepTicks(OSMillisecondsToTicks(2));
             continue;
         }
 
@@ -81,7 +78,7 @@ static int ioThreadMain(int argc, const char **argv)
         {
             err = FSWriteFile(__wut_devoptab_fs_client, &cmdBlk, (uint8_t *)entry->buf, entry->size, 1, *entry->file, 0, FS_ERROR_FLAG_ALL);
             if(err != 1)
-                fwriteErrno = err;
+                goto ioError;
 
             entry->size = 0;
         }
@@ -90,7 +87,7 @@ static int ioThreadMain(int argc, const char **argv)
             OSTime t = OSGetTime();
             err = FSCloseFile(__wut_devoptab_fs_client, &cmdBlk, *entry->file, FS_ERROR_FLAG_ALL);
             if(err != FS_STATUS_OK)
-                fwriteErrno = err;
+                goto ioError;
 
             t = OSGetTime() - t;
             addEntropy(&t, sizeof(OSTime));
@@ -101,9 +98,14 @@ static int ioThreadMain(int argc, const char **argv)
 
         activeWriteBuffer = asl;
         entry->file = NULL;
+        entry = queueEntries + asl;
     }
 
     return 0;
+
+ioError:
+    fwriteErrno = err;
+    return 1;
 }
 
 bool initIOThread()
@@ -128,6 +130,7 @@ bool initIOThread()
             if(ioThread != NULL)
                 return true;
 
+            ioRunning = false;
             MEMFreeToDefaultHeap(buf);
         }
 
@@ -157,11 +160,7 @@ void shutdownIOThread()
     if(!ioRunning)
         return;
 
-    if(!checkForQueueErrors())
-    {
-        while(queueEntries[activeWriteBuffer].file != NULL)
-            ;
-    }
+    flushIOQueue();
 
     ioRunning = false;
 #ifdef NUSSPLI_DEBUG
@@ -196,6 +195,9 @@ retryAddingToQueue:
             queueStalled = true;
         }
 #endif
+        if(checkForQueueErrors())
+            return 0;
+
         goto retryAddingToQueue; // We use goto here instead of just calling addToIOQueue again to not overgrow the stack.
     }
 
@@ -256,21 +258,17 @@ retryAddingToQueue:
 
 void flushIOQueue()
 {
-    if(checkForQueueErrors())
+    if(checkForQueueErrors() || queueEntries[activeWriteBuffer].file == NULL)
         return;
 
     int ovl = addErrorOverlay("Flushing queue, please wait...");
     debugPrintf("Flushing...");
 
     while(queueEntries[activeWriteBuffer].file != NULL)
-    {
-        OSSleepTicks(1024);
         if(checkForQueueErrors())
             break;
-    }
 
     removeErrorOverlay(ovl);
-
     checkForQueueErrors();
 }
 
@@ -292,10 +290,11 @@ FSFileHandle *openFile(const char *path, const char *mode, size_t filesize)
 
     FSStatus s = FSOpenFileEx(__wut_devoptab_fs_client, getCmdBlk(), newPath, mode, 0x660, filesize == 0 ? FS_OPEN_FLAG_NONE : FS_OPEN_FLAG_PREALLOC_SIZE, filesize, ret, FS_ERROR_FLAG_ALL);
     if(s == FS_STATUS_OK)
+    {
+        t = OSGetTime() - t;
+        addEntropy(&t, sizeof(OSTime));
         return ret;
-
-    t = OSGetTime() - t;
-    addEntropy(&t, sizeof(OSTime));
+    }
 
     MEMFreeToDefaultHeap(ret);
     debugPrintf("Error opening %s: %s!", path, translateFSErr(s));

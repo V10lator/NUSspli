@@ -68,21 +68,19 @@ extern "C"
 
     extern int mcpHandle;
 
-#define isNumber(x)         (x >= '0' && x <= '9')
-#define isLowercase(x)      (x >= 'a' && x <= 'z')
-#define isUppercase(x)      (x >= 'A' && x <= 'Z')
-#define isAlphanumerical(x) (isLowercase(x) || isUppercase(x) || isNumber(x))
-// Keep it to ASCII for FTPiiU compat.
-#define isAllowedInFilename(x) (x >= ' ' && x <= '~' && x != '/' && x != '\\' && x != '"' && x != '*' && x != ':' && x != '<' && x != '>' && x != '?' && x != '|')
-#define isLowercaseHexa(x)     (isNumber(x) || (x >= 'a' && x <= 'f'))
-#define isUppercaseHexa(x)     (isNumber(x) || (x >= 'A' && x <= 'F'))
-#define isHexa(x)              (isLowercaseHexa(x) || isUppercaseHexa(x))
-
 #define toLowercase(x)                      \
     for(int y = strlen(x) - 1; y >= 0; --y) \
         if(isUppercase(x[y]))               \
             x[y] += 32;
 
+    bool isNumber(char c) __attribute__((__hot__));
+    bool isLowercase(char c) __attribute__((__hot__));
+    bool isUppercase(char c) __attribute__((__hot__));
+    bool isAlphanumerical(char c) __attribute__((__hot__));
+    bool isAllowedInFilename(char c) __attribute__((__hot__));
+    bool isLowercaseHexa(char c) __attribute__((__hot__));
+    bool isUppercaseHexa(char c) __attribute__((__hot__));
+    bool isHexa(char c) __attribute__((__hot__));
     void hex(uint64_t i, int digits, char *out); // ex: 000050D1
     void secsToTime(uint32_t seconds, char *out);
     void getSpeedString(double bytePerSecond, char *out);

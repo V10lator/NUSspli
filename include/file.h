@@ -80,7 +80,7 @@ extern "C"
 
     bool fileExists(const char *path);
     bool dirExists(const char *path);
-    void removeDirectory(const char *path) __attribute__((__hot__));
+    FSStatus removeDirectory(const char *path) __attribute__((__hot__));
     FSStatus moveDirectory(const char *src, const char *dest);
     FSStatus createDirectory(const char *path);
     bool createDirRecursive(const char *dir) __attribute__((__hot__));

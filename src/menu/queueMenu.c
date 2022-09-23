@@ -104,29 +104,33 @@ static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
     drawFrame();
 }
 
-void queueMenu()
+bool queueMenu()
 {
     uint32_t oldHold = 0;
     bool dpadAction;
     size_t frameCount = 0;
     size_t cursor = 0;
     size_t pos = 0;
-    bool redraw = false;
+    bool redraw = true;
     LIST *titleQueue = getTitleQueue();
     bool mov = getListSize(titleQueue) >= MAX_ENTRIES;
-    drawQueueMenu(titleQueue, cursor, pos);
 
-    while(AppRunning())
+    while(AppRunning(true))
     {
         if(app == APP_STATE_BACKGROUND)
             continue;
         if(app == APP_STATE_RETURNING)
-            drawQueueMenu(titleQueue, cursor, pos);
+            redraw = true;
 
+        if(redraw)
+        {
+            drawQueueMenu(titleQueue, cursor, pos);
+            redraw = false;
+        }
         showFrame();
 
         if(vpad.trigger & VPAD_BUTTON_B)
-            return;
+            return false;
 
         if(vpad.hold & VPAD_BUTTON_UP)
         {
@@ -239,14 +243,20 @@ void queueMenu()
         if(vpad.trigger & VPAD_BUTTON_PLUS)
         {
             if(proccessQueue())
+            {
                 showFinishedScreen(NULL, FINISHING_OPERATION_QUEUE);
+                return true;
+            }
 
-            return;
+            redraw = true;
         }
 
         if(vpad.trigger & VPAD_BUTTON_MINUS)
         {
             removeFromQueue(cursor + pos);
+            if(getListSize(titleQueue) == 0)
+                return false;
+
             if(cursor + pos == getListSize(titleQueue))
             {
                 if(cursor)
@@ -261,11 +271,7 @@ void queueMenu()
 
         if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
             oldHold = 0;
-
-        if(redraw)
-        {
-            drawQueueMenu(titleQueue, cursor, pos);
-            redraw = false;
-        }
     }
+
+    return true;
 }

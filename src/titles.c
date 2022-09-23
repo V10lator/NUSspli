@@ -38,7 +38,7 @@
 
 const TitleEntry *getTitleEntryByTid(uint64_t tid)
 {
-    static TITLE_CATEGORY cat;
+    TITLE_CATEGORY cat;
 
     switch(getTidHighFromTid(tid))
     {

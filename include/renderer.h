@@ -103,6 +103,7 @@ extern "C"
     int addErrorOverlay(const char *err);
     void removeErrorOverlay(int id);
     uint32_t getSpaceWidth();
+    void drawByeFrame();
 
 #ifdef __cplusplus
 }

@@ -24,11 +24,6 @@
     "\uE002 to switch to USB": "\uE002 mudar para memória externa (USB)",
     "Searching on": "Pesquisando em",
     
-    "Press \uE000 to install to USB": "Aperte \uE000 para instalar na memória externa (USB)",
-    "Press \uE002 to install to NAND": "Aperte \uE002 para instalar memória interna (NAND)",
-    "Press \uE07B to delete files after the installation": "Aperte \uE07B para excluir arquivos após instalação",
-    "Press \uE07B to keep files after the installation": "Aperte \uE07B para manter arquivos após instalação",
-
     "Press \uE000 to delete": "Aperte \uE000 para desinstalar",
 
     "Press \uE000 to continue": "Aperte \uE000 para continuar",
@@ -117,7 +112,6 @@
 
     "Press \uE07C to set the title version": "\uE07C para definir versão do título",
     "Press \uE07A to set a custom name to the download folder": "\uE07A para definir nome da pasta de download",
-    "WARNING: Files on USB/NAND will always be deleted after installing!": "Os arquivos na USB/NAND serão excluídos após instalação!",
     "Press \uE07B to detete downloaded files after the installation": "\uE07B para excluir arquivos após instalação",
     "Press \uE07B to keep downloaded files after the installation": "\uE07B para manter arquivos após instalação",
     "Press \uE046 to download to SD": "\uE046 para baixar no cartão de memória (SD)",

@@ -22,7 +22,6 @@
 
 #include <config.h>
 #include <crypto.h>
-#include <file.h>
 #include <input.h>
 #include <menu/utils.h>
 #include <messages.h>
@@ -32,13 +31,7 @@
 #include <thread.h>
 #include <utils.h>
 
-#include <coreinit/dynload.h>
-#include <coreinit/memdefaultheap.h>
-#include <coreinit/memfrmheap.h>
 #include <coreinit/memory.h>
-#include <coreinit/messagequeue.h>
-#include <coreinit/thread.h>
-#include <coreinit/time.h>
 #include <padscore/kpad.h>
 #include <padscore/wpad.h>
 #include <vpad/input.h>
@@ -47,6 +40,8 @@
 #define SWKBD_QUEUE_SIZE 8
 
 // WIP. This need a better implementation
+
+extern FSClient *__wut_devoptab_fs_client;
 
 VPADStatus vpad;
 static const KPADStatus kpad[4];

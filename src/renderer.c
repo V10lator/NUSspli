@@ -36,7 +36,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include <wchar.h>
 
 #include <crypto.h>
 #include <file.h>

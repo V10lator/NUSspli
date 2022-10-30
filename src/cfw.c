@@ -20,8 +20,6 @@
 
 #include <stdbool.h>
 
-#include <filesystem.h>
-
 #include <coreinit/title.h>
 #include <mocha/mocha.h>
 
@@ -38,23 +36,19 @@ bool cfwValid()
     bool ret = mochaReady;
     if(ret)
     {
-        ret = Mocha_UnlockFSClient(__wut_devoptab_fs_client) == MOCHA_RESULT_SUCCESS;
+        WiiUConsoleOTP otp;
+        ret = Mocha_ReadOTP(&otp) == MOCHA_RESULT_SUCCESS;
         if(ret)
         {
-            WiiUConsoleOTP otp;
-            ret = Mocha_ReadOTP(&otp) == MOCHA_RESULT_SUCCESS;
-            if(ret)
-            {
-                MochaRPXLoadInfo info = {
-                    .target = 0xDEADBEEF,
-                    .filesize = 0,
-                    .fileoffset = 0,
-                    .path = "dummy"
-                };
+            MochaRPXLoadInfo info = {
+                .target = 0xDEADBEEF,
+                .filesize = 0,
+                .fileoffset = 0,
+                .path = "dummy"
+            };
 
-                MochaUtilsStatus s = Mocha_LaunchRPX(&info);
-                ret = s != MOCHA_RESULT_UNSUPPORTED_API_VERSION && s != MOCHA_RESULT_UNSUPPORTED_COMMAND;
-            }
+            MochaUtilsStatus s = Mocha_LaunchRPX(&info);
+            ret = s != MOCHA_RESULT_UNSUPPORTED_API_VERSION && s != MOCHA_RESULT_UNSUPPORTED_COMMAND;
         }
     }
 

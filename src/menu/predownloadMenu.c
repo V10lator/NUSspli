@@ -256,6 +256,20 @@ static void *drawPDMainGameFrame(const TitleEntry *entry)
     return addErrorOverlay(toFrame);
 }
 
+static void *drawPDUpdateFrame(const TitleEntry *entry)
+{
+    char *toFrame = getToFrameBuffer();
+    strcpy(toFrame, entry->name);
+    strcat(toFrame, "\n");
+    strcat(toFrame, gettext("Has an update available."));
+    strcat(toFrame, "\n\n" BUTTON_A " ");
+    strcat(toFrame, gettext(operation == OPERATION_DOWNLOAD_INSTALL ? "Install the update, too" : "Download the update, too"));
+    strcat(toFrame, " || " BUTTON_B " ");
+    strcat(toFrame, gettext("Continue"));
+
+    return addErrorOverlay(toFrame);
+}
+
 static inline void changeTitleVersion(char *buf)
 {
     if(!showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_RESTRICTED, buf, CHECK_NUMERICAL, 5, false, buf, NULL))
@@ -425,20 +439,7 @@ downloadTMD:
         clearRamBuf();
         saveConfig(false);
 
-        drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
-
-        while(AppRunning(true))
-        {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
-
-            showFrame();
-            if(vpad.trigger)
-                break;
-        }
-
+        showErrorFrame(gettext("Invalid title.tmd file!"));
         return true;
     }
 
@@ -702,6 +703,60 @@ naNedNa:
                 }
             }
         }
+        else if(isGame(entry->tid))
+        {
+            uint64_t t = entry->tid | 0x0000000E00000000;
+            const TitleEntry *te = getTitleEntryByTid(t);
+            if(te != NULL) // Update available
+            {
+                MCPTitleListType tl __attribute__((__aligned__(0x40)));
+                if(MCP_GetTitleInfo(mcpHandle, t, &tl) != 0) // Update not installed
+                {
+                    void *ovl = drawPDUpdateFrame(entry);
+                    if(ovl == NULL)
+                        goto exitPDM;
+
+                    while(AppRunning(true))
+                    {
+                        if(app == APP_STATE_BACKGROUND)
+                            continue;
+
+                        showFrame();
+
+                        if(vpad.trigger & VPAD_BUTTON_B)
+                            break;
+                        if(vpad.trigger & VPAD_BUTTON_A)
+                        {
+                            removeErrorOverlay(ovl);
+
+                            if(!checkFreeSpace(dlDev, dls))
+                            {
+                                if(AppRunning(true))
+                                    goto naNedNa;
+
+                                goto exitPDM;
+                            }
+
+                            if(!addToOpQueue(entry, titleVer, folderName, dlDev, instDev))
+                                goto exitPDM;
+
+                            clearRamBuf();
+                            entry = te;
+                            autoAddToQueue = true;
+
+                            if(!toQueue)
+                                autoStartQueue = true;
+
+                            goto downloadTMD;
+                        }
+                    }
+
+                    removeErrorOverlay(ovl);
+                    if(!AppRunning(true))
+                        goto exitPDM;
+                }
+            }
+        }
     }
 
     startNewFrame();
@@ -732,9 +787,12 @@ naNedNa:
     }
     else if(checkSystemTitleFromEntry(entry))
     {
+        disableApd();
         ret = !downloadTitle(tmd, getRamBufSize(), entry, titleVer, folderName, operation == OPERATION_DOWNLOAD_INSTALL, dlDev, instDev & NUSDEV_USB, keepFiles);
         if(!ret)
             showFinishedScreen(entry->name, operation == OPERATION_DOWNLOAD_INSTALL ? FINISHING_OPERATION_INSTALL : FINISHING_OPERATION_DOWNLOAD);
+
+        enableApd();
     }
     else
         ret = true;

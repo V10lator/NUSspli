@@ -42,7 +42,7 @@
 #include <coreinit/memory.h>
 #include <nn/acp/title.h>
 
-#define ASYNC_STACKSIZE                0x400
+#define ASYNC_STACKSIZE                0x4000
 
 #define MAX_ITITLEBROWSER_LINES        (MAX_LINES - 3)
 #define MAX_ITITLEBROWSER_TITLE_LENGTH (MAX_TITLENAME_LENGTH >> 1)
@@ -71,7 +71,7 @@ static MCPTitleListType *ititleEntries;
 static size_t ititleEntrySize;
 static volatile ASYNC_STATE asyncState;
 
-static volatile INST_META *getInstalledTitle(size_t index, ACPMetaXml *meta, bool block)
+static volatile INST_META *getInstalledTitle(size_t index, bool block)
 {
     volatile INST_META *title = installedTitles + index;
     if(title->ready)
@@ -125,19 +125,20 @@ static volatile INST_META *getInstalledTitle(size_t index, ACPMetaXml *meta, boo
                 title->isDlc = title->isUpdate = false;
         }
 
-        if(ACPGetTitleMetaXmlByTitleListType(list, meta) == ACP_RESULT_SUCCESS)
+        ACPMetaXml meta __attribute__((__aligned__(0x40)));
+        if(ACPGetTitleMetaXmlByTitleListType(list, &meta) == ACP_RESULT_SUCCESS)
         {
-            size_t len = strlen(meta->longname_en);
+            size_t len = strlen(meta.longname_en);
             if(++len < MAX_ITITLEBROWSER_TITLE_LENGTH)
             {
-                if(strcmp(meta->longname_en, "Long Title Name (EN)"))
+                if(strcmp(meta.longname_en, "Long Title Name (EN)"))
                 {
-                    OSBlockMove((void *)title->name, meta->longname_en, len, false);
+                    OSBlockMove((void *)title->name, meta.longname_en, len, false);
                     for(char *buf = (char *)title->name; *buf != '\0'; ++buf)
                         if(*buf == '\n')
                             *buf = ' ';
 
-                    title->region = meta->region;
+                    title->region = meta.region;
                     goto finishExit;
                 }
             }
@@ -156,12 +157,6 @@ static volatile INST_META *getInstalledTitle(size_t index, ACPMetaXml *meta, boo
 
 static int asyncTitleLoader(int argc, const char **argv)
 {
-    ACPMetaXml *meta = NULL;
-    do
-    {
-        meta = MEMAllocFromDefaultHeapEx(sizeof(ACPMetaXml), 0x40);
-    } while(meta == NULL && asyncState && AppRunning(false));
-
     size_t min = MAX_ITITLEBROWSER_LINES >> 1;
     size_t max = ititleEntrySize - 1;
     size_t cur;
@@ -180,13 +175,10 @@ static int asyncTitleLoader(int argc, const char **argv)
                 goto asyncExit;
         }
 
-        getInstalledTitle(cur, meta, false);
+        getInstalledTitle(cur, false);
     }
 
 asyncExit:
-    if(meta != NULL)
-        MEMFreeToDefaultHeap(meta);
-
     return 0;
 }
 
@@ -206,29 +198,23 @@ static void drawITBMenuFrame(const size_t pos, const size_t cursor)
         max = MAX_ITITLEBROWSER_LINES;
 
     volatile INST_META *im;
-    ACPMetaXml *meta = MEMAllocFromDefaultHeapEx(sizeof(ACPMetaXml), 0x40);
-    if(meta)
+    for(size_t i = 0, l = 1; i < max; ++i, ++l)
     {
-        for(size_t i = 0, l = 1; i < max; ++i, ++l)
-        {
-            im = getInstalledTitle(pos + i, meta, true);
-            if(im->isDlc)
-                strcpy(toFrame, "[DLC] ");
-            else if(im->isUpdate)
-                strcpy(toFrame, "[UPD] ");
-            else
-                toFrame[0] = '\0';
+        im = getInstalledTitle(pos + i, true);
+        if(im->isDlc)
+            strcpy(toFrame, "[DLC] ");
+        else if(im->isUpdate)
+            strcpy(toFrame, "[UPD] ");
+        else
+            toFrame[0] = '\0';
 
-            if(cursor == i)
-                arrowToFrame(l, 1);
+        if(cursor == i)
+            arrowToFrame(l, 1);
 
-            deviceToFrame(l, 4, im->dt);
-            flagToFrame(l, 7, im->region);
-            strcat(toFrame, (const char *)im->name);
-            textToFrameCut(l, 10, toFrame, (SCREEN_WIDTH - (FONT_SIZE << 1)) - (getSpaceWidth() * 11));
-        }
-
-        MEMFreeToDefaultHeap(meta);
+        deviceToFrame(l, 4, im->dt);
+        flagToFrame(l, 7, im->region);
+        strcat(toFrame, (const char *)im->name);
+        textToFrameCut(l, 10, toFrame, (SCREEN_WIDTH - (FONT_SIZE << 1)) - (getSpaceWidth() * 11));
     }
 
     drawFrame();

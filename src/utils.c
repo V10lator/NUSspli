@@ -36,7 +36,6 @@
 
 #include <coreinit/atomic.h>
 #include <coreinit/ios.h>
-#include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 
 int mcpHandle;
@@ -173,15 +172,7 @@ void glueMcpData(MCPInstallTitleInfo *info, McpData *data)
 
 void showMcpProgress(McpData *data, const char *game, bool inst)
 {
-    MCPInstallProgress *progress = MEMAllocFromDefaultHeapEx(sizeof(MCPInstallProgress), 0x40);
-    if(progress == NULL)
-    {
-        debugPrintf("Error allocating memory!");
-        data->err = CUSTOM_MCP_ERROR_EOM;
-        return;
-    }
-
-    progress->inProgress = 0;
+    MCPInstallProgress progress __attribute__((__aligned__(0x40))) = { .inProgress = 0, .sizeTotal = 0 };
     char multiplierName[3];
     int multiplier = 0;
     char *toScreen = getToFrameBuffer();
@@ -195,24 +186,24 @@ void showMcpProgress(McpData *data, const char *game, bool inst)
 
     while(data->processing)
     {
-        err = MCP_InstallGetProgress(mcpHandle, progress);
+        err = MCP_InstallGetProgress(mcpHandle, &progress);
         if(err == IOS_ERROR_OK)
         {
-            if(progress->inProgress == 1 && progress->sizeTotal != 0 && data->err != CUSTOM_MCP_ERROR_CANCELLED)
+            if(progress.inProgress == 1 && progress.sizeTotal != 0 && data->err != CUSTOM_MCP_ERROR_CANCELLED)
             {
                 if(multiplier == 0)
                 {
-                    if(progress->sizeTotal < 1 << 10)
+                    if(progress.sizeTotal < 1 << 10)
                     {
                         multiplier = 1;
                         strcpy(multiplierName, "B");
                     }
-                    else if(progress->sizeTotal < 1 << 20)
+                    else if(progress.sizeTotal < 1 << 20)
                     {
                         multiplier = 1 << 10;
                         strcpy(multiplierName, "KB");
                     }
-                    else if(progress->sizeTotal < 1 << 30)
+                    else if(progress.sizeTotal < 1 << 30)
                     {
                         multiplier = 1 << 20;
                         strcpy(multiplierName, "MB");
@@ -228,12 +219,12 @@ void showMcpProgress(McpData *data, const char *game, bool inst)
                 strcat(toScreen, " ");
                 strcat(toScreen, game);
                 textToFrame(0, 0, toScreen);
-                double prg = (double)progress->sizeProgress;
-                barToFrame(1, 0, 40, prg * 100.0f / progress->sizeTotal);
-                sprintf(toScreen, "%.2f / %.2f %s", prg / multiplier, ((double)progress->sizeTotal) / multiplier, multiplierName);
+                double prg = (double)progress.sizeProgress;
+                barToFrame(1, 0, 40, prg * 100.0f / progress.sizeTotal);
+                sprintf(toScreen, "%.2f / %.2f %s", prg / multiplier, ((double)progress.sizeTotal) / multiplier, multiplierName);
                 textToFrame(1, 41, toScreen);
 
-                if(progress->sizeProgress != 0)
+                if(progress.sizeProgress != 0)
                 {
                     now = OSGetSystemTime();
                     if(OSTicksToMilliseconds(now - lastSpeedCalc) > 333)
@@ -293,8 +284,6 @@ void showMcpProgress(McpData *data, const char *game, bool inst)
 
     if(ovl != NULL)
         removeErrorOverlay(ovl);
-
-    MEMFreeToDefaultHeap(progress);
 }
 
 #ifdef NUSSPLI_DEBUG

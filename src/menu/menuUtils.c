@@ -146,6 +146,24 @@ void drawErrorFrame(const char *text, ErrorOptions option)
     drawFrame();
 }
 
+void showErrorFrame(const char *text)
+{
+    drawErrorFrame(text, ANY_RETURN);
+
+    while(AppRunning(true))
+    {
+        if(app == APP_STATE_BACKGROUND)
+            continue;
+        if(app == APP_STATE_RETURNING)
+            drawErrorFrame(text, ANY_RETURN);
+
+        showFrame();
+
+        if(vpad.trigger)
+            break;
+    }
+}
+
 bool checkSystemTitle(uint64_t tid, MCPRegion region)
 {
     switch(getTidHighFromTid(tid))
@@ -158,30 +176,17 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region)
             return true;
     }
 
-    MCPRegion reg;
-    MCPSysProdSettings *settings = MEMAllocFromDefaultHeapEx(sizeof(MCPSysProdSettings), 0x40);
-    if(settings == NULL)
+    MCPSysProdSettings settings __attribute__((__aligned__(0x40)));
+    MCPError err = MCP_GetSysProdSettings(mcpHandle, &settings);
+    if(err)
     {
-        debugPrintf("OUT OF MEMORY!");
-        reg = 0;
-    }
-    else
-    {
-        MCPError err = MCP_GetSysProdSettings(mcpHandle, settings);
-        if(err)
-        {
-            debugPrintf("Error reading settings: %d!", err);
-            reg = 0;
-        }
-        else
-            reg = settings->game_region;
-
-        MEMFreeToDefaultHeap(settings);
+        debugPrintf("Error reading settings: %d!", err);
+        settings.game_region = 0;
     }
 
-    debugPrintf("Console region: 0x%08X", reg);
+    debugPrintf("Console region: 0x%08X", settings.game_region);
     debugPrintf("Title region: 0x%08X", region);
-    switch(reg)
+    switch(settings.game_region)
     {
         case MCP_REGION_EUROPE:
             if(region & MCP_REGION_EUROPE)
@@ -197,7 +202,7 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region)
             break;
         default:
             // TODO: MCP_REGION_CHINA, MCP_REGION_KOREA, MCP_REGION_TAIWAN
-            debugPrintf("Unknwon region: %d", reg);
+            debugPrintf("Unknwon region: %d", settings.game_region);
             return true;
     }
 

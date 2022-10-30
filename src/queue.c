@@ -126,23 +126,24 @@ bool proccessQueue()
     }
 
     TitleData *last = NULL;
+    disableApd();
     forEachListEntry(titleQueue, title)
     {
         removeFQ(last);
         if(!AppRunning(true))
-            return false;
+            goto exitApd;
 
 #ifndef NUSSPLI_LITE
         if(title->operation & OPERATION_DOWNLOAD)
         {
             if(!downloadTitle(title->tmd, title->tmdSize, title->entry, title->titleVer, title->folderName, title->operation & OPERATION_INSTALL, title->dlDev, title->toUSB, title->keepFiles))
-                return false;
+                goto exitApd;
         }
         else if(title->operation & OPERATION_INSTALL)
         {
 #endif
             if(!install(title->entry == NULL ? prettyDir(getPathFromInstData(title)) : title->entry->name, false /* TODO */, title->dlDev, getPathFromInstData(title), title->toUSB, title->keepFiles, title->tmd))
-                return false;
+                goto exitApd;
 #ifndef NUSSPLI_LITE
         }
 #endif
@@ -151,7 +152,11 @@ bool proccessQueue()
     }
 
     removeFQ(last);
+    enableApd();
     return true;
+exitApd:
+    enableApd();
+    return false;
 }
 
 bool removeFromQueue(uint32_t index)

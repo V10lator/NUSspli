@@ -21,6 +21,7 @@
 #include <wut-fixups.h>
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include <titles.h>
 

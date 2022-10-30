@@ -22,14 +22,12 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <utils.h>
 
 #include <crypto.h>
 #include <thread.h>
 
 #include <mbedtls/aes.h>
 
-#include <coreinit/memdefaultheap.h>
 #include <coreinit/time.h>
 
 static spinlock rngLock;

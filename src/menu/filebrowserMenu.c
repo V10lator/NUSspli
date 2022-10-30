@@ -32,6 +32,7 @@
 #include <renderer.h>
 #include <state.h>
 
+#include <coreinit/filesystem_fsa.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 
@@ -107,7 +108,7 @@ char *fileBrowserMenu(bool showQueue)
     NUSDEV usbMounted = getUSB();
     NUSDEV activeDevice = usbMounted ? NUSDEV_USB : NUSDEV_SD;
     bool mov;
-    FSDirectoryHandle dir;
+    FSADirectoryHandle dir;
     bool ret = false;
     char *path = getStaticPathBuffer(2);
     bool sQ;
@@ -130,18 +131,18 @@ refreshDirList:
 
     cursor = pos = 0;
 
-    if(FSOpenDir(__wut_devoptab_fs_client, getCmdBlk(), path, &dir, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+    if(FSAOpenDir(getFSAClient(), path, &dir) == FS_ERROR_OK)
     {
         size_t len;
-        FSDirectoryEntry entry;
-        while(FSReadDir(__wut_devoptab_fs_client, getCmdBlk(), dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+        FSADirectoryEntry entry;
+        while(FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
             if(entry.info.flags & FS_STAT_DIRECTORY && entry.name[0] != '.') // Check if it's a directory
             {
                 len = strlen(entry.name);
                 name = MEMAllocFromDefaultHeap(len + 2);
                 if(name == NULL)
                 {
-                    FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
+                    FSACloseDir(getFSAClient(), dir);
                     goto exitFileBrowserMenu;
                 }
 
@@ -151,12 +152,12 @@ refreshDirList:
                 if(!addToListEnd(folders, name))
                 {
                     MEMFreeToDefaultHeap(name);
-                    FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
+                    FSACloseDir(getFSAClient(), dir);
                     goto exitFileBrowserMenu;
                 }
             }
 
-        FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
+        FSACloseDir(getFSAClient(), dir);
     }
 
     t = OSGetTime() - t;

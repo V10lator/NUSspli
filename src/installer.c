@@ -18,17 +18,11 @@
 
 #include <wut-fixups.h>
 
-#include <dirent.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
+#include <stdint.h>
 
-#include <coreinit/filesystem.h>
-#include <coreinit/ios.h>
+#include <coreinit/filesystem_fsa.h>
 #include <coreinit/mcp.h>
-#include <coreinit/memdefaultheap.h>
-#include <coreinit/memory.h>
-#include <coreinit/thread.h>
 #include <coreinit/time.h>
 
 #include <crypto.h>
@@ -62,16 +56,16 @@ static void cleanupCancelledInstallation(NUSDEV dev, const char *path, bool toUs
     if(!keepFiles)
         removeDirectory(path);
 
-    FSDirectoryHandle dir;
+    FSADirectoryHandle dir;
     char *importPath = getStaticPathBuffer(2);
     strcpy(importPath, toUsb ? (getUSB() == NUSDEV_USB01 ? NUSDIR_USB1 "usr/import/" : NUSDIR_USB2 "usr/import/") : NUSDIR_MLC "usr/import/");
 
-    if(FSOpenDir(__wut_devoptab_fs_client, getCmdBlk(), importPath, &dir, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+    if(FSAOpenDir(getFSAClient(), importPath, &dir) == FS_ERROR_OK)
     {
         char *ptr = importPath + strlen(importPath);
-        FSDirectoryEntry entry;
+        FSADirectoryEntry entry;
 
-        while(FSReadDir(__wut_devoptab_fs_client, getCmdBlk(), dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+        while(FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
         {
             if(entry.name[0] == '.' || !(entry.info.flags & FS_STAT_DIRECTORY) || strlen(entry.name) != 8)
                 continue;
@@ -80,7 +74,7 @@ static void cleanupCancelledInstallation(NUSDEV dev, const char *path, bool toUs
             removeDirectory(importPath);
         }
 
-        FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
+        FSACloseDir(getFSAClient(), dir);
     }
 }
 
@@ -116,23 +110,21 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         if(toUsb ? dev & NUSDEV_USB : dev == NUSDEV_MLC)
             flushIOQueue();
 
-        if(FSGetFreeSpaceSize(__wut_devoptab_fs_client, getCmdBlk(), (char *)nd, &freeSpace, FS_ERROR_FLAG_ALL) == FS_STATUS_OK && size > freeSpace)
+        if(FSAGetFreeSpaceSize(getFSAClient(), (char *)nd, &freeSpace) == FS_ERROR_OK && size > freeSpace)
         {
             showNoSpaceOverlay(toUsb ? NUSDEV_USB : NUSDEV_MLC);
             return !(AppRunning(true));
         }
     }
 
-    MCPInstallTitleInfo *info = MEMAllocFromDefaultHeapEx(sizeof(MCPInstallTitleInfo), 0x40);
-    if(info == NULL)
-        return false;
+    MCPInstallTitleInfo info __attribute__((__aligned__(0x40)));
 
     McpData data;
     flushIOQueue(); // Make sure all game files are on disc
 
     // Let's see if MCP is able to parse the TMD...
     OSTime t = OSGetSystemTime();
-    data.err = MCP_InstallGetInfo(mcpHandle, path, (MCPInstallInfo *)info);
+    data.err = MCP_InstallGetInfo(mcpHandle, path, (MCPInstallInfo *)&info);
     t = OSGetSystemTime() - t;
     addEntropy(&t, sizeof(OSTime));
     if(data.err != 0)
@@ -162,20 +154,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
 
         debugPrintf(toScreen);
         addToScreenLog("Installation failed!");
-        drawErrorFrame(toScreen, ANY_RETURN);
-
-        while(AppRunning(true))
-        {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawErrorFrame(toScreen, ANY_RETURN);
-
-            showFrame();
-
-            if(vpad.trigger)
-                break;
-        }
+        showErrorFrame(toScreen);
         goto installError;
     }
 
@@ -193,20 +172,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     {
         const char *err = gettext(toUsb ? "Error opening USB device" : "Error opening internal memory");
         addToScreenLog("Installation failed!");
-        drawErrorFrame(err, ANY_RETURN);
-
-        while(AppRunning(true))
-        {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawErrorFrame(err, ANY_RETURN);
-
-            showFrame();
-
-            if(vpad.trigger)
-                break;
-        }
+        showErrorFrame(err);
         goto installError;
     }
 
@@ -214,32 +180,19 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     debugPrintf("Path: %s (%d)", path, strlen(path));
 
     // Last preparing step...
-    glueMcpData(info, &data);
+    glueMcpData(&info, &data);
 
     // Start the installation process
     t = OSGetSystemTime();
     disableShutdown();
-    MCPError err = MCP_InstallTitleAsync(mcpHandle, path, info);
+    MCPError err = MCP_InstallTitleAsync(mcpHandle, path, &info);
 
     if(err != 0)
     {
         sprintf(toScreen, "%s \"%s\": %#010x", gettext("Error starting async installation of"), path, data.err);
         debugPrintf(toScreen);
         addToScreenLog("Installation failed!");
-        drawErrorFrame(toScreen, ANY_RETURN);
-
-        while(AppRunning(true))
-        {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawErrorFrame(toScreen, ANY_RETURN);
-
-            showFrame();
-
-            if(vpad.trigger)
-                break;
-        }
+        showErrorFrame(toScreen);
         enableShutdown();
         goto installError;
     }
@@ -248,7 +201,6 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     enableShutdown();
     t = OSGetSystemTime() - t;
     addEntropy(&t, sizeof(OSTime));
-    MEMFreeToDefaultHeap(info);
 
     // MCP thread finished. Let's see if we got any error - TODO: This is a 1:1 copy&paste from WUP Installer GX2 which itself stole it from WUP Installer Y mod which got it from WUP Installer minor edit by Nexocube who got it from WUP installer JHBL Version by Dimrok who portet it from the ASM of WUP Installer. So I think it's time for something new... ^^
     if(data.err != 0)
@@ -305,20 +257,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         }
 
         addToScreenLog("Installation failed!");
-        drawErrorFrame(toScreen, ANY_RETURN);
-
-        while(AppRunning(true))
-        {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawErrorFrame(toScreen, ANY_RETURN);
-
-            showFrame();
-
-            if(vpad.trigger)
-                break;
-        }
+        showErrorFrame(toScreen);
         return false;
     }
 
@@ -333,6 +272,5 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     return true;
 
 installError:
-    MEMFreeToDefaultHeap(info);
     return false;
 }

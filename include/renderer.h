@@ -23,13 +23,11 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <wchar.h>
-
-#include <staticMem.h>
-#include <titles.h>
 
 #include <SDL2/SDL.h>
 #include <coreinit/mcp.h>
+
+#include <staticMem.h>
 
 #define SCREEN_WIDTH     1280
 #define SCREEN_HEIGHT    720

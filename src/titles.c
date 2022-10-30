@@ -19,22 +19,13 @@
 
 #include <wut-fixups.h>
 
-#include <config.h>
-#include <downloader.h>
 #include <gtitles.h>
 #include <menu/utils.h>
-#include <renderer.h>
-#include <romfs.h>
 #include <titles.h>
 #include <utils.h>
 
-#include <limits.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <string.h>
-
-#include <coreinit/memdefaultheap.h>
-#include <coreinit/memory.h>
 
 const TitleEntry *getTitleEntryByTid(uint64_t tid)
 {

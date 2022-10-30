@@ -21,7 +21,6 @@
 
 #include <wut-fixups.h>
 
-#include <ioQueue.h>
 #include <tmd.h>
 
 #include <stdbool.h>
@@ -70,17 +69,14 @@ extern "C"
         NUSDEV_MLC = 0x08,
     } NUSDEV;
 
-    extern FSClient *__wut_devoptab_fs_client;
-    FSCmdBlock *getCmdBlk() __attribute__((__hot__));
-
-    bool fileExists(const char *path);
-    bool dirExists(const char *path);
-    FSStatus removeDirectory(const char *path) __attribute__((__hot__));
-    FSStatus moveDirectory(const char *src, const char *dest);
-    FSStatus createDirectory(const char *path);
+    bool fileExists(const char *path) __attribute__((__hot__));
+    bool dirExists(const char *path) __attribute__((__hot__));
+    FSError removeDirectory(const char *path) __attribute__((__hot__));
+    FSError moveDirectory(const char *src, const char *dest);
+    FSError createDirectory(const char *path);
     bool createDirRecursive(const char *dir) __attribute__((__hot__));
-    const char *translateFSErr(FSStatus err) __attribute__((__cold__));
-    size_t getFilesize(const char *path);
+    const char *translateFSErr(FSError err) __attribute__((__cold__));
+    size_t getFilesize(const char *path) __attribute__((__hot__));
 #ifdef NUSSPLI_HBL
     size_t readFile(const char *path, void **buffer) __attribute__((__hot__));
 #else

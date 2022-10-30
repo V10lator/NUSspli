@@ -195,20 +195,7 @@ refreshDir:
     tmd = getTmd(dir);
     if(tmd == NULL)
     {
-        drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
-
-        while(AppRunning(true))
-        {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
-
-            showFrame();
-            if(vpad.trigger)
-                break;
-        }
-
+        showErrorFrame(gettext("Invalid title.tmd file!"));
         goto grabNewDir;
     }
 
@@ -243,20 +230,16 @@ refreshDir:
 
         if(vpad.trigger & VPAD_BUTTON_PLUS)
         {
-            switch(cursorPos)
+            if(checkSystemTitleFromTid(tmd->tid))
             {
-                case MAX_LINES - 5:
-                    if(checkSystemTitleFromTid(tmd->tid))
-                    {
-                        if(install(nd, false, dev, dir, toDev & NUSDEV_USB, keepFiles, tmd))
-                            showFinishedScreen(nd, FINISHING_OPERATION_INSTALL);
-                    }
+                disableApd();
+                if(install(nd, false, dev, dir, toDev & NUSDEV_USB, keepFiles, tmd))
+                    showFinishedScreen(nd, FINISHING_OPERATION_INSTALL);
 
-                    MEMFreeToDefaultHeap(tmd);
-                    return;
+                enableApd();
             }
 
-            redraw = true;
+            break;
         }
         else if(vpad.trigger & VPAD_BUTTON_MINUS)
         {

@@ -22,7 +22,9 @@ def checkAndDeleteDir(dir):
         shutil.rmtree(dir)
 
 version = ET.ElementTree(file="meta/hbl/meta.xml").getroot().findtext("version")
-print(f"::set-output name=version::{version}")
+github = open("version.txt", "w")
+github.write(f"version={version}\n")
+github.close()
 
 if len(nuspacker) == 0 or not os.path.exists(nuspacker):
     urllib.request.urlretrieve("https://github.com/Maschell/nuspacker/raw/master/NUSPacker.jar", "nuspacker.jar")

@@ -22,7 +22,6 @@
 #include <wut-fixups.h>
 
 #include <coreinit/memory.h>
-#include <coreinit/thread.h>
 #include <coreinit/time.h>
 #include <mocha/mocha.h>
 

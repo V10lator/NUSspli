@@ -95,24 +95,12 @@ bool generateTik(const char *path, const TitleEntry *titleEntry, const TMD *tmd)
     ticket.header_version = 0x0001;
     ticket.total_hdr_size = 0x14;
 
-    FSFileHandle *tik = openFile(path, "w", 0);
-    if(tik == NULL)
+    FSFileHandle tik = openFile(path, "w", 0);
+    if(tik == 0)
     {
         char *err = getStaticScreenBuffer();
         sprintf(err, "%s\n%s", gettext("Could not open path"), prettyDir(path));
-        drawErrorFrame(err, ANY_RETURN);
-
-        while(AppRunning(true))
-        {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawErrorFrame(err, ANY_RETURN);
-
-            showFrame();
-            if(vpad.trigger)
-                break;
-        }
+        showErrorFrame(err);
         return false;
     }
 
@@ -154,24 +142,12 @@ bool generateCert(const char *path)
     cetk.cert3.version = 0x01;
     cetk.cert3.unknown_01 = 0x00010001;
 
-    FSFileHandle *cert = openFile(path, "w", 0);
-    if(cert == NULL)
+    FSFileHandle cert = openFile(path, "w", 0);
+    if(cert == 0)
     {
         char *err = getStaticScreenBuffer();
         sprintf(err, "%s\n%s", gettext("Could not open path"), prettyDir(path));
-        drawErrorFrame(err, ANY_RETURN);
-
-        while(AppRunning(true))
-        {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawErrorFrame(err, ANY_RETURN);
-
-            showFrame();
-            if(vpad.trigger)
-                break;
-        }
+        showErrorFrame(err);
         return false;
     }
 
@@ -217,19 +193,7 @@ gftEntry:
     tmd = getTmd(dir);
     if(tmd == NULL)
     {
-        drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
-
-        while(AppRunning(true))
-        {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawErrorFrame(gettext("Invalid title.tmd file!"), ANY_RETURN);
-
-            showFrame();
-            if(vpad.trigger)
-                break;
-        }
+        showErrorFrame(gettext("Invalid title.tmd file!"));
         return;
     }
 

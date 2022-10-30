@@ -25,33 +25,36 @@
 #include <utils.h>
 
 #include <coreinit/filesystem_fsa.h>
+#include <mocha/mocha.h>
 
 #include <stdbool.h>
 
 static FSAClientHandle handle;
-static NUSDEV usb;
+static NUSDEV usb = NUSDEV_NONE;
 
 bool initFS()
 {
-    if(dirExists(NUSDIR_USB1 "usr"))
-        usb = NUSDEV_USB01;
-    else if(dirExists(NUSDIR_USB2 "usr"))
-        usb = NUSDEV_USB02;
-    else
-        usb = NUSDEV_NONE;
-
-    // TODO: Not implemented in cemu
-    if(isCemu())
-        return true;
-
     if(FSAInit() == FS_ERROR_OK)
     {
         handle = FSAAddClient(NULL);
         if(handle)
         {
-            FSError err = FSAMount(handle, "/vol/external01", "/vol/app_sd", FSA_MOUNT_FLAG_BIND_MOUNT, NULL, 0);
-            if(err == FS_ERROR_OK)
-                return true;
+            if(Mocha_UnlockFSClientEx(handle) == MOCHA_RESULT_SUCCESS)
+            {
+                if(dirExists(NUSDIR_USB1 "usr"))
+                    usb = NUSDEV_USB01;
+                else if(dirExists(NUSDIR_USB2 "usr"))
+                    usb = NUSDEV_USB02;
+                else
+                    usb = NUSDEV_NONE;
+
+                // TODO: Not implemented in cemu
+                if(isCemu())
+                    return true;
+
+                if(FSAMount(handle, "/vol/external01", "/vol/app_sd", FSA_MOUNT_FLAG_BIND_MOUNT, NULL, 0) == FS_ERROR_OK)
+                    return true;
+            }
 
             FSADelClient(handle);
         }
@@ -65,12 +68,16 @@ bool initFS()
 void deinitFS()
 {
     // TODO: Not implemented in cemu
-    if(isCemu())
-        return;
+    if(!isCemu())
+        FSAUnmount(handle, "/vol/app_sd", FSA_UNMOUNT_FLAG_BIND_MOUNT);
 
-    FSAUnmount(handle, "/vol/app_sd", FSA_UNMOUNT_FLAG_BIND_MOUNT);
     FSADelClient(handle);
     FSAShutdown();
+}
+
+FSAClientHandle getFSAClient()
+{
+    return handle;
 }
 
 NUSDEV getUSB()
@@ -82,10 +89,12 @@ bool checkFreeSpace(NUSDEV dlDev, uint64_t size)
 {
     uint64_t freeSpace;
     const char *nd = dlDev == NUSDEV_USB01 ? NUSDIR_USB1 : (dlDev == NUSDEV_USB02 ? NUSDIR_USB2 : (dlDev == NUSDEV_SD ? NUSDIR_SD : NUSDIR_MLC));
-    if(FSGetFreeSpaceSize(__wut_devoptab_fs_client, getCmdBlk(), (char *)nd, &freeSpace, FS_ERROR_FLAG_ALL) == FS_STATUS_OK && size > freeSpace)
+
+    if(FSAGetFreeSpaceSize(getFSAClient(), (char *)nd, &freeSpace) == FS_ERROR_OK && size > freeSpace)
     {
         showNoSpaceOverlay(dlDev);
         return false;
     }
+
     return true;
 }

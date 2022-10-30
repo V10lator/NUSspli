@@ -32,9 +32,9 @@ extern "C"
     bool initIOThread() __attribute__((__cold__));
     void shutdownIOThread() __attribute__((__cold__));
     bool checkForQueueErrors() __attribute__((__hot__));
-    size_t addToIOQueue(const void *buf, size_t size, size_t n, FSFileHandle *file) __attribute__((__hot__));
+    size_t addToIOQueue(const void *buf, size_t size, size_t n, FSFileHandle file) __attribute__((__hot__));
     void flushIOQueue();
-    FSFileHandle *openFile(const char *patch, const char *mode, size_t filesize);
+    FSFileHandle openFile(const char *patch, const char *mode, size_t filesize);
 
 #ifdef __cplusplus
 }

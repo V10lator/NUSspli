@@ -24,17 +24,14 @@
 
 #include <config.h>
 #include <crypto.h>
-#include <file.h>
-#include <input.h>
 #include <ioQueue.h>
 #include <localisation.h>
 #include <menu/utils.h>
 #include <renderer.h>
 #include <romfs.h>
-#include <swkbd_wrapper.h>
+#include <staticMem.h>
 #include <utils.h>
 
-#include <coreinit/mcp.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 #include <coreinit/time.h>
@@ -117,7 +114,7 @@ static MENU_LANGUAGE stringToMenuLang(const char *lang)
 {
     if(strcmp(lang, LANG_ENG) == 0)
         return MENU_LANGUAGE_ENGLISH;
-    if(strcmp(lang, LANG_ENG) == 0)
+    if(strcmp(lang, LANG_GER) == 0)
         return MENU_LANGUAGE_GERMAN;
     if(strcmp(lang, LANG_SPA) == 0)
         return MENU_LANGUAGE_SPANISH;
@@ -154,10 +151,40 @@ bool initConfig()
 {
     debugPrintf("Initializing config file...");
 
+    UCHandle handle = UCOpen();
+    if(handle >= 0)
+    {
+        UCSysConfig settings __attribute__((__aligned__(0x40))) = {
+            .access = 0,
+            .dataType = UC_DATATYPE_UNSIGNED_INT,
+            .error = UC_ERROR_OK,
+            .dataSize = sizeof(Swkbd_LanguageType),
+            .data = &sysLang,
+        };
+
+        UCError err = UCReadSysConfig(handle, 1, &settings);
+        UCClose(handle);
+        if(err != UC_ERROR_OK)
+        {
+            debugPrintf("Error reading UC: %d!", err);
+            sysLang = Swkbd_LanguageType__English;
+        }
+        else
+            debugPrintf("System language found: %s", getLanguageString(sysLang));
+    }
+    else
+    {
+        debugPrintf("Error opening UC: %d", handle);
+        sysLang = Swkbd_LanguageType__English;
+    }
+
+    menuLang = sysLang;
+
     if(!fileExists(CONFIG_PATH))
     {
         addToScreenLog("Config file not found, using defaults!");
         changed = true; // trigger a save on app exit
+        intSetMenuLanguage(menuLang);
         return true;
     }
 
@@ -173,197 +200,174 @@ bool initConfig()
 #else
     json_t *json = json_loadb(buf, bufSize, 0, NULL);
 #endif
-    if(json)
-    {
-        UCHandle handle = UCOpen();
-        if(handle >= 0)
-        {
-            UCSysConfig *settings = MEMAllocFromDefaultHeapEx(sizeof(UCSysConfig), 0x40);
-            if(settings != NULL)
-            {
-                strcpy(settings->name, "cafe.language");
-                settings->access = 0;
-                settings->dataType = UC_DATATYPE_UNSIGNED_INT;
-                settings->error = UC_ERROR_OK;
-                settings->dataSize = sizeof(Swkbd_LanguageType);
-                settings->data = &sysLang;
-
-                UCError err = UCReadSysConfig(handle, 1, settings);
-                UCClose(handle);
-                MEMFreeToDefaultHeap(settings);
-                if(err != UC_ERROR_OK)
-                {
-                    debugPrintf("Error reading UC: %d!", err);
-                    sysLang = Swkbd_LanguageType__English;
-                }
-                else
-                    debugPrintf("System language found: %s", getLanguageString(sysLang));
-            }
-            else
-            {
-                debugPrintf("OUT OF MEMORY!");
-                sysLang = Swkbd_LanguageType__English;
-            }
-
-            UCClose(handle);
-        }
-        else
-        {
-            debugPrintf("Error opening UC: %d", handle);
-            sysLang = Swkbd_LanguageType__English;
-        }
-
-        json_t *configEntry = json_object_get(json, "File Version");
-        if(configEntry != NULL && json_is_integer(configEntry))
-        {
-            int v = json_integer_value(configEntry);
-            if(v < 2)
-            {
-                configEntry = json_object_get(json, "Language");
-                if(configEntry != NULL && json_is_string(configEntry))
-                {
-                    if(strcmp(json_string_value(configEntry), LANG_JAP) == 0)
-                        lang = Swkbd_LanguageType__Japanese;
-                    else if(strcmp(json_string_value(configEntry), LANG_ENG) == 0)
-                        lang = Swkbd_LanguageType__English;
-                    else if(strcmp(json_string_value(configEntry), LANG_GER) == 0)
-                        lang = Swkbd_LanguageType__French;
-                    else if(strcmp(json_string_value(configEntry), LANG_ITA) == 0)
-                        lang = Swkbd_LanguageType__Italian;
-                    else if(strcmp(json_string_value(configEntry), LANG_SPA) == 0)
-                        lang = Swkbd_LanguageType__Spanish;
-                    else if(strcmp(json_string_value(configEntry), LANG_CHI) == 0)
-                        lang = Swkbd_LanguageType__Chinese1;
-                    else if(strcmp(json_string_value(configEntry), LANG_KOR) == 0)
-                        lang = Swkbd_LanguageType__Korean;
-                    else if(strcmp(json_string_value(configEntry), LANG_DUT) == 0)
-                        lang = Swkbd_LanguageType__Dutch;
-                    else if(strcmp(json_string_value(configEntry), LANG_POR) == 0)
-                        lang = Swkbd_LanguageType__Portuguese;
-                    else if(strcmp(json_string_value(configEntry), LANG_RUS) == 0)
-                        lang = Swkbd_LanguageType__Russian;
-                    else if(strcmp(json_string_value(configEntry), LANG_TCH) == 0)
-                        lang = Swkbd_LanguageType__Chinese2;
-                    else
-                        lang = Swkbd_LanguageType__Invalid;
-                }
-
-                menuLang = sysLangToMenuLang(sysLang);
-                changed = true;
-            }
-            else
-            {
-                configEntry = json_object_get(json, "Keyboard language");
-                if(configEntry != NULL && json_is_string(configEntry))
-                {
-                    if(strcmp(json_string_value(configEntry), LANG_JAP) == 0)
-                        lang = Swkbd_LanguageType__Japanese;
-                    else if(strcmp(json_string_value(configEntry), LANG_ENG) == 0)
-                        lang = Swkbd_LanguageType__English;
-                    else if(strcmp(json_string_value(configEntry), LANG_GER) == 0)
-                        lang = Swkbd_LanguageType__French;
-                    else if(strcmp(json_string_value(configEntry), LANG_ITA) == 0)
-                        lang = Swkbd_LanguageType__Italian;
-                    else if(strcmp(json_string_value(configEntry), LANG_SPA) == 0)
-                        lang = Swkbd_LanguageType__Spanish;
-                    else if(strcmp(json_string_value(configEntry), LANG_CHI) == 0)
-                        lang = Swkbd_LanguageType__Chinese1;
-                    else if(strcmp(json_string_value(configEntry), LANG_KOR) == 0)
-                        lang = Swkbd_LanguageType__Korean;
-                    else if(strcmp(json_string_value(configEntry), LANG_DUT) == 0)
-                        lang = Swkbd_LanguageType__Dutch;
-                    else if(strcmp(json_string_value(configEntry), LANG_POR) == 0)
-                        lang = Swkbd_LanguageType__Portuguese;
-                    else if(strcmp(json_string_value(configEntry), LANG_RUS) == 0)
-                        lang = Swkbd_LanguageType__Russian;
-                    else if(strcmp(json_string_value(configEntry), LANG_TCH) == 0)
-                        lang = Swkbd_LanguageType__Chinese2;
-                    else
-                        lang = Swkbd_LanguageType__Invalid;
-                }
-                else
-                    changed = true;
-
-                configEntry = json_object_get(json, "Menu language");
-                if(configEntry != NULL && json_is_string(configEntry))
-                    menuLang = stringToMenuLang(json_string_value(configEntry));
-                else
-                    changed = true;
-            }
-        }
-        else
-        {
-            menuLang = sysLangToMenuLang(sysLang);
-            changed = true;
-        }
-
-        intSetMenuLanguage(menuLang);
-
-        configEntry = json_object_get(json, "Auto resume failed downloads");
-        if(configEntry != NULL && json_is_boolean(configEntry))
-            autoResume = json_is_true(configEntry);
-        else
-            changed = true;
-
-#ifndef NUSSPLI_LITE
-        configEntry = json_object_get(json, "Region");
-        if(configEntry != NULL && json_is_string(configEntry))
-        {
-            if(strcmp(json_string_value(configEntry), SET_EUR) == 0)
-                regionSetting = MCP_REGION_EUROPE;
-            else if(strcmp(json_string_value(configEntry), SET_USA) == 0)
-                regionSetting = MCP_REGION_USA;
-            else if(strcmp(json_string_value(configEntry), SET_JPN) == 0)
-                regionSetting = MCP_REGION_JAPAN;
-            else
-                regionSetting = MCP_REGION_EUROPE | MCP_REGION_USA | MCP_REGION_JAPAN;
-        }
-        else
-            changed = true;
-
-        configEntry = json_object_get(json, "Download to USB");
-        if(configEntry != NULL && json_is_boolean(configEntry))
-            dlToUSB = json_is_true(configEntry);
-        else
-            changed = true;
-#endif
-
-        configEntry = json_object_get(json, "Notification method");
-        if(configEntry != NULL && json_is_string(configEntry))
-        {
-            if(strcmp(json_string_value(configEntry), NOTIF_RUMBLE) == 0)
-                notifSetting = NOTIF_METHOD_RUMBLE;
-            else if(strcmp(json_string_value(configEntry), NOTIF_LED) == 0)
-                notifSetting = NOTIF_METHOD_LED;
-            else if(strcmp(json_string_value(configEntry), NOTIF_NONE) == 0)
-                notifSetting = NOTIF_METHOD_NONE;
-            else
-                notifSetting = NOTIF_METHOD_RUMBLE | NOTIF_METHOD_LED;
-        }
-        else
-            changed = true;
-
-        configEntry = json_object_get(json, "Seed");
-        if(configEntry != NULL && json_is_integer(configEntry))
-        {
-            int ent = (int)json_integer_value(configEntry);
-            addEntropy(&ent, 4);
-        }
-
-        json_decref(json);
-        MEMFreeToDefaultHeap(buf);
-        t = OSGetTime() - t;
-        addEntropy(&t, sizeof(OSTime));
-
-        addToScreenLog("Config file loaded!");
-        return true;
-    }
-    else
+    if(json == NULL)
     {
         MEMFreeToDefaultHeap(buf);
         debugPrintf("json_loadb() failed: %s!", jerr.text);
-        return false;
+        addToScreenLog("Error parsing config file, using defaults!");
+        changed = true; // trigger a save on app exit
+        intSetMenuLanguage(menuLang);
+        return true;
     }
+
+    json_t *configEntry = json_object_get(json, "File Version");
+    if(configEntry != NULL && json_is_integer(configEntry))
+    {
+        int v = json_integer_value(configEntry);
+        if(v < 2)
+        {
+            addToScreenLog("Old vonfig file updating...");
+            configEntry = json_object_get(json, "Language");
+            if(configEntry != NULL && json_is_string(configEntry))
+            {
+                if(strcmp(json_string_value(configEntry), LANG_JAP) == 0)
+                    lang = Swkbd_LanguageType__Japanese;
+                else if(strcmp(json_string_value(configEntry), LANG_ENG) == 0)
+                    lang = Swkbd_LanguageType__English;
+                else if(strcmp(json_string_value(configEntry), LANG_GER) == 0)
+                    lang = Swkbd_LanguageType__French;
+                else if(strcmp(json_string_value(configEntry), LANG_ITA) == 0)
+                    lang = Swkbd_LanguageType__Italian;
+                else if(strcmp(json_string_value(configEntry), LANG_SPA) == 0)
+                    lang = Swkbd_LanguageType__Spanish;
+                else if(strcmp(json_string_value(configEntry), LANG_CHI) == 0)
+                    lang = Swkbd_LanguageType__Chinese1;
+                else if(strcmp(json_string_value(configEntry), LANG_KOR) == 0)
+                    lang = Swkbd_LanguageType__Korean;
+                else if(strcmp(json_string_value(configEntry), LANG_DUT) == 0)
+                    lang = Swkbd_LanguageType__Dutch;
+                else if(strcmp(json_string_value(configEntry), LANG_POR) == 0)
+                    lang = Swkbd_LanguageType__Portuguese;
+                else if(strcmp(json_string_value(configEntry), LANG_RUS) == 0)
+                    lang = Swkbd_LanguageType__Russian;
+                else if(strcmp(json_string_value(configEntry), LANG_TCH) == 0)
+                    lang = Swkbd_LanguageType__Chinese2;
+                else
+                    lang = Swkbd_LanguageType__Invalid;
+            }
+
+            menuLang = sysLangToMenuLang(sysLang);
+            changed = true;
+        }
+        else
+        {
+            configEntry = json_object_get(json, "Keyboard language");
+            if(configEntry != NULL && json_is_string(configEntry))
+            {
+                if(strcmp(json_string_value(configEntry), LANG_JAP) == 0)
+                    lang = Swkbd_LanguageType__Japanese;
+                else if(strcmp(json_string_value(configEntry), LANG_ENG) == 0)
+                    lang = Swkbd_LanguageType__English;
+                else if(strcmp(json_string_value(configEntry), LANG_GER) == 0)
+                    lang = Swkbd_LanguageType__French;
+                else if(strcmp(json_string_value(configEntry), LANG_ITA) == 0)
+                    lang = Swkbd_LanguageType__Italian;
+                else if(strcmp(json_string_value(configEntry), LANG_SPA) == 0)
+                    lang = Swkbd_LanguageType__Spanish;
+                else if(strcmp(json_string_value(configEntry), LANG_CHI) == 0)
+                    lang = Swkbd_LanguageType__Chinese1;
+                else if(strcmp(json_string_value(configEntry), LANG_KOR) == 0)
+                    lang = Swkbd_LanguageType__Korean;
+                else if(strcmp(json_string_value(configEntry), LANG_DUT) == 0)
+                    lang = Swkbd_LanguageType__Dutch;
+                else if(strcmp(json_string_value(configEntry), LANG_POR) == 0)
+                    lang = Swkbd_LanguageType__Portuguese;
+                else if(strcmp(json_string_value(configEntry), LANG_RUS) == 0)
+                    lang = Swkbd_LanguageType__Russian;
+                else if(strcmp(json_string_value(configEntry), LANG_TCH) == 0)
+                    lang = Swkbd_LanguageType__Chinese2;
+                else
+                    lang = Swkbd_LanguageType__Invalid;
+            }
+            else
+                changed = true;
+
+            configEntry = json_object_get(json, "Menu language");
+            if(configEntry != NULL && json_is_string(configEntry))
+                menuLang = stringToMenuLang(json_string_value(configEntry));
+            else
+                changed = true;
+        }
+    }
+    else
+    {
+        addToScreenLog("Config file version not found!");
+        menuLang = sysLangToMenuLang(sysLang);
+        changed = true;
+    }
+
+    intSetMenuLanguage(menuLang);
+
+    configEntry = json_object_get(json, "Auto resume failed downloads");
+    if(configEntry != NULL && json_is_boolean(configEntry))
+        autoResume = json_is_true(configEntry);
+    else
+    {
+        addToScreenLog("Auto resume setting not found!");
+        changed = true;
+    }
+
+#ifndef NUSSPLI_LITE
+    configEntry = json_object_get(json, "Region");
+    if(configEntry != NULL && json_is_string(configEntry))
+    {
+        if(strcmp(json_string_value(configEntry), SET_EUR) == 0)
+            regionSetting = MCP_REGION_EUROPE;
+        else if(strcmp(json_string_value(configEntry), SET_USA) == 0)
+            regionSetting = MCP_REGION_USA;
+        else if(strcmp(json_string_value(configEntry), SET_JPN) == 0)
+            regionSetting = MCP_REGION_JAPAN;
+        else
+            regionSetting = MCP_REGION_EUROPE | MCP_REGION_USA | MCP_REGION_JAPAN;
+    }
+    else
+    {
+        addToScreenLog("Region setting not foind!");
+        changed = true;
+    }
+
+    configEntry = json_object_get(json, "Download to USB");
+    if(configEntry != NULL && json_is_boolean(configEntry))
+        dlToUSB = json_is_true(configEntry);
+    else
+    {
+        addToScreenLog("Download to setting not found!");
+        changed = true;
+    }
+#endif
+
+    configEntry = json_object_get(json, "Notification method");
+    if(configEntry != NULL && json_is_string(configEntry))
+    {
+        if(strcmp(json_string_value(configEntry), NOTIF_RUMBLE) == 0)
+            notifSetting = NOTIF_METHOD_RUMBLE;
+        else if(strcmp(json_string_value(configEntry), NOTIF_LED) == 0)
+            notifSetting = NOTIF_METHOD_LED;
+        else if(strcmp(json_string_value(configEntry), NOTIF_NONE) == 0)
+            notifSetting = NOTIF_METHOD_NONE;
+        else
+            notifSetting = NOTIF_METHOD_RUMBLE | NOTIF_METHOD_LED;
+    }
+    else
+    {
+        addToScreenLog("Notification setting not found!");
+        changed = true;
+    }
+
+    configEntry = json_object_get(json, "Seed");
+    if(configEntry != NULL && json_is_integer(configEntry))
+    {
+        int ent = (int)json_integer_value(configEntry);
+        addEntropy(&ent, 4);
+    }
+
+    json_decref(json);
+    MEMFreeToDefaultHeap(buf);
+    t = OSGetTime() - t;
+    addEntropy(&t, sizeof(OSTime));
+
+    addToScreenLog("Config file loaded!");
+    return true;
 }
 
 const char *getLanguageString(Swkbd_LanguageType language)
@@ -476,8 +480,8 @@ bool saveConfig(bool force)
                                             {
                                                 entropy = strlen(json);
                                                 flushIOQueue();
-                                                FSFileHandle *f = openFile(CONFIG_PATH, "w", 0);
-                                                if(f != NULL)
+                                                FSFileHandle f = openFile(CONFIG_PATH, "w", 0);
+                                                if(f != 0)
                                                 {
                                                     addToIOQueue(json, 1, entropy, f);
                                                     addToIOQueue(NULL, 0, 0, f);
@@ -485,13 +489,7 @@ bool saveConfig(bool force)
                                                     ret = true;
                                                 }
                                                 else
-                                                {
-                                                    drawErrorFrame(gettext("Couldn't save config file!\nYour SD card might be write locked."), ANY_RETURN);
-                                                    showFrame();
-
-                                                    while(!(vpad.trigger))
-                                                        showFrame();
-                                                }
+                                                    showErrorFrame(gettext("Couldn't save config file!\nYour SD card might be write locked."));
 
                                                 MEMFreeToDefaultHeap(json);
                                             }
@@ -545,17 +543,18 @@ void setAutoResume(bool enabled)
 
 const char *getFormattedRegion(MCPRegion region)
 {
-    switch(region)
+    if(region & MCP_REGION_EUROPE)
     {
-        case MCP_REGION_EUROPE:
-            return SET_EUR;
-        case MCP_REGION_USA:
-            return SET_USA;
-        case MCP_REGION_JAPAN:
-            return SET_JPN;
-        default:
-            return SET_ALL;
+        if(region & MCP_REGION_USA)
+            return region & MCP_REGION_JAPAN ? SET_ALL : "USA/Europe";
+
+        return region & MCP_REGION_JAPAN ? "Europe/Japan" : SET_EUR;
     }
+
+    if(region & MCP_REGION_USA)
+        return region & MCP_REGION_JAPAN ? "USA/Japan" : SET_USA;
+
+    return region & MCP_REGION_JAPAN ? SET_JPN : "Unknown";
 }
 
 #ifndef NUSSPLI_LITE

@@ -20,12 +20,7 @@
 #include <wut-fixups.h>
 
 #include <dirent.h>
-#include <math.h>
 #include <netinet/tcp.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
 
 #include <config.h>
 #include <crypto.h>
@@ -37,7 +32,6 @@
 #include <ioQueue.h>
 #include <localisation.h>
 #include <menu/utils.h>
-#include <osdefs.h>
 #include <renderer.h>
 #include <romfs.h>
 #include <state.h>
@@ -48,10 +42,8 @@
 #include <tmd.h>
 #include <utils.h>
 
-#include <coreinit/filesystem.h>
-#include <coreinit/memdefaultheap.h>
+#include <coreinit/filesystem_fsa.h>
 #include <coreinit/memory.h>
-#include <coreinit/thread.h>
 #include <coreinit/time.h>
 #include <curl/curl.h>
 #include <nn/ac/ac_c.h>
@@ -209,8 +201,8 @@ bool initDownloader()
     struct curl_blob blob = { .data = NULL, .len = 0, .flags = CURL_BLOB_COPY };
 
 #ifndef NUSSPLI_HBL
-    FSDirectoryHandle dir;
-    if(FSOpenDir(__wut_devoptab_fs_client, getCmdBlk(), fn, &dir, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+    FSADirectoryHandle dir;
+    if(FSAOpenDir(getFSAClient(), fn, &dir) == FS_ERROR_OK)
 #else
     DIR *dir = opendir(fn);
     if(dir != NULL)
@@ -222,8 +214,8 @@ bool initDownloader()
         size_t oldcertsize = 0;
         void *tmp;
 #ifndef NUSSPLI_HBL
-        FSDirectoryEntry entry;
-        while(FSReadDir(__wut_devoptab_fs_client, getCmdBlk(), dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+        FSADirectoryEntry entry;
+        while(FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
         {
             if(entry.name[0] == '.')
                 continue;
@@ -243,35 +235,26 @@ bool initDownloader()
 
             oldcertsize = blob.len;
             blob.len += bufsize;
-            if(blob.data == NULL)
+            tmp = blob.data;
+            blob.data = MEMAllocFromDefaultHeap(blob.len);
+            if(blob.data != NULL)
             {
-                blob.data = MEMAllocFromDefaultHeap(blob.len);
-                if(blob.data == NULL)
-                {
-                    blob.len = 0;
-                    continue;
-                }
+                if(tmp != NULL)
+                    OSBlockMove(blob.data, tmp, oldcertsize, false);
+
+                OSBlockMove(blob.data + oldcertsize, buf, bufsize, false);
             }
             else
             {
-                tmp = blob.data;
-                blob.data = MEMAllocFromDefaultHeap(blob.len);
-                if(blob.data == NULL)
-                {
-                    blob.data = tmp;
-                    blob.len -= bufsize;
-                    continue;
-                }
-
-                OSBlockMove(blob.data, tmp, oldcertsize, false);
-                MEMFreeToDefaultHeap(tmp);
+                blob.data = tmp;
+                blob.len = oldcertsize;
             }
 
-            OSBlockMove(blob.data + oldcertsize, buf, bufsize, false);
+            MEMFreeToDefaultHeap(buf);
         }
 
 #ifndef NUSSPLI_HBL
-        FSCloseDir(__wut_devoptab_fs_client, getCmdBlk(), dir, FS_ERROR_FLAG_ALL);
+        FSACloseDir(getFSAClient(), dir);
 #else
         closedir(dir);
 #endif
@@ -379,33 +362,24 @@ static int dlThreadMain(int argc, const char **argv)
 
 static const char *translateCurlError(CURLcode err, const char *curlError)
 {
-    const char *ret;
     switch(err)
     {
         case CURLE_COULDNT_RESOLVE_HOST:
-            ret = "Couldn't resolve hostname";
-            break;
+            return "Couldn't resolve hostname";
         case CURLE_COULDNT_CONNECT:
-            ret = "Couldn't connect to server";
-            break;
+            return "Couldn't connect to server";
         case CURLE_OPERATION_TIMEDOUT:
-            ret = "Operation timed out";
-            break;
+            return "Operation timed out";
         case CURLE_GOT_NOTHING:
-            ret = "The server didn't return any data";
-            break;
+            return "The server didn't return any data";
         case CURLE_SEND_ERROR:
         case CURLE_RECV_ERROR:
         case CURLE_PARTIAL_FILE:
-            ret = "I/O error";
-            break;
+            return "I/O error";
         case CURLE_PEER_FAILED_VERIFICATION:
-            ret = "Verification failed";
-            break;
+            return "Verification failed";
         case CURLE_SSL_CONNECT_ERROR:
-            ret = "Handshake failed";
-            break;
-
+            return "Handshake failed";
         case CURLE_FAILED_INIT:
         case CURLE_READ_ERROR:
         case CURLE_OUT_OF_MEMORY:
@@ -413,8 +387,6 @@ static const char *translateCurlError(CURLcode err, const char *curlError)
         default:
             return curlError[0] == '\0' ? "Unknown libcurl error" : curlError;
     }
-
-    return ret;
 }
 
 int downloadFile(const char *url, char *file, downloadData *data, FileType type, bool resume)
@@ -449,7 +421,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     {
         if(resume && fileExists(file))
         {
-            FSFileHandle *nf;
+            FSFileHandle nf;
             fileSize = getFilesize(file);
             if(fileSize != 0)
             {
@@ -514,7 +486,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
         if(toRam)
             fclose((FILE *)fp);
         else
-            addToIOQueue(NULL, 0, 0, (FSFileHandle *)fp);
+            addToIOQueue(NULL, 0, 0, (FSFileHandle)fp);
 
         debugPrintf("curl_easy_setopt error: %s (%d / %ud)", curlError, ret, fileSize);
         return 1;
@@ -716,7 +688,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     if(toRam)
         fclose((FILE *)fp);
     else
-        addToIOQueue(NULL, 0, 0, (FSFileHandle *)fp);
+        addToIOQueue(NULL, 0, 0, (FSFileHandle)fp);
 
     if(!AppRunning(true))
         return 1;
@@ -779,7 +751,6 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
             strcpy(p, pt);
             const char *n = strchr(pt, '_');
             p += n - pt;
-            strcat(toScreen, pt);
         }
         else
             drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
@@ -837,7 +808,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
             flushIOQueue();
             char *newFile = getStaticPathBuffer(2);
             strcpy(newFile, file);
-            FSRemove(__wut_devoptab_fs_client, getCmdBlk(), newFile, FS_ERROR_FLAG_ALL);
+            FSARemove(getFSAClient(), newFile);
         }
 
         if(resp == 404 && (type & FILE_TYPE_TMD) == FILE_TYPE_TMD) // Title.tmd not found
@@ -948,20 +919,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
         {
             char *toScreen = getToFrameBuffer();
             strcpy(toScreen, translateFSErr(err));
-            drawErrorFrame(toScreen, ANY_RETURN);
-
-            while(AppRunning(true))
-            {
-                if(app == APP_STATE_BACKGROUND)
-                    continue;
-                if(app == APP_STATE_RETURNING)
-                    drawErrorFrame(toScreen, ANY_RETURN);
-
-                showFrame();
-
-                if(vpad.trigger)
-                    break;
-            }
+            showErrorFrame(toScreen);
             return false;
         }
     }
@@ -982,20 +940,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
         {
             char *toScreen = getToFrameBuffer();
             strcpy(toScreen, translateFSErr(err));
-            drawErrorFrame(toScreen, ANY_RETURN);
-
-            while(AppRunning(true))
-            {
-                if(app == APP_STATE_BACKGROUND)
-                    continue;
-                if(app == APP_STATE_RETURNING)
-                    drawErrorFrame(toScreen, ANY_RETURN);
-
-                showFrame();
-
-                if(vpad.trigger)
-                    break;
-            }
+            showErrorFrame(toScreen);
             return false;
         }
     }
@@ -1005,23 +950,10 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     char *idp = installDir + strlen(installDir);
     strcpy(idp, "title.tmd");
 
-    FSFileHandle *fp = openFile(installDir, "w", tmdSize);
-    if(fp == NULL)
+    FSFileHandle fp = openFile(installDir, "w", tmdSize);
+    if(fp == 0)
     {
-        drawErrorFrame("Can't save title.tmd file!", ANY_RETURN);
-
-        while(AppRunning(true))
-        {
-            if(app == APP_STATE_BACKGROUND)
-                continue;
-            if(app == APP_STATE_RETURNING)
-                drawErrorFrame("Can't save title.tmd file!", ANY_RETURN);
-
-            showFrame();
-
-            if(vpad.trigger)
-                break;
-        }
+        showErrorFrame("Can't save title.tmd file!");
         return false;
     }
 
@@ -1152,23 +1084,18 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
         }
     }
 
-    disableApd();
     char *dupp = dup + 8;
     char *idpp = idp + 8;
-    char cid[9];
     for(int i = 0; i < tmd->num_contents && AppRunning(true); ++i)
     {
-        hex(tmd->contents[i].cid, 8, cid);
-        strcpy(dup, cid);
-        strcpy(idp, cid);
+        hex(tmd->contents[i].cid, 8, dup);
+        OSBlockMove(idp, dup, 8, false);
         strcpy(idpp, ".app");
 
         data.cs = tmd->contents[i].size;
         if(downloadFile(downloadUrl, installDir, &data, FILE_TYPE_APP, true) == 1)
-        {
-            enableApd();
             return false;
-        }
+
         ++data.dcontent;
 
         if(tmd->contents[i].type & TMD_CONTENT_TYPE_HASHED)
@@ -1177,10 +1104,8 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
             strcpy(idpp, ".h3");
 
             if(downloadFile(downloadUrl, installDir, &data, FILE_TYPE_H3, true) == 1)
-            {
-                enableApd();
                 return false;
-            }
+
             ++data.dcontent;
         }
     }
@@ -1189,10 +1114,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
         closeCancelOverlay();
 
     if(!AppRunning(true))
-    {
-        enableApd();
         return false;
-    }
 
     bool ret;
     if(inst)
@@ -1203,7 +1125,6 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     else
         ret = true;
 
-    enableApd();
     return ret;
 }
 #endif

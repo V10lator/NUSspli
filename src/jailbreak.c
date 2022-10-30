@@ -23,7 +23,6 @@
 #include <stdbool.h>
 
 #include <jailbreak.h>
-#include <menu/utils.h>
 #include <utils.h>
 
 #include <mocha/mocha.h>

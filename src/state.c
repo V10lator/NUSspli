@@ -21,16 +21,12 @@
 
 #include <cfw.h>
 #include <crypto.h>
-#include <ioQueue.h>
 #include <renderer.h>
 #include <state.h>
 #include <utils.h>
 
-#include <coreinit/core.h>
 #include <coreinit/energysaver.h>
 #include <coreinit/foreground.h>
-#include <coreinit/ios.h>
-#include <coreinit/systeminfo.h>
 #include <coreinit/time.h>
 #include <coreinit/title.h>
 #include <proc_ui/procui.h>
@@ -47,34 +43,44 @@ static bool channel;
 #endif
 static bool aroma;
 static bool apdEnabled;
-static bool apdDisabled = false;
+static uint32_t apdDisabledCount = 0;
 
 void enableApd()
 {
-    if(!apdEnabled || !apdDisabled)
+    if(!apdEnabled)
         return;
 
-    if(IMEnableAPD() == 0)
+    if(apdDisabledCount == 0)
     {
-        apdDisabled = false;
-        debugPrintf("APD enabled!");
+        debugPrintf("Tried to enable APD while already enabled!");
+        return;
     }
-    else
-        debugPrintf("Error enabling APD!");
+
+    debugPrintf("enableApd(): apdDisabledCount = %u", apdDisabledCount);
+
+    if(--apdDisabledCount == 0)
+    {
+        if(IMEnableAPD() == 0)
+            debugPrintf("APD enabled!");
+        else
+            debugPrintf("Error enabling APD!");
+    }
 }
 
 void disableApd()
 {
-    if(!apdEnabled || apdDisabled)
+    if(!apdEnabled)
         return;
 
-    if(IMDisableAPD() == 0)
+    if(apdDisabledCount++ == 0)
     {
-        apdDisabled = true;
-        debugPrintf("APD disabled!");
+        if(IMDisableAPD() == 0)
+            debugPrintf("APD disabled!");
+        else
+            debugPrintf("Error disabling APD!");
     }
-    else
-        debugPrintf("Error disabling APD!");
+
+    debugPrintf("APD disable request #%u", apdDisabledCount);
 }
 
 void enableShutdown()
@@ -159,6 +165,13 @@ void deinitState()
 {
     if(aroma)
         RPXLoader_DeInitLibrary();
+
+    if(apdDisabledCount != 0)
+    {
+        debugPrintf("APD disabled while exiting!");
+        apdDisabledCount = 1;
+        enableApd();
+    }
 }
 
 bool AppRunning(bool mainthread)

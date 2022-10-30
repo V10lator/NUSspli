@@ -19,47 +19,40 @@
 
 #include <wut-fixups.h>
 
+#include <crypto.h>
 #include <file.h>
+#include <filesystem.h>
 #include <ioQueue.h>
 #include <staticMem.h>
 #include <tmd.h>
 #include <utils.h>
 
-#include <crypto.h>
 #include <dirent.h>
 #include <stdbool.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
 
 #include <coreinit/filesystem.h>
+#include <coreinit/filesystem_fsa.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 #include <coreinit/time.h>
 
 #include <mbedtls/sha256.h>
 
-static FSCmdBlock cmdBlk;
-
-FSCmdBlock *getCmdBlk()
-{
-    return &cmdBlk;
-}
-
 bool fileExists(const char *path)
 {
-    FSStat stat;
-    return FSGetStat(__wut_devoptab_fs_client, &cmdBlk, path, &stat, FS_ERROR_FLAG_ALL) == FS_STATUS_OK;
+    FSAStat stat;
+    return FSAGetStat(getFSAClient(), path, &stat) == FS_ERROR_OK;
 }
 
 bool dirExists(const char *path)
 {
-    FSStat stat;
-    return FSGetStat(__wut_devoptab_fs_client, &cmdBlk, path, &stat, FS_ERROR_FLAG_ALL) == FS_STATUS_OK && (stat.flags & FS_STAT_DIRECTORY);
+    FSAStat stat;
+    return FSAGetStat(getFSAClient(), path, &stat) == FS_ERROR_OK && (stat.flags & FS_STAT_DIRECTORY);
 }
 
-FSStatus removeDirectory(const char *path)
+FSError removeDirectory(const char *path)
 {
     size_t len = strlen(path);
     char *newPath = getStaticPathBuffer(0);
@@ -73,13 +66,13 @@ FSStatus removeDirectory(const char *path)
     }
 
     char *inSentence = newPath + len;
-    FSDirectoryHandle dir;
+    FSADirectoryHandle dir;
     OSTime t = OSGetTime();
-    FSStatus ret = FSOpenDir(__wut_devoptab_fs_client, &cmdBlk, newPath, &dir, FS_ERROR_FLAG_ALL);
-    if(ret == FS_STATUS_OK)
+    FSError ret = FSAOpenDir(getFSAClient(), newPath, &dir);
+    if(ret == FS_ERROR_OK)
     {
-        FSDirectoryEntry entry;
-        while(FSReadDir(__wut_devoptab_fs_client, &cmdBlk, dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+        FSADirectoryEntry entry;
+        while(FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
         {
             if(entry.name[0] == '.')
                 continue;
@@ -88,17 +81,17 @@ FSStatus removeDirectory(const char *path)
             if(entry.info.flags & FS_STAT_DIRECTORY)
                 ret = removeDirectory(newPath);
             else
-                ret = FSRemove(__wut_devoptab_fs_client, &cmdBlk, newPath, FS_ERROR_FLAG_ALL);
+                ret = FSARemove(getFSAClient(), newPath);
 
-            if(ret != FS_STATUS_OK)
+            if(ret != FS_ERROR_OK)
                 break;
         }
 
-        FSCloseDir(__wut_devoptab_fs_client, &cmdBlk, dir, FS_ERROR_FLAG_ALL);
-        if(ret == FS_STATUS_OK)
+        FSACloseDir(getFSAClient(), dir);
+        if(ret == FS_ERROR_OK)
         {
             newPath[--len] = '\0';
-            ret = FSRemove(__wut_devoptab_fs_client, &cmdBlk, newPath, FS_ERROR_FLAG_ALL);
+            ret = FSARemove(getFSAClient(), newPath);
         }
     }
     else
@@ -109,7 +102,7 @@ FSStatus removeDirectory(const char *path)
     return ret;
 }
 
-FSStatus moveDirectory(const char *src, const char *dest)
+FSError moveDirectory(const char *src, const char *dest)
 {
     size_t len = strlen(src) + 1;
     char *newSrc = getStaticPathBuffer(0);
@@ -126,10 +119,10 @@ FSStatus moveDirectory(const char *src, const char *dest)
         ++inSrc;
 
     OSTime t = OSGetTime();
-    FSDirectoryHandle dir;
-    FSStatus ret = FSOpenDir(__wut_devoptab_fs_client, &cmdBlk, newSrc, &dir, FS_ERROR_FLAG_ALL);
+    FSADirectoryHandle dir;
+    FSError ret = FSAOpenDir(getFSAClient(), newSrc, &dir);
 
-    if(ret == FS_STATUS_OK)
+    if(ret == FS_ERROR_OK)
     {
         len = strlen(dest) + 1;
         char *newDest = getStaticPathBuffer(1);
@@ -137,7 +130,7 @@ FSStatus moveDirectory(const char *src, const char *dest)
             OSBlockMove(newDest, dest, len, false);
 
         ret = createDirectory(newDest);
-        if(ret == FS_STATUS_OK)
+        if(ret == FS_ERROR_OK)
         {
             char *inDest = newDest + --len;
             if(*--inDest != '/')
@@ -145,8 +138,8 @@ FSStatus moveDirectory(const char *src, const char *dest)
 
             ++inDest;
 
-            FSDirectoryEntry entry;
-            while(ret == FS_STATUS_OK && FSReadDir(__wut_devoptab_fs_client, &cmdBlk, dir, &entry, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+            FSADirectoryEntry entry;
+            while(ret == FS_ERROR_OK && FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
             {
                 if(entry.name[0] == '.')
                     continue;
@@ -163,14 +156,14 @@ FSStatus moveDirectory(const char *src, const char *dest)
                 else
                 {
                     debugPrintf("\trename('%s', '%s')", newSrc, newDest);
-                    ret = FSRename(__wut_devoptab_fs_client, &cmdBlk, newSrc, newDest, FS_ERROR_FLAG_ALL);
+                    ret = FSARename(getFSAClient(), newSrc, newDest);
                 }
             }
         }
 
-        FSCloseDir(__wut_devoptab_fs_client, &cmdBlk, dir, FS_ERROR_FLAG_ALL);
+        FSACloseDir(getFSAClient(), dir);
         *--inSrc = '\0';
-        FSRemove(__wut_devoptab_fs_client, &cmdBlk, newSrc, FS_ERROR_FLAG_ALL);
+        FSARemove(getFSAClient(), newSrc);
 
         t = OSGetTime() - t;
         addEntropy(&t, sizeof(OSTime));
@@ -187,10 +180,10 @@ size_t getFilesize(const char *path)
     char *newPath = getStaticPathBuffer(0);
     strcpy(newPath, path);
 
-    FSStat stat;
+    FSAStat stat;
     OSTime t = OSGetTime();
 
-    if(FSGetStat(__wut_devoptab_fs_client, &cmdBlk, newPath, &stat, FS_ERROR_FLAG_ALL) != FS_STATUS_OK)
+    if(FSAGetStat(getFSAClient(), newPath, &stat) != FS_ERROR_OK)
         return -1;
 
     t = OSGetTime() - t;
@@ -204,29 +197,31 @@ size_t readFileNew(const char *path, void **buffer)
     size_t filesize = getFilesize(path);
     if(filesize != -1)
     {
-        FSFileHandle handle;
+        FSAFileHandle handle;
         path = getStaticPathBuffer(0); // getFilesize() setted it for us
-        if(FSOpenFile(__wut_devoptab_fs_client, &cmdBlk, path, "r", &handle, FS_ERROR_FLAG_ALL) == FS_STATUS_OK)
+        FSError err = FSAOpenFileEx(getFSAClient(), path, "r", 0x000, 0, 0, &handle);
+        if(err == FS_ERROR_OK)
         {
             *buffer = MEMAllocFromDefaultHeapEx(FS_ALIGN(filesize), 0x40);
             if(*buffer != NULL)
             {
-                if(FSReadFile(__wut_devoptab_fs_client, &cmdBlk, *buffer, filesize, 1, handle, 0, FS_ERROR_FLAG_ALL) == 1)
+                err = FSAReadFile(getFSAClient(), *buffer, filesize, 1, handle, 0);
+                if(err == 1)
                 {
-                    FSCloseFile(__wut_devoptab_fs_client, &cmdBlk, handle, FS_ERROR_FLAG_ALL);
+                    FSACloseFile(getFSAClient(), handle);
                     return filesize;
                 }
 
-                debugPrintf("Error reading %s!", path);
+                debugPrintf("Error reading %s: %s!", path, translateFSErr(err));
                 MEMFreeToDefaultHeap(*buffer);
             }
             else
                 debugPrintf("Error creating buffer!");
 
-            FSCloseFile(__wut_devoptab_fs_client, &cmdBlk, handle, FS_ERROR_FLAG_ALL);
+            FSACloseFile(getFSAClient(), handle);
         }
         else
-            debugPrintf("Error opening %s!", path);
+            debugPrintf("Error opening %s: %s!", path, translateFSErr(err));
     }
     else
         debugPrintf("Error getting filesize for %s!", path);
@@ -391,17 +386,17 @@ TMD *getTmd(const char *dir)
     return NULL;
 }
 
-FSStatus createDirectory(const char *path)
+FSError createDirectory(const char *path)
 {
     OSTime t = OSGetTime();
-    FSStatus stat = FSMakeDir(__wut_devoptab_fs_client, &cmdBlk, path, FS_ERROR_FLAG_ALL);
-    if(stat == FS_STATUS_OK)
+    FSError err = FSAMakeDir(getFSAClient(), path, 0x660);
+    if(err != FS_ERROR_OK)
     {
         t = OSGetTime() - t;
         addEntropy(&t, sizeof(OSTime));
     }
 
-    return stat;
+    return err;
 }
 
 bool createDirRecursive(const char *dir)
@@ -420,10 +415,10 @@ bool createDirRecursive(const char *dir)
     {
         needle = strchr(needle, '/');
         if(needle == NULL)
-            return dirExists(d) ? true : createDirectory(d) == FS_STATUS_OK;
+            return dirExists(d) ? true : createDirectory(d) == FS_ERROR_OK;
 
         *needle = '\0';
-        if(!dirExists(d) && createDirectory(d) != FS_STATUS_OK)
+        if(!dirExists(d) && createDirectory(d) != FS_ERROR_OK)
             return false;
 
         *needle = '/';
@@ -433,33 +428,35 @@ bool createDirRecursive(const char *dir)
     return true;
 }
 
-const char *translateFSErr(FSStatus err)
+const char *translateFSErr(FSError err)
 {
-    switch((int)err) // We cast to int cause -19 is not in WUTs enum
+    switch(err)
     {
-        case FS_STATUS_PERMISSION_ERROR:
-        case -19:
+        case FS_ERROR_PERMISSION_ERROR:
+        case FS_ERROR_WRITE_PROTECTED:
             return "Permission error (read only filesystem?)";
-        case FS_STATUS_MEDIA_ERROR:
-        case FS_STATUS_CORRUPTED:
-        case FS_STATUS_ACCESS_ERROR:
+        case FS_ERROR_MEDIA_ERROR:
+        case FS_ERROR_DATA_CORRUPTED:
+        case FS_ERROR_ACCESS_ERROR:
             return "Filesystem error";
-        case FS_STATUS_NOT_FOUND:
+        case FS_ERROR_NOT_FOUND:
             return "Not found";
-        case FS_STATUS_NOT_FILE:
+        case FS_ERROR_NOT_FILE:
             return "Not a file";
-        case FS_STATUS_NOT_DIR:
+        case FS_ERROR_NOT_DIR:
             return "Not a folder";
-        case FS_STATUS_FILE_TOO_BIG:
-        case FS_STATUS_STORAGE_FULL:
+        case FS_ERROR_FILE_TOO_BIG:
+        case FS_ERROR_STORAGE_FULL:
             return "Not enough free space";
-        case FS_STATUS_ALREADY_OPEN:
+        case FS_ERROR_ALREADY_OPEN:
             return "File held open by another process";
+        case FS_ERROR_ALREADY_EXISTS:
+            return "File exists";
         default:
             break;
     }
 
-    static char ret[32];
-    sprintf(ret, "Unknown error: %d", err);
+    static char ret[1024];
+    sprintf(ret, "Unknown error: %s (%d)", FSAGetStatusStr(err), err);
     return ret;
 }

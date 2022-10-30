@@ -20,8 +20,6 @@
 
 #include <wut-fixups.h>
 
-#include <titles.h>
-
 #include <coreinit/mcp.h>
 
 #include <stdbool.h>

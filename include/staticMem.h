@@ -20,11 +20,8 @@
 
 #include <wut-fixups.h>
 
+#include <stdbool.h>
 #include <stdint.h>
-
-#include <titles.h>
-
-#include <nn/acp/title.h>
 
 #ifdef __cplusplus
 extern "C"

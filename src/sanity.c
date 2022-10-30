@@ -24,14 +24,10 @@
 #include <crypto.h>
 #include <file.h>
 #include <romfs.h>
-#include <state.h>
-#include <staticMem.h>
 #include <utils.h>
 
-#include <coreinit/mcp.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/time.h>
-#include <coreinit/title.h>
 
 #include <mbedtls/md5.h>
 

@@ -53,6 +53,7 @@ extern "C"
     void clearScreenLog();
     void writeScreenLog(int line);
     void drawErrorFrame(const char *text, ErrorOptions option);
+    void showErrorFrame(const char *text);
     bool checkSystemTitle(uint64_t tid, MCPRegion region);
     bool checkSystemTitleFromEntry(const TitleEntry *entry);
     bool checkSystemTitleFromTid(uint64_t tid);

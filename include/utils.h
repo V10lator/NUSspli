@@ -26,7 +26,6 @@
 #include <string.h>
 
 #include <coreinit/mcp.h>
-#include <coreinit/thread.h>
 
 #define NAPI_URL                   "https://napi.nbg01.v10lator.de/v2/"
 #define NUSSPLI_COPYRIGHT          "© 2020-2022 V10lator <v10lator@myway.de>"
@@ -46,16 +45,6 @@
 #endif
 
 #ifdef __cplusplus
-#include <codecvt>
-
-template <class I, class E, class S>
-struct codecvt : std::codecvt<I, E, S>
-{
-    ~codecvt()
-    {
-    }
-};
-
 extern "C"
 {
 #endif

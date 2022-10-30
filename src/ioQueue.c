@@ -19,10 +19,10 @@
 #include <wut-fixups.h>
 
 #include <stdbool.h>
-#include <stdio.h>
 
 #include <coreinit/core.h>
 #include <coreinit/filesystem.h>
+#include <coreinit/filesystem_fsa.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 #include <coreinit/thread.h>
@@ -30,18 +30,21 @@
 
 #include <crypto.h>
 #include <file.h>
+#include <filesystem.h>
+#include <input.h>
 #include <ioQueue.h>
 #include <renderer.h>
+#include <state.h>
 #include <thread.h>
 #include <utils.h>
 
-#define IOT_STACK_SIZE       0x1000
+#define IOT_STACK_SIZE       0x400
 #define IO_MAX_FILE_BUFFER   (1024 * 1024) // 1 MB
 #define MAX_IO_QUEUE_ENTRIES (64 * (IO_MAX_FILE_BUFFER / (1024 * 1024))) // 64 MB
 
 typedef struct WUT_PACKED
 {
-    volatile FSFileHandle *file;
+    volatile FSAFileHandle file;
     volatile size_t size;
     volatile uint8_t *buf;
 } WriteQueueEntry;
@@ -53,7 +56,7 @@ static WriteQueueEntry *queueEntries;
 static volatile uint32_t activeReadBuffer;
 static volatile uint32_t activeWriteBuffer;
 
-static volatile FSStatus fwriteErrno = FS_STATUS_OK;
+static volatile FSError fwriteErrno = FS_ERROR_OK;
 static volatile void *fwriteOverlay = NULL;
 
 #ifdef NUSSPLI_DEBUG
@@ -62,17 +65,13 @@ static bool queueStalled = false;
 
 static int ioThreadMain(int argc, const char **argv)
 {
-    FSCmdBlock cmdBlk;
-    FSInitCmdBlock(&cmdBlk);
-    FSSetCmdPriority(&cmdBlk, 1);
-
-    FSStatus err;
+    FSError err;
     uint32_t asl = activeWriteBuffer;
     WriteQueueEntry *entry = queueEntries + asl;
 
     while(ioRunning)
     {
-        if(entry->file == NULL)
+        if(entry->file == 0)
         {
             OSSleepTicks(OSMillisecondsToTicks(2));
             continue;
@@ -80,7 +79,7 @@ static int ioThreadMain(int argc, const char **argv)
 
         if(entry->size) // WRITE command
         {
-            err = FSWriteFile(__wut_devoptab_fs_client, &cmdBlk, (uint8_t *)entry->buf, entry->size, 1, *entry->file, 0, FS_ERROR_FLAG_ALL);
+            err = FSAWriteFile(getFSAClient(), (void *)entry->buf, entry->size, 1, entry->file, 0);
             if(err != 1)
                 goto ioError;
 
@@ -89,8 +88,8 @@ static int ioThreadMain(int argc, const char **argv)
         else // Close command
         {
             OSTime t = OSGetTime();
-            err = FSCloseFile(__wut_devoptab_fs_client, &cmdBlk, *entry->file, FS_ERROR_FLAG_ALL);
-            if(err != FS_STATUS_OK)
+            err = FSACloseFile(getFSAClient(), entry->file);
+            if(err != FS_ERROR_OK)
                 goto ioError;
 
             t = OSGetTime() - t;
@@ -101,7 +100,7 @@ static int ioThreadMain(int argc, const char **argv)
             asl = 0;
 
         activeWriteBuffer = asl;
-        entry->file = NULL;
+        entry->file = 0;
         entry = queueEntries + asl;
     }
 
@@ -122,7 +121,7 @@ bool initIOThread()
         {
             for(int i = 0; i < MAX_IO_QUEUE_ENTRIES; ++i, buf += IO_MAX_FILE_BUFFER)
             {
-                queueEntries[i].file = NULL;
+                queueEntries[i].file = 0;
                 queueEntries[i].size = 0;
                 queueEntries[i].buf = buf;
             }
@@ -146,16 +145,34 @@ bool initIOThread()
 
 bool checkForQueueErrors()
 {
-    if(fwriteErrno != FS_STATUS_OK)
+    if(fwriteErrno != FS_ERROR_OK)
     {
         if(fwriteOverlay == NULL && OSIsMainCore())
         {
-            char errMsg[1024];
-            sprintf(errMsg, "Write error:\n%s\n\nThis is an unrecoverable error!", translateFSErr(fwriteErrno));
+            char *errMsg = getToFrameBuffer();
+            sprintf(errMsg, "Write error:\n%s\n\nThis is an unrecoverable error!\nPress any button to exit.", translateFSErr(fwriteErrno));
             fwriteOverlay = addErrorOverlay(errMsg);
+
+            if(fwriteOverlay != NULL)
+            {
+                while(AppRunning(true))
+                {
+                    showFrame();
+
+                    if(vpad.trigger)
+                        break;
+                }
+
+                removeErrorOverlay((void *)fwriteOverlay);
+            }
+
+            if(AppRunning(true))
+                homeButtonCallback(NULL);
         }
+
         return true;
     }
+
     return false;
 }
 
@@ -178,7 +195,7 @@ void shutdownIOThread()
     MEMFreeToDefaultHeap(queueEntries);
 }
 
-size_t addToIOQueue(const void *buf, size_t size, size_t n, FSFileHandle *file)
+size_t addToIOQueue(const void *buf, size_t size, size_t n, FSAFileHandle file)
 {
     if(checkForQueueErrors())
         return 0;
@@ -187,7 +204,7 @@ size_t addToIOQueue(const void *buf, size_t size, size_t n, FSFileHandle *file)
 
 retryAddingToQueue:
     entry = queueEntries + activeReadBuffer;
-    if(entry->file != NULL)
+    if(entry->file != 0)
     {
 #ifdef NUSSPLI_DEBUG
         if(!queueStalled)
@@ -259,31 +276,26 @@ retryAddingToQueue:
 
 void flushIOQueue()
 {
-    if(checkForQueueErrors() || queueEntries[activeWriteBuffer].file == NULL)
-        return;
+    if(queueEntries[activeWriteBuffer].file != 0)
+    {
+        void *ovl = addErrorOverlay("Flushing queue, please wait...");
+        debugPrintf("Flushing...");
 
-    void *ovl = addErrorOverlay("Flushing queue, please wait...");
-    debugPrintf("Flushing...");
+        while(queueEntries[activeWriteBuffer].file != 0)
+            if(checkForQueueErrors())
+                break;
 
-    while(queueEntries[activeWriteBuffer].file != NULL)
-        if(checkForQueueErrors())
-            break;
-
-    if(ovl != NULL)
-        removeErrorOverlay(ovl);
+        if(ovl != NULL)
+            removeErrorOverlay(ovl);
+    }
 
     checkForQueueErrors();
 }
 
-FSFileHandle *openFile(const char *path, const char *mode, size_t filesize)
+FSAFileHandle openFile(const char *path, const char *mode, size_t filesize)
 {
     if(checkForQueueErrors())
-        return NULL;
-
-    OSTime t = OSGetTime();
-    FSFileHandle *ret = MEMAllocFromDefaultHeap(sizeof(FSFileHandle));
-    if(ret == NULL)
-        return NULL;
+        return 0;
 
     char *newPath = getStaticPathBuffer(0);
     strcpy(newPath, path);
@@ -291,15 +303,16 @@ FSFileHandle *openFile(const char *path, const char *mode, size_t filesize)
     if(filesize != 0 && strncmp(NUSDIR_SD, newPath, strlen(NUSDIR_SD)) == 0)
         filesize = 0;
 
-    FSStatus s = FSOpenFileEx(__wut_devoptab_fs_client, getCmdBlk(), newPath, mode, 0x660, filesize == 0 ? FS_OPEN_FLAG_NONE : FS_OPEN_FLAG_PREALLOC_SIZE, filesize, ret, FS_ERROR_FLAG_ALL);
-    if(s == FS_STATUS_OK)
+    OSTime t = OSGetTime();
+    FSAFileHandle ret;
+    FSError e = FSAOpenFileEx(getFSAClient(), newPath, mode, 0x660, filesize == 0 ? FS_OPEN_FLAG_NONE : FS_OPEN_FLAG_PREALLOC_SIZE, filesize, &ret);
+    if(e == FS_ERROR_OK)
     {
         t = OSGetTime() - t;
         addEntropy(&t, sizeof(OSTime));
         return ret;
     }
 
-    MEMFreeToDefaultHeap(ret);
-    debugPrintf("Error opening %s: %s!", path, translateFSErr(s));
-    return NULL;
+    debugPrintf("Error opening %s: %s!", path, translateFSErr(e));
+    return 0;
 }

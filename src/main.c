@@ -95,9 +95,6 @@ static void innerMain(bool validCfw)
         checkStacks("main");
     }
 
-    FSInit();
-    FSInitCmdBlock(getCmdBlk());
-    FSSetCmdPriority(getCmdBlk(), 0);
 #ifdef NUSSPLI_HBL
     romfsInit();
 #endif
@@ -107,25 +104,24 @@ static void innerMain(bool validCfw)
 
     if(initStaticMem())
     {
-        if(initRenderer())
+        if(initFS())
         {
-            readInput(); // bug #95
-            char *lerr = NULL;
-            if(validCfw)
+            if(initRenderer())
             {
-                if(OSSetThreadPriority(mainThread, THREAD_PRIORITY_HIGH))
-                    addToScreenLog("Changed main thread priority!");
-                else
-                    addToScreenLog("WARNING: Error changing main thread priority!");
-
-                startNewFrame();
-                textToFrame(0, 0, "Loading filesystem...");
-                writeScreenLog(1);
-                drawFrame();
-
-                if(initFS())
+                readInput(); // bug #95
+                char *lerr = NULL;
+                if(validCfw)
                 {
-                    drawLoadingScreen("Filesystem initialized!", "Loading Crypto...");
+                    if(OSSetThreadPriority(mainThread, THREAD_PRIORITY_HIGH))
+                        addToScreenLog("Changed main thread priority!");
+                    else
+                        addToScreenLog("WARNING: Error changing main thread priority!");
+
+                    startNewFrame();
+                    textToFrame(0, 0, "Loading Crypto...");
+                    writeScreenLog(1);
+                    drawFrame();
+
                     if(initCrypto())
                     {
                         drawLoadingScreen("Crypto initialized!", "Loading MCP...");
@@ -216,26 +212,26 @@ static void innerMain(bool validCfw)
                     debugPrintf("Filesystem closed");
                 }
                 else
-                    lerr = "Couldn't initialize filesystem!";
-            }
-            else
-                lerr = "Unsupported environment.\nEither you're not using Tiramisu/Aroma or your Tiramisu version is out of date.";
+                    lerr = "Unsupported environment.\nEither you're not using Tiramisu/Aroma or your Tiramisu version is out of date.";
 
-            if(lerr != NULL)
-            {
-                drawErrorFrame(lerr, ANY_RETURN);
-                showFrame();
-
-                while(!(vpad.trigger))
+                if(lerr != NULL)
+                {
+                    drawErrorFrame(lerr, ANY_RETURN);
                     showFrame();
 
-                drawByeFrame();
-            }
+                    while(!(vpad.trigger))
+                        showFrame();
 
-            shutdownRenderer();
-            gettextCleanUp();
-            debugPrintf("SDL closed");
+                    drawByeFrame();
+                }
+
+                shutdownRenderer();
+                gettextCleanUp();
+                debugPrintf("SDL closed");
+            }
         }
+        else
+            debugPrintf("Error initializinf filesystem!");
 
         shutdownStaticMem();
     }
@@ -250,7 +246,6 @@ static void innerMain(bool validCfw)
 #ifdef NUSSPLI_HBL
     romfsExit();
 #endif
-    FSShutdown();
 }
 
 int main()

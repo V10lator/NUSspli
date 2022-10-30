@@ -24,11 +24,9 @@
 #include <stdbool.h>
 
 #include <file.h>
-#include <menu/download.h>
 #include <titles.h>
 #include <tmd.h>
 
-#include <coreinit/memdefaultheap.h>
 #include <wut_structsize.h>
 
 #ifdef __cplusplus

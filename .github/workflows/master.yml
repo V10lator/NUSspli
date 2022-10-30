@@ -31,6 +31,7 @@ jobs:
           docker build . -t builder
           echo ${{ secrets.ENC_KEY }} > encryptKeyWith
           docker run --rm -v ${PWD}:/project builder python3 build.py
+          cat version.txt >> $GITHUB_OUTPUT
         id: version
       - name: Upload Aroma version
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
@@ -88,97 +89,24 @@ jobs:
           name: NUSspli-${{ steps.version.outputs.version }}-HBL-DEBUG
           path: out/HBL-DEBUG/*
           if-no-files-found: error
-      - name: Prepare release
+      - name: Publish release
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
-        uses: actions/create-release@v1
+        uses: ncipollo/release-action@v1
         with:
-          draft: false
-          prerelease: false
-          tag_name: v${{ steps.version.outputs.version }}
-          release_name: v${{ steps.version.outputs.version }}
+          tag: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifactErrorsFailBuild: true
+          artifactContentType: application/zip
           body: |
             Improvements to stability and usability:
             Further improvements to overall stability and other minor adjustments have been made to enhance the user experience.
-        id: release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload Aroma release
-        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_name: NUSspli-${{ steps.version.outputs.version }}-Aroma.zip
-          asset_path: zips/NUSspli-${{ steps.version.outputs.version }}-Aroma.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload Aroma debug release
-        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_name: NUSspli-${{ steps.version.outputs.version }}-Aroma-DEBUG.zip
-          asset_path: zips/NUSspli-${{ steps.version.outputs.version }}-Aroma-DEBUG.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload Channel release
-        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_name: NUSspli-${{ steps.version.outputs.version }}-Channel.zip
-          asset_path: zips/NUSspli-${{ steps.version.outputs.version }}-Channel.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload Channel debug release
-        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_name: NUSspli-${{ steps.version.outputs.version }}-Channel-DEBUG.zip
-          asset_path: zips/NUSspli-${{ steps.version.outputs.version }}-Channel-DEBUG.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload HBL release
-        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_name: NUSspli-${{ steps.version.outputs.version }}-HBL.zip
-          asset_path: zips/NUSspli-${{ steps.version.outputs.version }}-HBL.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload HBL debug release
-        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_name: NUSspli-${{ steps.version.outputs.version }}-HBL-DEBUG.zip
-          asset_path: zips/NUSspli-${{ steps.version.outputs.version }}-HBL-DEBUG.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload Lite release
-        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_name: NUSspli-${{ steps.version.outputs.version }}-Lite.zip
-          asset_path: zips/NUSspli-${{ steps.version.outputs.version }}-Lite.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload Lite debug release
-        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_name: NUSspli-${{ steps.version.outputs.version }}-Lite-DEBUG.zip
-          asset_path: zips/NUSspli-${{ steps.version.outputs.version }}-Lite-DEBUG.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: |
+            zips/NUSspli-${{ steps.version.outputs.version }}-Aroma.zip
+            zips/NUSspli-${{ steps.version.outputs.version }}-Aroma-DEBUG.zip
+            zips/NUSspli-${{ steps.version.outputs.version }}-Channel.zip
+            zips/NUSspli-${{ steps.version.outputs.version }}-Channel-DEBUG.zip
+            zips/NUSspli-${{ steps.version.outputs.version }}-HBL.zip
+            zips/NUSspli-${{ steps.version.outputs.version }}-HBL-DEBUG.zip
+            zips/NUSspli-${{ steps.version.outputs.version }}-Lite.zip
+            zips/NUSspli-${{ steps.version.outputs.version }}-Lite-DEBUG.zip

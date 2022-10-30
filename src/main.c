@@ -28,7 +28,6 @@
 #include <input.h>
 #include <installer.h>
 #include <ioQueue.h>
-#include <jailbreak.h>
 #include <localisation.h>
 #include <menu/download.h>
 #include <menu/main.h>

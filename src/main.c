@@ -37,7 +37,6 @@
 #include <otp.h>
 #include <queue.h>
 #include <renderer.h>
-#include <romfs-wiiu.h>
 #include <sanity.h>
 #include <state.h>
 #include <staticMem.h>

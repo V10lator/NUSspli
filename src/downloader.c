@@ -200,20 +200,14 @@ bool initDownloader()
     strcpy(fn, ROMFS_PATH "ca-certificates/");
     struct curl_blob blob = { .data = NULL, .len = 0, .flags = CURL_BLOB_COPY };
 
-#ifndef NUSSPLI_HBL
     FSADirectoryHandle dir;
     if(FSAOpenDir(getFSAClient(), fn, &dir) == FS_ERROR_OK)
-#else
-    DIR *dir = opendir(fn);
-    if(dir != NULL)
-#endif
     {
         char *ptr = fn + strlen(fn);
         void *buf;
         size_t bufsize;
         size_t oldcertsize = 0;
         void *tmp;
-#ifndef NUSSPLI_HBL
         FSADirectoryEntry entry;
         while(FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
         {
@@ -221,14 +215,6 @@ bool initDownloader()
                 continue;
 
             strcpy(ptr, entry.name);
-#else
-        for(struct dirent *entry = readdir(dir); entry != NULL; entry = readdir(dir))
-        {
-            if(entry->d_name[0] == '.')
-                continue;
-
-            strcpy(ptr, entry->d_name);
-#endif
             bufsize = readFile(fn, &buf);
             if(buf == NULL)
                 continue;
@@ -253,11 +239,7 @@ bool initDownloader()
             MEMFreeToDefaultHeap(buf);
         }
 
-#ifndef NUSSPLI_HBL
         FSACloseDir(getFSAClient(), dir);
-#else
-        closedir(dir);
-#endif
     }
     else
         debugPrintf("Error opening %s!", fn);

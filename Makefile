@@ -30,16 +30,6 @@ DATA		:=
 INCLUDES	:=	include \
 				zlib/contrib/minizip
 
-ifeq ($(strip $(HBL)), 1)
-ROMFS		:=	data
-include $(PORTLIBS_PATH)/wiiu/share/romfs-wiiu.mk
-else
-ROMFS_CFLAGS	:=
-ROMFS_LIBS	:=
-ROMFS_TARGET	:=
-endif
-
-
 #-------------------------------------------------------------------------------
 # options for code generation
 #-------------------------------------------------------------------------------
@@ -47,11 +37,7 @@ endif
 CFLAGS		:=	$(MACHDEP) -Ofast -flto=auto -fno-fat-lto-objects \
 				-fuse-linker-plugin -pipe -D__WIIU__ -D__WUT__ \
 				-DNUSSPLI_VERSION=\"$(NUSSPLI_VERSION)\" \
-				-DIOAPI_NO_64 -Wno-trigraphs $(ROMFS_CFLAGS)
-
-ifeq ($(strip $(HBL)), 1)
-CFLAGS		+=	-DNUSSPLI_HBL
-endif
+				-DIOAPI_NO_64 -Wno-trigraphs
 
 ifeq ($(strip $(LITE)), 1)
 CFLAGS		+=	-DNUSSPLI_LITE
@@ -61,7 +47,7 @@ CXXFLAGS	:=	$(CFLAGS) -std=c++20 -fpermissive
 ASFLAGS		:=	-g $(ARCH)
 LDFLAGS		:=	-g $(ARCH) $(RPXSPECS) $(CFLAGS) -Wl,-Map,$(notdir $*.map)
 
-LIBS		:=	-lcurl -lmbedtls -lmbedx509 -lmbedcrypto `$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image jansson` -lwut -lmocha -lrpxloader $(ROMFS_LIBS)
+LIBS		:=	-lcurl -lmbedtls -lmbedx509 -lmbedcrypto `$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image jansson` -lwut -lmocha -lrpxloader
 
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level
@@ -134,7 +120,7 @@ endif
 
 OFILES_BIN	:=	$(addsuffix .o,$(BINFILES))
 OFILES_SRC	:=	$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
-OFILES 		:=	$(OFILES_BIN) $(OFILES_SRC) $(ROMFS_TARGET)
+OFILES 		:=	$(OFILES_BIN) $(OFILES_SRC)
 HFILES_BIN	:=	$(addsuffix .h,$(subst .,_,$(BINFILES)))
 
 INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(TOPDIR)/$(dir)) \

@@ -12,11 +12,6 @@ RUN mkdir -p /usr/share/man/man1 /usr/share/man/man2 && \
  /bin/bash -c "$(curl -sL https://raw.githubusercontent.com/V10lator/NUSspli/master/apt-fast/install.sh)" && \
  apt-fast -y --no-install-recommends update && \
  apt-fast -y --no-install-recommends upgrade && \
- apt-fast -y install --no-install-recommends autoconf automake libtool openjdk-11-jre-headless && \
- apt-fast clean && \
- git clone --recursive https://github.com/yawut/libromfs-wiiu --single-branch && \
- cd libromfs-wiiu && \
- make -j$(nproc) && \
- make install
+ apt-fast -y install --no-install-recommends autoconf automake libtool openjdk-11-jre-headless
 
 WORKDIR /project

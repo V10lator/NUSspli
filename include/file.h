@@ -77,12 +77,7 @@ extern "C"
     bool createDirRecursive(const char *dir) __attribute__((__hot__));
     const char *translateFSErr(FSError err) __attribute__((__cold__));
     size_t getFilesize(const char *path) __attribute__((__hot__));
-#ifdef NUSSPLI_HBL
     size_t readFile(const char *path, void **buffer) __attribute__((__hot__));
-#else
-size_t readFileNew(const char *path, void **buffer) __attribute__((__hot__));
-#define readFile(path, buffer) readFileNew(path, buffer)
-#endif
     TMD *getTmd(const char *dir);
     bool verifyTmd(const TMD *tmd, size_t size) __attribute__((__hot__));
 

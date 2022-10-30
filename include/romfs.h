@@ -20,8 +20,4 @@
 
 #include <wut-fixups.h>
 
-#ifdef NUSSPLI_HBL
-#define ROMFS_PATH "romfs:/"
-#else
 #define ROMFS_PATH "/vol/content/"
-#endif

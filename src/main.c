@@ -95,10 +95,6 @@ static void innerMain(bool validCfw)
         checkStacks("main");
     }
 
-#ifdef NUSSPLI_HBL
-    romfsInit();
-#endif
-
     KPADInit();
     WPADEnableURCC(true);
 
@@ -241,40 +237,12 @@ static void innerMain(bool validCfw)
     debugPrintf("Clearing screen log");
     clearScreenLog();
     KPADShutdown();
-
-    debugPrintf("Shutting down filesystem");
-#ifdef NUSSPLI_HBL
-    romfsExit();
-#endif
 }
 
 int main()
 {
     initState();
-
-#ifdef NUSSPLI_HBL
-    bool jailbreaking;
-    uint64_t tid = OSGetTitleID();
-#endif
-    if(cfwValid())
-    {
-#ifdef NUSSPLI_HBL
-        jailbreaking = !isCemu() && !isAroma() && (tid & 0xFFFFFFFFFFFFF0FF) == 0x000500101004A000; // Mii Maker
-        if(jailbreaking)
-            jailbreaking = jailbreak();
-
-        if(!jailbreaking)
-#endif
-            innerMain(true);
-    }
-    else
-    {
-        innerMain(false);
-#ifdef NUSSPLI_HBL
-        jailbreaking = false;
-#endif
-    }
-
+    innerMain(cfwValid());
     deinitCfw();
 
 #ifdef NUSSPLI_DEBUG
@@ -285,24 +253,7 @@ int main()
 
     if(app != APP_STATE_STOPPED)
     {
-#ifdef NUSSPLI_HBL
-        if(isAroma())
-            SYSLaunchMenu();
-        else if(!jailbreaking)
-        {
-            if((tid & 0xFFFFFFFFFFFFF0FF) == 0x000500101004E000) // Health & Safety
-            {
-                tid &= 0xFFFFFFFFFFFF0FFF;
-                tid |= 0x000000000000A000;
-                _SYSLaunchTitleWithStdArgsInNoSplash(tid, NULL);
-            }
-            else
-                SYSRelaunchTitle(0, NULL);
-        }
-#else
         SYSLaunchMenu();
-#endif
-
         if(app == APP_STATE_HOME)
         {
             app = APP_STATE_RUNNING;

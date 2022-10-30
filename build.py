@@ -43,7 +43,7 @@ checkAndDeleteDir("out")
 
 editionList = ["-DEBUG", ""]
 extList = [".rpx", ".zip", ".wuhb"]
-pkgList = ["Aroma", "HBL", "Channel", "Lite"]
+pkgList = ["Aroma", "Channel", "Lite"]
 for edition in editionList:
     for ext in extList:  
         checkAndDeleteFile(f"NUSspli-{version}{edition}{ext}")
@@ -52,7 +52,7 @@ for edition in editionList:
         for pkg in pkgList:
             checkAndDeleteFile(f"zips/NUSspli-{version}-{pkg}{edition}{ext}")
 
-tmpArray = ["out/Aroma-DEBUG", "out/Lite-DEBUG", "out/Channel-DEBUG", "out/HBL-DEBUG/NUSspli", "NUStmp/code"]
+tmpArray = ["out/Aroma-DEBUG", "out/Lite-DEBUG", "out/Channel-DEBUG", "NUStmp/code"]
 for path in tmpArray:
     os.makedirs(path)
 os.makedirs("zips", exist_ok=True)
@@ -90,15 +90,3 @@ if not isBeta:
     shutil.make_archive(f"zips/NUSspli-{version}-Lite", "zip", "out/Lite", ".")
 
 shutil.rmtree("NUStmp")
-os.system("make clean && make HBL=1 -j$(nproc) debug")
-tmpArray = ["NUSspli.rpx", "meta/hbl/meta.xml", "meta/hbl/icon.png"]
-for file in tmpArray:
-    shutil.copy(file, "out/HBL-DEBUG/NUSspli")
-shutil.make_archive(f"zips/NUSspli-{version}-HBL-DEBUG", "zip", "out/HBL-DEBUG", ".")
-
-if not isBeta:
-    os.system("make clean && make HBL=1 -j$(nproc) release")
-    os.makedirs("out/HBL/NUSspli")
-    for file in tmpArray:
-        shutil.copy(file, "out/HBL/NUSspli")
-    shutil.make_archive(f"zips/NUSspli-{version}-HBL", "zip", "out/HBL", ".")

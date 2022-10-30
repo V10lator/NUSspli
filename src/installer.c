@@ -135,18 +135,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
                 sprintf(toScreen, "%s \"%s\"", gettext("No title.tmd found at"), path);
                 break;
             case 0xfffbfc17:
-                sprintf(toScreen,
-                    "%s \"%s\""
-#ifdef NUSSPLI_HBL
-                    "\n%s"
-#endif
-                    ,
-                    gettext("Internal error installing"), path
-#ifdef NUSSPLI_HBL
-                    ,
-                    gettext("We're supporting HBL on Tiramisu only!")
-#endif
-                );
+                sprintf(toScreen, "%s \"%s\"", gettext("Internal error installing"), path);
                 break;
             default:
                 sprintf(toScreen, "%s \"%s\" %s: %#010x", gettext("Error getting info for"), path, gettext("from MCP"), data.err);

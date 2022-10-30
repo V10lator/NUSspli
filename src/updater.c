@@ -94,14 +94,10 @@ bool updateCheck()
         return false;
 
     const char *updateChkUrl =
-#ifdef NUSSPLI_HBL
-        UPDATE_CHECK_URL "h";
-#else
 #ifdef NUSSPLI_LITE
         UPDATE_CHECK_URL "l";
 #else
         !isChannel() && isAroma() ? UPDATE_CHECK_URL "a" : UPDATE_CHECK_URL "c";
-#endif
 #endif
 
     bool ret = false;
@@ -128,11 +124,7 @@ bool updateCheck()
                         const char *newVer = json_string_value(json_object_get(json, "v"));
                         ret = newVer != NULL;
                         if(ret)
-#ifdef NUSSPLI_HBL
-                            ret = updateMenu(newVer, NUSSPLI_TYPE_HBL);
-#else
                             ret = updateMenu(newVer, isAroma() ? NUSSPLI_TYPE_AROMA : NUSSPLI_TYPE_CHANNEL);
-#endif
                         break;
                     case 2: // Type deprecated, update to what the server suggests
                         const char *nv = json_string_value(json_object_get(json, "v"));
@@ -434,13 +426,6 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
     bool toUSB = getUSB() != NUSDEV_NONE;
 
     // Uninstall currently running type/version
-#ifdef NUSSPLI_HBL
-    if(removeDirectory(UPDATE_HBL_FOLDER) != FS_ERROR_OK)
-    {
-        showUpdateErrorf("%s: %s", gettext("Error removing directory"), translateFSErr(err));
-        goto updateError;
-    }
-#else
     if(isChannel())
     {
         MCPTitleListType ownInfo __attribute__((__aligned__(0x40)));
@@ -456,7 +441,7 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
 
         deinstall(&ownInfo, "NUSspli v" NUSSPLI_VERSION, true, false);
     }
-    else if(isAroma())
+    else
     {
         RPXLoaderStatus rs = RPXLoader_UnmountCurrentRunningBundle();
         OSSleepTicks(OSMillisecondsToTicks(20)); // TODO: Aroma bug
@@ -476,7 +461,6 @@ void update(const char *newVersion, NUSSPLI_TYPE type)
             goto updateError;
         }
     }
-#endif
 
     // Install new type/version
     flushIOQueue();

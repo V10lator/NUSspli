@@ -46,6 +46,11 @@
     "Europe": "Europa",
     "Japan": "Japão",
 
+    "USA/Europe": "Estados Unidos/Europa",
+    "USA/Japan": "Estados Unidos/Japão",
+    "Europe/Japan": "Europa/Japão",
+    "Unknown": "Desconhecido",
+
     "Update available!": "Atualização disponível!",
     "Press \uE000 to update to": "Aperte \uE000 para atualizar para versão:",
     "Press \uE001 to cancel": "Aperte \uE001 para cancelar",

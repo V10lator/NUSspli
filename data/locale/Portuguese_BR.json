@@ -19,9 +19,9 @@
     "\uE046 to open the queue": "\uE046 para abrir a fila",
 
     "Select a folder:": "Selecione uma pasta:",
-    "\uE002 to switch to SD": "\uE002 mudar para cartão de memória (SD)",
-    "\uE002 to switch to NAND": "\uE002 mudar para memória interna (NAND)",
-    "\uE002 to switch to USB": "\uE002 mudar para memória externa (USB)",
+    "\uE002 to switch to SD": "\uE002 para mudar para SD",
+    "\uE002 to switch to NAND": "\uE002 para mudar para NAND",
+    "\uE002 to switch to USB": "\uE002 para mudar para USB",
     "Searching on": "Pesquisando em",
     
     "Press \uE000 to delete": "Aperte \uE000 para desinstalar",
@@ -46,8 +46,8 @@
     "Europe": "Europa",
     "Japan": "Japão",
 
-    "USA/Europe": "Estados Unidos/Europa",
-    "USA/Japan": "Estados Unidos/Japão",
+    "USA/Europe": "EUA/Europa",
+    "USA/Japan": "EUA/Japão",
     "Europe/Japan": "Europa/Japão",
     "Unknown": "Desconhecido",
 
@@ -178,7 +178,7 @@
     "Network error": "Erro de Internet",
     "check the network settings and try again": "Verifique as configurações de Internet e tente novamente",
     "SSL error": "Erro de SSL",
-    "check your Wii Us date and time settings": "Verifique as configurações de hora e data do seu Wii U",
+    "check your Wii Us date and time settings": "Verifique as configurações de data e hora do seu Wii U",
     "Next try in _ seconds.": "Próxima tentativa em _ segundos.",
     "Couldn't resolve hostname": "Não foi possível resolver nome do host",
     "Couldn't connect to server": "Não foi possível conectar ao servidor",
@@ -196,7 +196,7 @@
     "Request failed. Try again": "Falha na solicitação. Tente novamente.",
 
     "Press \uE003 to retry": "Aperte \uE003 para tentar novamente",
-    "This is a reliable way to brick your console!\nAre you sure you want to do that?": "Esse é um jeito de brickar seu console.\nTem certeza de que deseja fazer isso?",
+    "This is a reliable way to brick your console!\nAre you sure you want to do that?": "Esse é um jeito de brickar seu console.\nTem certeza que quer fazer isso?",
     "Are you really sure you want to brick your Wii U?": "Tem certeza que quer brickar seu Wii U?",
     "You're on your own doing this,\ndo you understand the consequences?": "Você está fazendo isso por conta própria, você entende as consequências?",
 

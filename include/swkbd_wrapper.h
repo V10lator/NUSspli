@@ -47,9 +47,10 @@ typedef enum
     Swkbd_LanguageType__Korean = 7,
     Swkbd_LanguageType__Dutch = 8,
     Swkbd_LanguageType__Portuguese = 9,
-    Swkbd_LanguageType__Russian = 10,
-    Swkbd_LanguageType__Chinese2 = 11,
-    Swkbd_LanguageType__Invalid = 12
+    Swkbd_LanguageType__Portuguese_BR = 10,
+    Swkbd_LanguageType__Russian = 11,
+    Swkbd_LanguageType__Chinese2 = 12,
+    Swkbd_LanguageType__Invalid = 13
 } Swkbd_LanguageType;
 
 typedef enum
@@ -72,7 +73,8 @@ typedef enum
     Swkbd_LanguageType2__Spanish = 9,
     Swkbd_LanguageType2__Dutch = 10,
     Swkbd_LanguageType2__Portuguese = 11,
-    Swkbd_LanguageType2__Russian = 12,
+    Swkbd_LanguageType2__Portuguese_BR = 12,
+    Swkbd_LanguageType2__Russian = 13,
 } Swkbd_LanguageType2;
 
 typedef enum

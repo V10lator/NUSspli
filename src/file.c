@@ -291,7 +291,7 @@ bool verifyTmd(const TMD *tmd, size_t size)
     {
         if(tmd->num_contents == tmd->content_infos[0].count) // Validate num_contents
         {
-            if(tmd->num_contents > 8) // Check for at least 9 contents (.app files)
+            if(tmd->num_contents) // Check for at least 1 contents (.app files. Some system titles seem to have 1 only)
             {
                 if(size == (sizeof(TMD) + 0x700) + (sizeof(TMD_CONTENT) * tmd->num_contents) || // Most title.tmd files have a certificate attached to the end. This certificate is 0x700 bytes long.
                     size == sizeof(TMD) + (sizeof(TMD_CONTENT) * tmd->num_contents)) // Some (like ones made with NUSPacker) don't have a certificate attached through.
@@ -337,7 +337,7 @@ bool verifyTmd(const TMD *tmd, size_t size)
                             return false;
                         }
                         // Validate content size
-                        if(tmd->contents[i].size < 32 * 1024 || tmd->contents[i].size > (uint64_t)1024 * 1024 * 1024 * 4)
+                        if(tmd->contents[i].size == 0 || tmd->contents[i].size > (uint64_t)1024 * 1024 * 1024 * 4)
                         {
                             debugPrintf("Invalid title.tmd file (content: %d, size: %llu)", i, tmd->contents[i].size);
                             return false;

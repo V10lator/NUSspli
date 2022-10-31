@@ -38,7 +38,10 @@ if len(wuhbtool) == 0:
     wuhbtool = "wuhbtool"
 
 checkAndDeleteFile("src/gtitles.c")
-os.system(f"wget -U NUSspliBuilder/2.0 -O src/gtitles.c https://napi.nbg01.v10lator.de/db")
+opener = urllib.request.build_opener()
+opener.addheaders = [("User-agent", "NUSspliBuilder/2.0")]
+urllib.request.install_opener(opener)
+urllib.request.urlretrieve("https://napi.nbg01.v10lator.de/db", "src/gtitles.c")
 
 checkAndDeleteDir("NUStmp")
 checkAndDeleteDir("out")

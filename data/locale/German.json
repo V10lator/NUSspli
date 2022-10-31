@@ -40,6 +40,10 @@
     "None": "Keine",
     "Europe": "Europa",
 
+    "USA/Europe": "USA/Europa",
+    "Europe/Japan": "Europa/Japan",
+    "Unknown": "Unbekannt",
+
     "Update available!": "Update verfügbar!",
     "Press \uE000 to update to": "Drücke \uE000 um upzudaten nach:",
     "Press \uE001 to cancel": "Drücke \uE001 um abzubrechen",

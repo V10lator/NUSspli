@@ -27,6 +27,8 @@
 #include <coreinit/filesystem_fsa.h>
 #include <mocha/mocha.h>
 
+#include <romfs-wiiu.h>
+
 #include <stdbool.h>
 
 static FSAClientHandle handle;
@@ -34,6 +36,10 @@ static NUSDEV usb = NUSDEV_NONE;
 
 bool initFS()
 {
+#ifdef NUSSPLI_HBL
+    romfsInit();
+#endif
+
     if(FSAInit() == FS_ERROR_OK)
     {
         handle = FSAAddClient(NULL);
@@ -73,6 +79,10 @@ void deinitFS()
 
     FSADelClient(handle);
     FSAShutdown();
+
+#ifdef NUSSPLI_HBL
+    romfsExit();
+#endif
 }
 
 FSAClientHandle getFSAClient()

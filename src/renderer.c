@@ -99,9 +99,6 @@ static inline SDL_Rect *createRect()
 
 #define internalTextToFrame()                                 \
     {                                                         \
-        if(font == NULL)                                      \
-            return;                                           \
-                                                              \
         ++line;                                               \
         line *= FONT_SIZE;                                    \
         line -= 7;                                            \
@@ -111,10 +108,10 @@ static inline SDL_Rect *createRect()
                                                               \
         if(maxWidth != 0 && text.w > maxWidth)                \
         {                                                     \
-            int i = strlen(str);                              \
+            size_t i = strlen(str);                           \
             char *lineBuffer = (char *)getStaticLineBuffer(); \
             char *tmp = lineBuffer;                           \
-            OSBlockMove(tmp, str, i, false);                  \
+            OSBlockMove(tmp, str, i + 1, false);              \
             tmp += i;                                         \
                                                               \
             *--tmp = '\0';                                    \
@@ -178,29 +175,26 @@ void textToFrameColoredCut(int line, int column, const char *str, SCREEN_COLOR c
 
 int textToFrameMultiline(int x, int y, const char *text, size_t len)
 {
-    if(font == NULL || len < 1)
+    if(font == NULL || !len)
         return 0;
 
-    uint16_t fl = FC_GetWidth(font, text) / spaceWidth;
+    size_t fl = FC_GetWidth(font, text) / spaceWidth;
     if(fl <= len)
     {
         textToFrame(x, y, text);
         return 1;
     }
 
+    char *p = getStaticLineBuffer();
     size_t l = strlen(text);
-    char tmp[++l];
-    OSBlockMove(tmp, text, l, false);
+    OSBlockMove(p, text, l + 1, false);
 
-    int lines = 0;
-    char *p = tmp;
     char *t;
     char o;
-
+    int lines = 1;
     while(fl > len)
     {
-        l = strlen(p);
-        for(char *i = p + l; i > p; --i, --l)
+        for(char *i = p + l; i > p; --i)
         {
             o = *i;
             *i = '\0';
@@ -223,13 +217,14 @@ int textToFrameMultiline(int x, int y, const char *text, size_t len)
             }
 
             *i = o;
+            l = strlen(p);
         }
 
         fl = FC_GetWidth(font, p) / spaceWidth;
     }
 
     textToFrame(x, y, p);
-    return ++lines;
+    return lines;
 }
 
 void lineToFrame(int column, SCREEN_COLOR color)
@@ -258,53 +253,39 @@ void boxToFrame(int lineStart, int lineEnd)
     if(font == NULL)
         return;
 
-    SDL_Rect *rect[5];
-    for(int i = 0; i < 5; i++)
+    SDL_Rect *rect[3];
+    for(int i = 0; i < 3; i++)
     {
         rect[i] = createRect();
         if(rect[i] == NULL)
             return;
     }
 
-    rect[0]->x = FONT_SIZE;
-    rect[0]->y = ((++lineStart) * FONT_SIZE) + ((FONT_SIZE >> 1) - 1);
-    rect[0]->w = SCREEN_WIDTH - (FONT_SIZE << 1);
-    rect[0]->h = 3;
-
-    SDL_Color co = SCREEN_COLOR_GRAY;
-    SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
-
     // Horizontal lines
-    SDL_RenderFillRect(renderer, rect[0]);
-
-    rect[1]->x = FONT_SIZE;
-    rect[1]->y = ((++lineEnd) * FONT_SIZE) + ((FONT_SIZE >> 1) - 1) - 3;
-    rect[1]->w = rect[0]->w;
-    rect[1]->h = 3;
-
-    SDL_RenderFillRect(renderer, rect[1]);
+    lineToFrame(lineStart, SCREEN_COLOR_GRAY);
+    lineToFrame(lineEnd, SCREEN_COLOR_GRAY);
 
     // Vertical lines
-    rect[2]->x = FONT_SIZE;
-    rect[2]->y = rect[0]->y;
-    rect[2]->w = 3;
-    rect[2]->h = (--lineEnd - --lineStart) * FONT_SIZE;
-    SDL_RenderFillRect(renderer, rect[2]);
+    rect[0]->w = 3;
+    rect[0]->h = (lineEnd - lineStart) * FONT_SIZE;
+    rect[0]->x = FONT_SIZE;
+    rect[0]->y = ((++lineStart) * FONT_SIZE) + ((FONT_SIZE >> 1) - 1);
+    SDL_RenderFillRect(renderer, rect[0]);
 
-    rect[3]->x = (FONT_SIZE - 3) + rect[0]->w;
-    rect[3]->y = rect[0]->y;
-    rect[3]->w = 3;
-    rect[3]->h = rect[2]->h;
-    SDL_RenderFillRect(renderer, rect[3]);
+    rect[1]->x = (SCREEN_WIDTH - (FONT_SIZE << 1) + FONT_SIZE) - 3;
+    rect[1]->y = rect[0]->y;
+    rect[1]->w = 3;
+    rect[1]->h = rect[0]->h;
+    SDL_RenderFillRect(renderer, rect[1]);
 
     // Background - we paint it on top of the gray lines as they look better that way
-    rect[4]->x = FONT_SIZE + 2;
-    rect[4]->y = rect[0]->y + 2;
-    rect[4]->w = rect[0]->w - 3;
-    rect[4]->h = rect[2]->h - 3;
-    co = SCREEN_COLOR_BLACK;
+    rect[2]->x = FONT_SIZE + 2;
+    rect[2]->y = rect[0]->y + 2;
+    rect[2]->w = SCREEN_WIDTH - (FONT_SIZE << 1) - 3;
+    rect[2]->h = rect[0]->h - 3;
+    SCREEN_COLOR co = SCREEN_COLOR_BLACK;
     SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, 64);
-    SDL_RenderFillRect(renderer, rect[4]);
+    SDL_RenderFillRect(renderer, rect[2]);
 }
 
 void barToFrame(int line, int column, uint32_t width, double progress)
@@ -334,7 +315,7 @@ void barToFrame(int line, int column, uint32_t width, double progress)
     rect[1]->h = FONT_SIZE - 4;
     rect[2]->w = rect[0]->w - 4;
 
-    char text[5];
+    char text[8];
     sprintf(text, "%d%%%%", (int)progress);
 
     progress /= 100.0D;

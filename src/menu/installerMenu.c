@@ -112,7 +112,7 @@ static void drawInstallerMenuFrame(const char *name, NUSDEV dev, NUSDEV toDev, b
 
     textToFrame(++line, 0, gettext("Region:"));
     flagToFrame(++line, 3, region);
-    textToFrame(line, 7, getFormattedRegion(region));
+    textToFrame(line, 7, gettext(getFormattedRegion(region)));
 
     textToFrame(++line, 0, gettext("Size:"));
     textToFrame(++line, 3, toFrame);

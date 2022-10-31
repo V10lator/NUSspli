@@ -104,7 +104,7 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
 
     textToFrame(++line, 0, gettext("Region:"));
     flagToFrame(++line, 3, entry->region);
-    textToFrame(line, 7, getFormattedRegion(entry->region));
+    textToFrame(line, 7, gettext(getFormattedRegion(entry->region)));
 
     textToFrame(++line, 0, gettext("Size:"));
     textToFrame(++line, 3, toFrame);

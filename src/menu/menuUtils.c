@@ -79,6 +79,9 @@ void addToScreenLog(const char *str, ...)
 
 void clearScreenLog()
 {
+    if(logList == NULL)
+        return;
+
     destroyList(logList, true);
     logList = NULL;
 }

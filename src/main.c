@@ -38,7 +38,6 @@
 #include <otp.h>
 #include <queue.h>
 #include <renderer.h>
-#include <romfs-wiiu.h>
 #include <sanity.h>
 #include <state.h>
 #include <staticMem.h>
@@ -94,10 +93,6 @@ static void innerMain(bool validCfw)
 
         checkStacks("main");
     }
-
-#ifdef NUSSPLI_HBL
-    romfsInit();
-#endif
 
     KPADInit();
     WPADEnableURCC(true);
@@ -207,9 +202,6 @@ static void innerMain(bool validCfw)
                     }
                     else
                         lerr = "Couldn't initialize Crypto!";
-
-                    deinitFS();
-                    debugPrintf("Filesystem closed");
                 }
                 else
                     lerr = "Unsupported environment.\nEither you're not using Tiramisu/Aroma or your Tiramisu version is out of date.";
@@ -229,9 +221,12 @@ static void innerMain(bool validCfw)
                 gettextCleanUp();
                 debugPrintf("SDL closed");
             }
+
+            deinitFS();
+            debugPrintf("Filesystem closed");
         }
         else
-            debugPrintf("Error initializinf filesystem!");
+            debugPrintf("Error initializing filesystem!");
 
         shutdownStaticMem();
     }
@@ -241,11 +236,6 @@ static void innerMain(bool validCfw)
     debugPrintf("Clearing screen log");
     clearScreenLog();
     KPADShutdown();
-
-    debugPrintf("Shutting down filesystem");
-#ifdef NUSSPLI_HBL
-    romfsExit();
-#endif
 }
 
 int main()

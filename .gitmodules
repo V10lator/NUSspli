@@ -4,3 +4,6 @@
 [submodule "SDL_FontCache"]
 	path = SDL_FontCache
 	url = https://github.com/debevv/SDL_FontCache.git
+[submodule "utf8-utf16-converter"]
+	path = utf8-utf16-converter
+	url = https://github.com/Davipb/utf8-utf16-converter.git

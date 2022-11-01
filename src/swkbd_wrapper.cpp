@@ -29,6 +29,11 @@
 #include <swkbd_wrapper.h>
 #include <utils.h>
 
+extern "C"
+{
+    #include <converter.h>
+}
+
 static bool kbd_initialized = false;
 static char ifs[FS_MAX_PATH]; // TODO
 
@@ -60,10 +65,10 @@ char *Swkbd_GetInputFormString()
         return nullptr;
 
     size_t i = 0;
-    do
-        ifs[i] = cppRet[i] > 0x7F ? '?' : (char)cppRet[i];
-    while(ifs[i++] != '\0');
+    for(const char16_t *c = cppRet; *c != '\0'; c++)
+        i++;
 
+    utf16_to_utf8((const utf16_t *)cppRet, i, (utf8_t *)ifs, FS_MAX_PATH);
     return ifs;
 }
 

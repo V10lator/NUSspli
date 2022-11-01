@@ -23,12 +23,14 @@ TARGET		:=	NUSspli
 BUILD		?=	debug
 
 SOURCES		:=	zlib/contrib/minizip \
+				utf8-utf16-converter/converter/src \
 				src/menu \
 				src
 
 DATA		:=	
 INCLUDES	:=	include \
-				zlib/contrib/minizip
+				zlib/contrib/minizip \
+				utf8-utf16-converter/converter/include
 
 ifeq ($(strip $(HBL)), 1)
 ROMFS		:=	data

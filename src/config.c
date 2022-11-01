@@ -51,7 +51,7 @@
 #define LANG_KOR       "Korean"
 #define LANG_DUT       "Dutch"
 #define LANG_POR       "Portuguese"
-#define LANG_POR_BR    "Portuguese (BR)"
+#define LANG_POR_BR    "Brazilian Portuguese"
 #define LANG_RUS       "Russian"
 #define LANG_TCH       "Traditional chinese"
 #define LANG_SYS       "System settings"

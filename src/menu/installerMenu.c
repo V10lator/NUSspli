@@ -81,7 +81,7 @@ static void drawInstallerMenuFrame(const char *name, NUSDEV dev, NUSDEV toDev, b
     strcat(toFrame, "]");
     int line = textToFrameMultiline(0, ALIGNED_CENTER, toFrame, MAX_CHARS - 33); // TODO
 
-    size_t size = 0;
+    uint64_t size = 0;
     for(uint16_t i = 0; i < tmd->num_contents; ++i)
         size += tmd->contents[i].size;
 

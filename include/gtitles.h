@@ -52,7 +52,7 @@ extern "C"
         TITLE_KEY_5678 = 6,
         TITLE_KEY_1234 = 7,
         TITLE_KEY_ = 8,
-        TITKE_KEY_MAGIC = 9,
+        TITLE_KEY_MAGIC = 9,
     } TITLE_KEY;
 
     typedef struct WUT_PACKED

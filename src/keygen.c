@@ -40,7 +40,7 @@ static inline const char *transformPassword(TITLE_KEY in)
     switch(in)
     {
         case TITLE_KEY_mypass:
-        case TITKE_KEY_MAGIC:
+        case TITLE_KEY_MAGIC:
             return "mypass";
         case TITLE_KEY_nintendo:
             return "nintendo";

@@ -51,6 +51,7 @@
 #define LANG_KOR       "Korean"
 #define LANG_DUT       "Dutch"
 #define LANG_POR       "Portuguese"
+#define LANG_POR_BR    "Brazilian Portuguese"
 #define LANG_RUS       "Russian"
 #define LANG_TCH       "Traditional chinese"
 #define LANG_SYS       "System settings"
@@ -90,6 +91,8 @@ const char *menuLangToString(MENU_LANGUAGE lang)
             return LANG_SPA;
         case MENU_LANGUAGE_PORTUGUESE:
             return LANG_POR;
+        case MENU_LANGUAGE_PORTUGUESE_BR:
+            return LANG_POR_BR;
         default:
             return LANG_SYS;
     }
@@ -105,6 +108,8 @@ static inline MENU_LANGUAGE sysLangToMenuLang(Swkbd_LanguageType lang)
             return MENU_LANGUAGE_SPANISH;
         case Swkbd_LanguageType__Portuguese:
             return MENU_LANGUAGE_PORTUGUESE;
+        case Swkbd_LanguageType__Portuguese_BR:
+            return MENU_LANGUAGE_PORTUGUESE_BR;
         default:
             return MENU_LANGUAGE_ENGLISH;
     }
@@ -120,6 +125,8 @@ static MENU_LANGUAGE stringToMenuLang(const char *lang)
         return MENU_LANGUAGE_SPANISH;
     if(strcmp(lang, LANG_POR) == 0)
         return MENU_LANGUAGE_PORTUGUESE;
+    if(strcmp(lang, LANG_POR_BR) == 0)
+        return MENU_LANGUAGE_PORTUGUESE_BR;
 
     return sysLangToMenuLang(sysLang);
 }
@@ -238,6 +245,8 @@ bool initConfig()
                     lang = Swkbd_LanguageType__Dutch;
                 else if(strcmp(json_string_value(configEntry), LANG_POR) == 0)
                     lang = Swkbd_LanguageType__Portuguese;
+                else if(strcmp(json_string_value(configEntry), LANG_POR_BR) == 0)
+                    lang = Swkbd_LanguageType__Portuguese_BR;
                 else if(strcmp(json_string_value(configEntry), LANG_RUS) == 0)
                     lang = Swkbd_LanguageType__Russian;
                 else if(strcmp(json_string_value(configEntry), LANG_TCH) == 0)
@@ -272,6 +281,8 @@ bool initConfig()
                     lang = Swkbd_LanguageType__Dutch;
                 else if(strcmp(json_string_value(configEntry), LANG_POR) == 0)
                     lang = Swkbd_LanguageType__Portuguese;
+                else if(strcmp(json_string_value(configEntry), LANG_POR_BR) == 0)
+                    lang = Swkbd_LanguageType__Portuguese_BR;
                 else if(strcmp(json_string_value(configEntry), LANG_RUS) == 0)
                     lang = Swkbd_LanguageType__Russian;
                 else if(strcmp(json_string_value(configEntry), LANG_TCH) == 0)
@@ -394,6 +405,8 @@ const char *getLanguageString(Swkbd_LanguageType language)
             return LANG_DUT;
         case Swkbd_LanguageType__Portuguese:
             return LANG_POR;
+        case Swkbd_LanguageType__Portuguese_BR:
+            return LANG_POR_BR;
         case Swkbd_LanguageType__Russian:
             return LANG_RUS;
         case Swkbd_LanguageType__Chinese2:

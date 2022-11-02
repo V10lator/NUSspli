@@ -55,6 +55,7 @@ extern "C"
         MENU_LANGUAGE_GERMAN,
         MENU_LANGUAGE_SPANISH,
         MENU_LANGUAGE_PORTUGUESE,
+        MENU_LANGUAGE_PORTUGUESE_BR,
     } MENU_LANGUAGE;
 
     bool initConfig();

@@ -89,6 +89,9 @@ static inline void switchMenuLanguage()
         switch((int)lang)
         {
             case MENU_LANGUAGE_ENGLISH:
+                lang = MENU_LANGUAGE_PORTUGUESE_BR;
+                break;
+            case MENU_LANGUAGE_PORTUGUESE_BR:
                 lang = MENU_LANGUAGE_PORTUGUESE;
                 break;
             case MENU_LANGUAGE_PORTUGUESE:
@@ -116,6 +119,9 @@ static inline void switchMenuLanguage()
                 lang = MENU_LANGUAGE_PORTUGUESE;
                 break;
             case MENU_LANGUAGE_PORTUGUESE:
+                lang = MENU_LANGUAGE_PORTUGUESE_BR;
+                break;
+            case MENU_LANGUAGE_PORTUGUESE_BR:
                 lang = MENU_LANGUAGE_ENGLISH;
                 break;
         }

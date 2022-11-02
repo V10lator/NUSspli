@@ -21,6 +21,10 @@ def checkAndDeleteDir(dir):
         print(f"Deleting {dir}")
         shutil.rmtree(dir)
 
+opener = urllib.request.build_opener()
+opener.addheaders = [("User-agent", "NUSspliBuilder/2.1")]
+urllib.request.install_opener(opener)
+
 version = ET.ElementTree(file="meta/hbl/meta.xml").getroot().findtext("version")
 github = open("version.txt", "w")
 github.write(f"version={version}\n")
@@ -38,13 +42,11 @@ if len(wuhbtool) == 0:
     wuhbtool = "wuhbtool"
 
 checkAndDeleteFile("src/gtitles.c")
-opener = urllib.request.build_opener()
-opener.addheaders = [("User-agent", "NUSspliBuilder/2.0")]
-urllib.request.install_opener(opener)
 urllib.request.urlretrieve("https://napi.nbg01.v10lator.de/db", "src/gtitles.c")
 
 checkAndDeleteDir("NUStmp")
 checkAndDeleteDir("out")
+checkAndDeleteFile("data/locale/base.json");
 
 editionList = ["-DEBUG", ""]
 extList = [".rpx", ".zip", ".wuhb"]

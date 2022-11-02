@@ -20,6 +20,7 @@
 
 #include <stdbool.h>
 
+#include <coreinit/cache.h>
 #include <coreinit/core.h>
 #include <coreinit/filesystem.h>
 #include <coreinit/filesystem_fsa.h>
@@ -289,6 +290,7 @@ void flushIOQueue()
             removeErrorOverlay(ovl);
     }
 
+    OSMemoryBarrier();
     checkForQueueErrors();
 }
 

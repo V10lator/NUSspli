@@ -76,7 +76,6 @@
     "is DLC.": "es un DLC.",
     "is a update.": "es una actualización",
 
-
     "Name:": "Nombre:",
     "Size:": "Tamaño:",
     "Provided title version": "Versión del título:",
@@ -93,6 +92,9 @@
     "The main game is installed to": "El juego original está instalado en",
     "Do you want to change the target device to this?": "¿Quieres cambiar el dispositivo de destino a esto?",
     "Continue": "Continuar",
+
+    "\uE045 to start downloading": "\uE045 para empezar a descargar",
+    "\uE046 to delete an item": "\uE046 para eliminar un elemento",
 
     "Install to:": "Instalar a:",
     "Operation:": "Operación:",

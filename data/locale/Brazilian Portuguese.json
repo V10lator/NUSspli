@@ -1,10 +1,10 @@
 {
-    "Press \uE044 or \uE001 to exit": "Aperte \uE044 ou \uE001 para sair",
     "Download content": "Baixar conteúdo",
     "Install content": "Instalar conteúdo",
     "Generate a fake <title.tik> file": "Gerar um arquivo <title.tik> falso",
     "Uninstall a title": "Desinstalar um título",
     "Options": "Opções",
+    "Press \uE044 or \uE001 to exit": "Aperte \uE044 ou \uE001 para sair",
     "Developers:": "Desenvolvedores:",
     "Thanks to:": "Agradecimentos:",
     "Beta testers:": "Beta testers:",
@@ -38,9 +38,11 @@
     "Disabled": "Desativado",
     "Auto resume failed downloads:": "Retomada automática de downloads com falha:",
     "Notification method:": "Método de notificação:",
+    "Brazilian Portuguese": "Português do Brasil",
     "Region:": "Região:",
     "None": "Nenhuma",
     "Europe": "Europa",
+    "USA": "EUA",
     "Japan": "Japão",
 
     "USA/Europe": "EUA/Europa",
@@ -91,6 +93,9 @@
     "The main game is installed to": "O jogo está instalado em",
     "Do you want to change the target device to this?": "Deseja mudar o dispositivo de destino para este?",
     "Continue": "Continuar",
+
+    "\uE045 to start downloading": "\uE045 começar a baixar",
+    "\uE046 to delete an item": "\uE046 para excluir um item",
 
     "Install to:": "Instalar:",
     "Operation:": "Operação:",

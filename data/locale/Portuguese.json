@@ -42,6 +42,7 @@
     "Portuguese": "Português",
     "None": "Nenhuma",
     "Europe": "Europa",
+    "USA": "EUA",
     "Japan": "Japão",
 
     "USA/Europe": "EUA/Europa",
@@ -92,6 +93,9 @@
     "The main game is installed to": "O jogo está instalado em",
     "Do you want to change the target device to this?": "Deseja alterar o dispositivo de destino para este?",
     "Continue": "Continuar",
+
+    "\uE045 to start downloading": "\uE045 para começar a descarregar",
+    "\uE046 to delete an item": "\uE046 para eliminar um item",
 
     "Install to:": "Instalar em:",
     "Operation:": "Operação:",

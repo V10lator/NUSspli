@@ -11,7 +11,7 @@
 
     "Games": "Jogos",
     "Updates": "Actualizações",
-    "All": "Todos",
+    "All": "Tudo",
     "Press \uE000 to select": "\uE000 para selecionar",
     "\uE001 to return": "\uE001 para retornar",
     "\uE002 to enter a title ID": "\uE002 para introduzir um ID de título",
@@ -100,14 +100,14 @@
 
     "Install to:": "Instalar em:",
     "Operation:": "Operação:",
-    "Install": "Instalar",
+    "Install": "Descarregar e instalar",
     "Download only": "Apenas descarregar",
     "Download to:": "Descarregar para:",
     "Keep downloaded files:": "Manter os ficheiros descarregados:",
     "Set title version": "Definir versão do título",
     "Set custom name to the download folder": "Definir nome da pasta de download",
     "Press \uE002 to return": "\uE002 para voltar",
-    "\uE045 to start": "\uE045 para começar",
+    "\uE045 to start": "\uE045 para instalar",
     "\uE046 to add to the queue": "\uE046 para acrescentar à fila",
     "\uE003 to uninstall": "\uE003 para desinstalar",
 

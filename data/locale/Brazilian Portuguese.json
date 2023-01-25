@@ -16,12 +16,12 @@
     "\uE001 to return": "\uE001 para voltar",
     "\uE002 to enter a title ID": "\uE002 para inserir um ID",
     "\uE003 to search": "\uE003 para pesquisar",
-    "\uE046 to open the queue": "\uE046 para abrir a fila",
+    "\uE046 to open the queue": "\uE046 para abrir a fila de instalação",
 
     "Select a folder:": "Selecione uma pasta:",
-    "\uE002 to switch to SD": "\uE002 para mudar para SD",
+    "\uE002 to switch to SD": "\uE002 para mudar para cartão de memória",
     "\uE002 to switch to NAND": "\uE002 para mudar para memória interna",
-    "\uE002 to switch to USB": "\uE002 para mudar para USB",
+    "\uE002 to switch to USB": "\uE002 para mudar para dispositivo USB",
     "Searching on": "Pesquisando em",
     
     "Press \uE000 to delete": "Aperte \uE000 para desinstalar",
@@ -111,9 +111,10 @@
     "\uE046 to add to the queue": "\uE046 para adicionar à fila de instalação",
     "\uE003 to uninstall": "\uE003 para desinstalar",
 
-    "\uE045 to start the queue": "\uE045 para começar a baixar",
+    "\uE045 to start the queue": "\uE045 para começar instalação",
     "\uE046 to delete an item": "\uE046 para excluir um item",
 
+    "days": "dias",
     "hours": "horas",
     "minutes": "minutos",
     "seconds": "segundos",

@@ -1,8 +1,8 @@
 {
-    "Download content": "Descarregar conteúdo",
-    "Install content": "Instalar conteúdo",
-    "Generate a fake <title.tik> file": "Gerar um ficheiro <title.tik> falso",
-    "Uninstall a title": "Desinstalar um título",
+    "Download content": "Descarregar",
+    "Install content": "Instalar",
+    "Generate a fake <title.tik> file": "Gerar <title.tik>",
+    "Uninstall a title": "Desinstalar",
     "Options": "Opções",
     "Press \uE044 or \uE001 to exit": "Prima \uE044 ou \uE001 para sair",
     "Developers:": "Desenvolvedores:",
@@ -111,9 +111,10 @@
     "\uE046 to add to the queue": "\uE046 para acrescentar à fila",
     "\uE003 to uninstall": "\uE003 para desinstalar",
 
-    "\uE045 to start the queue": "\uE045 para começar a descarregar",
+    "\uE045 to start the queue": "\uE045 para começar a instalar",
     "\uE046 to delete an item": "\uE046 para eliminar um item",
 
+    "days": "dias",
     "hours": "horas",
     "minutes": "minutos",
     "seconds": "segundos",

@@ -132,7 +132,7 @@ Swkbd_LanguageType stringToLanguageType(const char *lang)
         return Swkbd_LanguageType__Russian;
     if(strcmp(lang, LANG_TCH) == 0)
         return Swkbd_LanguageType__Chinese2;
-    if(strcmp(lang, LANG_SERB) == 0)
+    if(strcmp(lang, LANG_SER) == 0)
         return Swkbd_LanguageType__Serbian;
 
     return Swkbd_LanguageType__Invalid;

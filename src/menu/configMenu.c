@@ -105,6 +105,9 @@ static inline void switchMenuLanguage()
                 lang = Swkbd_LanguageType__German;
                 break;
             case Swkbd_LanguageType__German:
+                lang = Swkbd_LanguageType__Serbian;
+                break;
+            case Swkbd_LanguageType__Serbian:
                 lang = Swkbd_LanguageType__English;
                 break;
             default:
@@ -120,6 +123,9 @@ static inline void switchMenuLanguage()
                 lang = Swkbd_LanguageType__English;
                 break;
             case Swkbd_LanguageType__English:
+                lang = Swkbd_LanguageType__Serbian;
+                break;
+            case Swkbd_LanguageType__Serbian:
                 lang = Swkbd_LanguageType__German;
                 break;
             case Swkbd_LanguageType__German:

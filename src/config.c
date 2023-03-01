@@ -55,6 +55,7 @@
 #define LANG_POR_BR    "Brazilian Portuguese"
 #define LANG_RUS       "Russian"
 #define LANG_TCH       "Traditional chinese"
+#define LANG_SER       "Serbian"
 #define LANG_SYS       "System settings"
 
 #define SET_EUR        "Europe"
@@ -131,6 +132,8 @@ Swkbd_LanguageType stringToLanguageType(const char *lang)
         return Swkbd_LanguageType__Russian;
     if(strcmp(lang, LANG_TCH) == 0)
         return Swkbd_LanguageType__Chinese2;
+    if(strcmp(lang, LANG_SERB) == 0)
+        return Swkbd_LanguageType__Serbian;
 
     return Swkbd_LanguageType__Invalid;
 }
@@ -339,6 +342,8 @@ const char *getLanguageString(Swkbd_LanguageType language)
             return LANG_RUS;
         case Swkbd_LanguageType__Chinese2:
             return LANG_TCH;
+        case Swkbd_LanguageType__Serbian:
+            return LANG_SER;
         default:
             return LANG_SYS;
     }

@@ -3,7 +3,7 @@ FROM ghcr.io/wiiu-env/devkitppc:20230326
 ENV DEBIAN_FRONTEND=noninteractive \
  PATH=$DEVKITPPC/bin:$PATH \
  WUT_ROOT=$DEVKITPRO/wut \
- curl_ver=8.0.1
+ CURL_VER=8.0.1
 
 WORKDIR /
 
@@ -26,10 +26,10 @@ RUN git clone --recursive https://github.com/yawut/libromfs-wiiu --single-branch
  make install
 
 # Install libCURL since WUT doesn't ship with the latest version
-RUN wget https://curl.se/download/curl-$curl_ver.tar.gz && \
+RUN wget https://curl.se/download/curl-$CURL_VER.tar.gz && \
  mkdir /curl && \
- tar xf curl-$curl_ver.tar.gz -C /curl --strip-components=1 && \
- rm -f curl-$curl_ver.tar.gz && \
+ tar xf curl-$CURL_VER.tar.gz -C /curl --strip-components=1 && \
+ rm -f curl-$CURL_VER.tar.gz && \
  cd curl && \
  autoreconf -fi && ./configure \
 --prefix=$DEVKITPRO/portlibs/wiiu/ \

@@ -2,7 +2,8 @@ FROM ghcr.io/wiiu-env/devkitppc:20230326
 
 ENV DEBIAN_FRONTEND=noninteractive \
  PATH=$DEVKITPPC/bin:$PATH \
- WUT_ROOT=$DEVKITPRO/wut
+ WUT_ROOT=$DEVKITPRO/wut \
+ curl_ver=8.0.1
 
 WORKDIR /
 
@@ -23,6 +24,39 @@ RUN git clone --recursive https://github.com/yawut/libromfs-wiiu --single-branch
  cd libromfs-wiiu && \
  make -j$(nproc) && \
  make install
+
+# Install libCURL since WUT doesn't ship with the latest version
+RUN wget https://curl.se/download/curl-$curl_ver.tar.gz && \
+ mkdir /curl && \
+ tar xf curl-$curl_ver.tar.gz -C /curl --strip-components=1 && \
+ rm -f curl-$curl_ver.tar.gz && \
+ cd curl && \
+ autoreconf -fi && ./configure \
+--prefix=$DEVKITPRO/portlibs/wiiu/ \
+--host=powerpc-eabi \
+--enable-static \
+--disable-threaded-resolver \
+--disable-pthreads \
+--with-ssl=$DEVKITPRO/portlibs/wiiu/ \
+--disable-ipv6 \
+--disable-unix-sockets \
+--disable-socketpair \
+--disable-ntlm-wb \
+CFLAGS="-mcpu=750 -meabi -mhard-float -Ofast -ffunction-sections -fdata-sections" \
+CXXFLAGS="-mcpu=750 -meabi -mhard-float -Ofast -ffunction-sections -fdata-sections" \
+CPPFLAGS="-D__WIIU__ -D__WUT__ -I$DEVKITPRO/wut/include" \
+LDFLAGS="-L$DEVKITPRO/wut/lib" \
+LIBS="-lwut -lm" \
+CC=$DEVKITPPC/bin/powerpc-eabi-gcc \
+AR=$DEVKITPPC/bin/powerpc-eabi-ar \
+RANLIB=$DEVKITPPC/bin/powerpc-eabi-ranlib \
+PKG_CONFIG=$DEVKITPRO/portlibs/wiiu/bin/powerpc-eabi-pkg-config && \
+ cd lib && \
+ make -j$(nproc) install && \
+ cd ../include && \
+ make -j$(nproc) install && \
+ cd ../.. && \
+ rm -rf curl
 
 COPY --from=ghcr.io/wiiu-env/libmocha:20220919 /artifacts $DEVKITPRO
 COPY --from=ghcr.io/wiiu-env/librpxloader:20230316 /artifacts $DEVKITPRO

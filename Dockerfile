@@ -37,7 +37,7 @@ RUN wget https://curl.se/download/curl-$curl_ver.tar.gz && \
 --enable-static \
 --disable-threaded-resolver \
 --disable-pthreads \
---with-ssl=$DEVKITPRO/portlibs/wiiu/ \
+--with-mbedtls=$DEVKITPRO/portlibs/wiiu/ \
 --disable-ipv6 \
 --disable-unix-sockets \
 --disable-socketpair \

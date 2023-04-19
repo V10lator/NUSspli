@@ -62,6 +62,40 @@ static inline bool isInstalled(const TitleEntry *entry, MCPTitleListType *out)
     return MCP_GetTitleInfo(mcpHandle, entry->tid, out) == 0;
 }
 
+static void getFormattedSize(double size, char *buf)
+{
+    int i = 0;
+    const char *units[] = { "B", "kB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
+    while(size > 1024)
+    {
+        size /= 1024;
+        i++;
+    }
+    sprintf(buf, "%.*f %s", i, size, units[i]);
+}
+
+static bool getFormattedFreeTotalSpace(char *out, const char *path, uint64_t space)
+{
+    bool ret = false;
+    FSADeviceInfo *fileSystemInfo = MEMAllocFromDefaultHeap(sizeof(FSADeviceInfo));
+    if(fileSystemInfo)
+    {
+        if(FSAGetDeviceInfo(getFSAClient(), path, fileSystemInfo) == FS_ERROR_OK)
+        {
+            char totalSizeBuf[32];
+            char freeSizeBuf[32];
+            getFormattedSize(fileSystemInfo->deviceSizeInSectors * fileSystemInfo->deviceSectorSize, totalSizeBuf);
+            getFormattedSize(space, freeSizeBuf);
+
+            sprintf(out, "%s/%s", freeSizeBuf, totalSizeBuf);
+
+            ret = true;
+        }
+        MEMFreeToDefaultHeap(fileSystemInfo);
+    }
+    return ret;
+}
+
 static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint64_t size, bool installed, const char *folderName, bool usbMounted, NUSDEV dlDev, NUSDEV instDev)
 {
     startNewFrame();
@@ -215,6 +249,14 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
         case NUSDEV_MLC:
             strcat(toFrame, "NAND");
             break;
+    }
+    uint64_t freeSpace;
+    const char *nd = instDev == NUSDEV_USB01 ? NUSDIR_USB1 : (dlDev == NUSDEV_USB02 ? NUSDIR_USB2 : (dlDev == NUSDEV_SD ? NUSDIR_SD : NUSDIR_MLC));
+    if(FSAGetFreeSpaceSize(getFSAClient(), (char *)nd, &freeSpace) == FS_ERROR_OK)
+    {
+        char freeTotalSpace[64];
+        getFormattedFreeTotalSpace(freeTotalSpace, nd, freeSpace);
+        sprintf(toFrame, "%s (%s)", toFrame, freeTotalSpace);
     }
     if(operation == OPERATION_DOWNLOAD_INSTALL)
         textToFrame(--line, 4, toFrame);

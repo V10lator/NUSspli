@@ -105,7 +105,7 @@ static inline SDL_Rect *createRect()
         line *= FONT_SIZE;                                    \
         line -= 7;                                            \
         text.w = FC_GetWidth(font, str);                      \
-        text.h = FONT_SIZE;                                   \
+        text.h = FONT_SIZE * 2; /* TODO */                    \
         text.y = line;                                        \
                                                               \
         if(maxWidth != 0 && text.w > maxWidth)                \

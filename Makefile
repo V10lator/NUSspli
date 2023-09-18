@@ -62,7 +62,7 @@ CXXFLAGS	:=	$(CFLAGS) -std=c++20 -fpermissive
 ASFLAGS		:=	-g $(ARCH)
 LDFLAGS		:=	-g $(ARCH) $(RPXSPECS) $(CFLAGS) -Wl,-Map,$(notdir $*.map)
 
-LIBS		:=	-lcurl -lmbedtls -lmbedx509 -lmbedcrypto `$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image jansson` -lwut -lmocha -lrpxloader $(ROMFS_LIBS)
+LIBS		:=	-lcurl -lmbedtls -lmbedx509 -lmbedcrypto `$(PREFIX)pkg-config --libs harfbuzz SDL2_mixer SDL2_ttf SDL2_image jansson` -lwut -lmocha -lrpxloader $(ROMFS_LIBS)
 
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level

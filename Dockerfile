@@ -28,8 +28,8 @@ RUN git clone --recursive https://github.com/yawut/libromfs-wiiu --single-branch
 # Install libCURL since WUT doesn't ship with the latest version
 RUN wget https://curl.se/download/curl-$CURL_VER.tar.xz && \
  mkdir /curl && \
- tar xJ curl-$CURL_VER.tar.xz -C /curl --strip-components=1 && \
- rm -f curl-$CURL_VER.tar.gz && \
+ tar xJf curl-$CURL_VER.tar.xz -C /curl --strip-components=1 && \
+ rm -f curl-$CURL_VER.tar.xz && \
  cd curl && \
  autoreconf -fi && ./configure \
 --prefix=$DEVKITPRO/portlibs/wiiu/ \

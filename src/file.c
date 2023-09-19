@@ -293,7 +293,7 @@ size_t getDirsize(const char *path)
 {
     char *newPath = MEMAllocFromDefaultHeapEx(FS_MAX_PATH, 0x40);
     if(newPath == NULL)
-        return NULL;
+        return 0;
 
     size_t ret = 0;
     size_t start = strlen(path);
@@ -318,6 +318,8 @@ size_t getDirsize(const char *path)
             strcpy(newPath + start, entry.name);
             ret += entry.info.flags & FS_STAT_DIRECTORY ? getDirsize(newPath) : entry.info.size;
         }
+
+        FSACloseDir(getFSAClient(), dir);
     }
 
     t = OSGetTime() - t;

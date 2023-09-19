@@ -161,7 +161,7 @@ void claimSpace(NUSDEV dev, uint64_t size)
 void freeSpace(NUSDEV dev, uint64_t size)
 {
     uint32_t i = remapNusdev(dev);
-    if(i != 2)
+    if(i != SPACEMAP_INVALID)
         spaceMap[i] -= size;
 }
 
@@ -171,16 +171,20 @@ uint64_t getFreeSpace(NUSDEV dev)
         checkSpaceThread();
 
     const char *nd = dev == NUSDEV_USB01 ? NUSDIR_USB1 : (dev == NUSDEV_USB02 ? NUSDIR_USB2 : (dev == NUSDEV_SD ? NUSDIR_SD : NUSDIR_MLC));
-    uint64_t freeSpace;
+    int64_t freeSpace;
 
-    if(FSAGetFreeSpaceSize(getFSAClient(), (char *)nd, &freeSpace) != FS_ERROR_OK)
+    if(FSAGetFreeSpaceSize(getFSAClient(), (char *)nd, (uint64_t *)&freeSpace) != FS_ERROR_OK)
         return 0;
 
     uint32_t i = remapNusdev(dev);
     if(i != SPACEMAP_INVALID)
+    {
         freeSpace -= spaceMap[i];
+        if(freeSpace < 0)
+            freeSpace = 0;
+    }
 
-    return freeSpace;
+    return (uint64_t)freeSpace;
 }
 
 bool checkFreeSpace(NUSDEV dev, uint64_t size)

@@ -96,6 +96,10 @@ jobs:
           name: NUSspli-${{ steps.version.outputs.version }}-HBL-DEBUG
           path: out/HBL-DEBUG/*
           if-no-files-found: error
+      - name: Build Changelog
+        id: build_changelog
+        uses: mikepenz/release-changelog-builder-action@{latest-release}
+        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
       - name: Publish release
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
         uses: ncipollo/release-action@v1
@@ -105,9 +109,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           artifactErrorsFailBuild: true
           artifactContentType: application/zip
-          body: |
-            Improvements to stability and usability:
-            Further improvements to overall stability and other minor adjustments have been made to enhance the user experience.
+          body: ${{steps.build_changelog.outputs.changelog}}
           artifacts: |
             zips/NUSspli-${{ steps.version.outputs.version }}-Aroma.zip
             zips/NUSspli-${{ steps.version.outputs.version }}-Aroma-DEBUG.zip

@@ -27,15 +27,16 @@ jobs:
         with:
           fetch-depth: 0
       - name: Docker Layer Caching
-        uses: jpribyl/action-docker-layer-caching@v0.1.1
+        uses: ScribeMD/docker-cache@0.3.6
+        id: cache
         continue-on-error: true
         with:
-          key: nusspli-docker-cache-{hash}
-          restore-keys: |
-            nusspli-docker-cache-
+          key: nusspli-docker-cache-${{ hashFiles('Dockerfile') }}
+      - name: Build docker image
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: docker build . -t builder
       - name: Build artifacts
         run: |
-          docker build . -t builder
           echo ${{ secrets.ENC_KEY }} > encryptKeyWith
           docker run --rm -v ${PWD}:/project builder python3 build.py
           cat version.txt >> $GITHUB_OUTPUT
@@ -96,6 +97,22 @@ jobs:
           name: NUSspli-${{ steps.version.outputs.version }}-HBL-DEBUG
           path: out/HBL-DEBUG/*
           if-no-files-found: error
+      - name: Create new tag
+        uses: rickstaa/action-create-tag@v1
+        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
+        with:
+          tag: v${{ steps.version.outputs.version }}
+          tag_exists_error: false
+          message: v${{ steps.version.outputs.version }}
+      - name: Get previous tag
+        run: echo "previous_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_ENV
+      - name: Generate changelog
+        id: changelog
+        uses: jaywcjlove/changelog-generator@main
+        if: ${{ env.previous_tag && startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filter: 'v\d+\.\d+(-ALPHA|-BETA)?'
       - name: Publish release
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && !contains(github.event.head_commit.message, '-ALPHA') && !contains(github.event.head_commit.message, '-BETA') }}
         uses: ncipollo/release-action@v1
@@ -105,9 +122,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           artifactErrorsFailBuild: true
           artifactContentType: application/zip
-          body: |
-            Improvements to stability and usability:
-            Further improvements to overall stability and other minor adjustments have been made to enhance the user experience.
+          body: ${{ steps.changelog.outputs.changelog }}
           artifacts: |
             zips/NUSspli-${{ steps.version.outputs.version }}-Aroma.zip
             zips/NUSspli-${{ steps.version.outputs.version }}-Aroma-DEBUG.zip

@@ -1,4 +1,4 @@
-FROM ghcr.io/wiiu-env/devkitppc:20230402
+FROM ghcr.io/wiiu-env/devkitppc:20231112
 
 ENV DEBIAN_FRONTEND=noninteractive \
  PATH=$DEVKITPPC/bin:$PATH \

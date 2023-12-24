@@ -56,6 +56,8 @@ extern "C"
     bool autoResumeEnabled();
     void setAutoResume(bool enabled);
     const char *getFormattedRegion(MCPRegion region);
+    void setSpaceThread(bool enabled);
+    bool spaceThreadIsEnabled();
     Swkbd_LanguageType getKeyboardLanguage();
     Swkbd_LanguageType getUnfilteredLanguage();
     MCPRegion getRegion();

@@ -19,6 +19,7 @@
 #include <wut-fixups.h>
 
 #include <cfw.h>
+#include <config.h>
 #include <file.h>
 #include <filesystem.h>
 #include <localisation.h>
@@ -56,7 +57,8 @@ static int spaceThreadMain(int argc, const char **argv)
 
 void initFSSpace()
 {
-    spaceThread = startThread("NUSspli FS Initialiser", THREAD_PRIORITY_MEDIUM, 0x400, spaceThreadMain, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_ANY);
+    if(spaceThreadIsEnabled())
+        spaceThread = startThread("NUSspli FS Initialiser", THREAD_PRIORITY_MEDIUM, 0x400, spaceThreadMain, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_ANY);
 }
 
 bool initFS(bool validCfw)
@@ -105,8 +107,7 @@ static void checkSpaceThread()
     if(spaceThread)
     {
         void *ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
-        stopThread(spaceThread, NULL);
-        spaceThread = NULL;
+        stopSpaceThread();
         if(ovl != NULL)
             removeErrorOverlay(ovl);
     }
@@ -171,23 +172,23 @@ uint64_t getFreeSpace(NUSDEV dev)
         checkSpaceThread();
 
     const char *nd = dev == NUSDEV_USB01 ? NUSDIR_USB1 : (dev == NUSDEV_USB02 ? NUSDIR_USB2 : (dev == NUSDEV_SD ? NUSDIR_SD : NUSDIR_MLC));
-    int64_t freeSpace;
+    int64_t freeSpaceLeft;
 
-    if(FSAGetFreeSpaceSize(getFSAClient(), (char *)nd, (uint64_t *)&freeSpace) != FS_ERROR_OK)
+    if(FSAGetFreeSpaceSize(getFSAClient(), (char *)nd, (uint64_t *)&freeSpaceLeft) != FS_ERROR_OK)
         return 0;
 
     uint32_t i = remapNusdev(dev);
     if(i != SPACEMAP_INVALID)
     {
-        freeSpace -= spaceMap[i];
-        if(freeSpace < 0)
-            freeSpace = 0;
+        freeSpaceLeft -= spaceMap[i];
+        if(freeSpaceLeft < 0)
+            freeSpaceLeft = 0;
     }
 
-    return (uint64_t)freeSpace;
+    return freeSpaceLeft;
 }
 
-bool checkFreeSpace(NUSDEV dev, uint64_t size)
+bool checkFreeSpace(NUSDEV dev, int64_t size)
 {
     if(size > getFreeSpace(dev))
     {
@@ -203,4 +204,13 @@ uint64_t getSpace(NUSDEV dev)
     FSADeviceInfo info;
     const char *nd = dev == NUSDEV_USB01 ? NUSDIR_USB1 : (dev == NUSDEV_USB02 ? NUSDIR_USB2 : (dev == NUSDEV_SD ? NUSDIR_SD : NUSDIR_MLC));
     return FSAGetDeviceInfo(getFSAClient(), nd, &info) == FS_ERROR_OK ? info.deviceSizeInSectors * info.deviceSectorSize : 0;
+}
+
+void stopSpaceThread()
+{
+    if(spaceThread)
+    {
+        stopThread(spaceThread, NULL);
+        spaceThread = NULL;
+    }
 }

@@ -34,9 +34,9 @@
 #include <coreinit/mcp.h>
 
 #ifndef NUSSPLI_LITE
-#define ENTRY_COUNT 4
+#define ENTRY_COUNT 5
 #else
-#define ENTRY_COUNT 3
+#define ENTRY_COUNT 4
 #endif
 
 static int cursorPos = 0;
@@ -66,11 +66,16 @@ static void drawConfigMenu()
     strcat(toScreen, localise(getNotificationString(getNotificationMethod())));
     textToFrame(3, 4, toScreen);
 
+    strcpy(toScreen, localise("Free space check:"));
+    strcat(toScreen, " ");
+    strcat(toScreen, localise(spaceThreadIsEnabled() ? "Enabled" : "Disabled"));
+    textToFrame(4, 4, toScreen);
+
 #ifndef NUSSPLI_LITE
     strcpy(toScreen, localise("Region:"));
     strcat(toScreen, " ");
     strcat(toScreen, localise(getFormattedRegion(getRegion())));
-    textToFrame(4, 4, toScreen);
+    textToFrame(5, 4, toScreen);
 #endif
 
     lineToFrame(MAX_LINES - 2, SCREEN_COLOR_WHITE);
@@ -268,8 +273,11 @@ void configMenu()
                 case 3:
                     switchNotificationMethod();
                     break;
-#ifndef NUSSPLI_LITE
                 case 4:
+                    setSpaceThread(!spaceThreadIsEnabled());
+                    break;
+#ifndef NUSSPLI_LITE
+                case 5:
                     switchRegion();
                     break;
 #endif

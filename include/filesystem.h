@@ -41,6 +41,7 @@ extern "C"
     uint64_t getFreeSpace(NUSDEV dev);
     bool checkFreeSpace(NUSDEV dev, uint64_t size);
     uint64_t getSpace(NUSDEV dev);
+    void stopSpaceThread();
 
 #ifdef __cplusplus
 }

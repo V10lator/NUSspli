@@ -40,7 +40,7 @@
 
 #include <jansson.h>
 
-#define CONFIG_VERSION 2
+#define CONFIG_VERSION 3
 
 #define LANG_JAP       "Japanese"
 #define LANG_ENG       "English"
@@ -78,6 +78,7 @@ static bool dlToUSB = true;
 static MCPRegion regionSetting = MCP_REGION_EUROPE | MCP_REGION_USA | MCP_REGION_JAPAN;
 #endif
 static NOTIF_METHOD notifSetting = NOTIF_METHOD_RUMBLE | NOTIF_METHOD_LED;
+static bool spaceThreadEnabled = true;
 
 #define LOCALE_PATH      ROMFS_PATH "locale/"
 #define LOCALE_EXTENSION ".json"
@@ -291,6 +292,15 @@ void initConfig()
         changed = true;
     }
 
+    configEntry = json_object_get(json, "Free space check");
+    if(configEntry != NULL && json_is_boolean(configEntry))
+        spaceThreadEnabled = json_is_true(configEntry);
+    else
+    {
+        addToScreenLog("Free space check setting not found!");
+        changed = true;
+    }
+
     configEntry = json_object_get(json, "Seed");
     if(configEntry != NULL && json_is_integer(configEntry))
     {
@@ -380,6 +390,7 @@ void saveConfig(bool force)
     if(!changed && !force)
         return;
 
+    initFSSpace(); // make sure that the space thread is running according to the config
     json_t *config = json_object();
     if(config != NULL)
     {
@@ -409,27 +420,31 @@ void saveConfig(bool force)
                                     value = json_string(getNotificationString(getNotificationMethod()));
                                     if(setValue(config, "Notification method", value))
                                     {
-                                        uint32_t entropy;
-                                        NUSrng(NULL, (unsigned char *)&entropy, 4);
-                                        value = json_integer(entropy);
-                                        if(setValue(config, "Seed", value))
+                                        value = spaceThreadEnabled ? json_true() : json_false();
+                                        if(setValue(config, "Free space check", value))
                                         {
-                                            char *json = json_dumps(config, JSON_INDENT(4));
-                                            if(json != NULL)
+                                            uint32_t entropy;
+                                            NUSrng(NULL, (unsigned char *)&entropy, 4);
+                                            value = json_integer(entropy);
+                                            if(setValue(config, "Seed", value))
                                             {
-                                                entropy = strlen(json);
-                                                flushIOQueue();
-                                                FSAFileHandle f = openFile(CONFIG_PATH, "w", 0);
-                                                if(f != 0)
+                                                char *json = json_dumps(config, JSON_INDENT(4));
+                                                if(json != NULL)
                                                 {
-                                                    addToIOQueue(json, 1, entropy, f);
-                                                    addToIOQueue(NULL, 0, 0, f);
-                                                    changed = false;
-                                                }
-                                                else
-                                                    showErrorFrame(localise("Couldn't save config file!\nYour SD card might be write locked."));
+                                                    entropy = strlen(json);
+                                                    flushIOQueue();
+                                                    FSAFileHandle f = openFile(CONFIG_PATH, "w", 0);
+                                                    if(f != 0)
+                                                    {
+                                                        addToIOQueue(json, 1, entropy, f);
+                                                        addToIOQueue(NULL, 0, 0, f);
+                                                        changed = false;
+                                                    }
+                                                    else
+                                                        showErrorFrame(localise("Couldn't save config file!\nYour SD card might be write locked."));
 
-                                                MEMFreeToDefaultHeap(json);
+                                                    MEMFreeToDefaultHeap(json);
+                                                }
                                             }
                                         }
                                     }
@@ -493,6 +508,20 @@ const char *getFormattedRegion(MCPRegion region)
         return region & MCP_REGION_JAPAN ? "USA/Japan" : SET_USA;
 
     return region & MCP_REGION_JAPAN ? SET_JPN : "Unknown";
+}
+
+void setSpaceThread(bool enabled)
+{
+    if(spaceThreadEnabled == enabled)
+        return;
+
+    spaceThreadEnabled = enabled;
+    changed = true;
+}
+
+bool spaceThreadIsEnabled()
+{
+    return spaceThreadEnabled;
 }
 
 #ifndef NUSSPLI_LITE

@@ -29,6 +29,7 @@
 #include <coreinit/mcp.h>
 #include <coreinit/memdefaultheap.h>
 
+#include <config.h>
 #include <file.h>
 #include <filesystem.h>
 #include <input.h>
@@ -466,6 +467,9 @@ void humanize(uint64_t size, char *out)
 
 void getFreeSpaceString(NUSDEV dev, char *out)
 {
+    if(!spaceThreadIsEnabled())
+        return;
+
     *out++ = ' ';
     *out++ = '(';
     humanize(getFreeSpace(dev), out);

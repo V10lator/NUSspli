@@ -1,0 +1,11 @@
+prefix=/opt/devkitpro/portlibs/wiiu
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: SDL2_gfx
+Description: drawing and graphical effects extension for SDL
+Version: 1.0.2
+Requires: sdl2 >= 2.0.0
+Libs: -L${libdir} -lSDL2_gfx
+Cflags: -I${includedir}/SDL2

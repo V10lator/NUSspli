@@ -47,6 +47,8 @@ urllib.request.urlretrieve("https://napi.nbg01.v10lator.de/db", "src/gtitles.c")
 checkAndDeleteDir("NUStmp")
 checkAndDeleteDir("out")
 
+os.system(f"SDL2/setup.sh")
+
 editionList = ["-DEBUG", ""]
 extList = [".rpx", ".zip", ".wuhb"]
 pkgList = ["Aroma", "HBL", "Channel", "Lite"]

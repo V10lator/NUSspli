@@ -27,7 +27,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Docker caching
-        uses: ScribeMD/docker-cache@0.3.7
+        uses: ScribeMD/docker-cache@0.4.0
         id: cache
         continue-on-error: true
         with:

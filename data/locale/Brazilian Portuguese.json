@@ -2,7 +2,7 @@
     "Download content": "Baixar",
     "Install content": "Instalar",
     "Generate a fake <title.tik> file": "Criar ticket",
-    "Uninstall a title": "Desinstalar",
+    "Browse installed titles": "Jogos/Apps instalados",
     "Options": "Opções",
     "Press \uE044 or \uE001 to exit": "Aperte \uE044 ou \uE001 para sair",
     "Developers:": "Desenvolvedores:",
@@ -23,8 +23,9 @@
     "\uE002 to switch to NAND": "\uE002 para mudar para memória interna",
     "\uE002 to switch to USB": "\uE002 para mudar para dispositivo USB",
     "Searching on": "Pesquisando em",
-    
-    "Press \uE046 to delete": "\uE046 para desinstalar",
+
+    "Press \uE045 to launch":  "\uE045 para iniciar",
+    "\uE046 to delete": "\uE046 para desinstalar",
 
     "Press \uE000 to continue": "Aperte \uE000 para continuar",
     "Press \uE001 to return": "Aperte \uE001 para voltar",

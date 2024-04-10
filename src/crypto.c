@@ -131,3 +131,13 @@ bool encryptAES(void *data, int data_len, const unsigned char *key, unsigned cha
     // mbedtls_aes_free(&ctx);
     return ret;
 }
+
+bool decryptAES(void *data, int data_len, const unsigned char *key, unsigned char *iv, void *decrypted)
+{
+    mbedtls_aes_context ctx;
+    mbedtls_aes_init(&ctx);
+    mbedtls_aes_setkey_dec(&ctx, key, 128);
+    bool ret = mbedtls_aes_crypt_cbc(&ctx, MBEDTLS_AES_DECRYPT, data_len, iv, data, decrypted) == 0;
+    // mbedtls_aes_free(&ctx);
+    return ret;
+}

@@ -52,7 +52,7 @@ extern "C"
         size_t size;
     } RAMBUF;
 
-#define DOWNLOAD_URL "http://ccs.cdn.wup.shop.nintendo.net/ccs/download/"
+#define DOWNLOAD_URL "https://ccs.wup.shop.nintendo.net/ccs/download/"
 
     bool initDownloader() __attribute__((__cold__));
     void deinitDownloader() __attribute__((__cold__));

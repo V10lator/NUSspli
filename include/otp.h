@@ -27,7 +27,8 @@ extern "C"
 {
 #endif
 
-    uint8_t *getCommonKey();
+    const uint8_t *getCommonKey();
+    const uint8_t *getAesKey();
 
 #ifdef __cplusplus
 }

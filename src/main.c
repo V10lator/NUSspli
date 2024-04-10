@@ -128,13 +128,13 @@ static void innerMain()
                                 drawLoadingScreen("Sanity checked!", "Loading notification system...");
                                 if(initNotifications())
                                 {
-                                    drawLoadingScreen("Notification system initialized!", "Loading downloader...");
-                                    if(initDownloader())
+                                    drawLoadingScreen("Notification system initialized!", "Loading I/O thread...");
+                                    if(initIOThread())
                                     {
-                                        drawLoadingScreen("Downloader initialized!", "Loading I/O thread...");
-                                        if(initIOThread())
+                                        drawLoadingScreen("I/O thread initialized!", "Loading downloader...");
+                                        if(initDownloader())
                                         {
-                                            drawLoadingScreen("I/O thread initialized!", "Loading config...");
+                                            drawLoadingScreen("Downloader initialized!", "Loading config...");
                                             initConfig();
                                             drawLoadingScreen("Config loaded!", "Loading SWKBD...");
                                             if(SWKBD_Init())
@@ -167,17 +167,17 @@ static void innerMain()
                                             else
                                                 lerr = "Couldn't initialize SWKBD!";
 
-                                            saveConfig(false);
-                                            shutdownIOThread();
-                                            debugPrintf("I/O thread closed");
+                                            deinitDownloader();
                                         }
                                         else
-                                            lerr = "Couldn't load I/O thread!";
+                                            lerr = "Couldn't initialize downloader!";
 
-                                        deinitDownloader();
+                                        saveConfig(false);
+                                        shutdownIOThread();
+                                        debugPrintf("I/O thread closed");
                                     }
                                     else
-                                        lerr = "Couldn't initialize downloader!";
+                                        lerr = "Couldn't load I/O thread!";
 
                                     deinitNotifications();
                                     debugPrintf("Notification system closed");

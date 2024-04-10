@@ -52,12 +52,17 @@
 #include <nsysnet/_socket.h>
 
 #include <mbedtls/entropy.h>
+#include <mbedtls/base64.h>
 #include <mbedtls/ssl.h>
 #include <mbedtls/x509_crt.h>
 
 #define USERAGENT        "NUSspli/" NUSSPLI_VERSION
 #define DLT_STACK_SIZE   0x8000
 #define SMOOTHING_FACTOR 0.2f
+
+#define DER_FILE         NUSDIR_SLC "sys/tmp/NUSspli.der"
+#define PEM_HEADER       "-----BEGIN CERTIFICATE-----\n"
+#define PEM_FOOTER       "-----END CERTIFICATE-----\n"
 
 static CURL *curl;
 static char curlError[CURL_ERROR_SIZE];
@@ -230,12 +235,91 @@ closeAClib:
     initNetwork();
 }
 
+static inline struct curl_blob loadCerts()
+{
+    struct curl_blob blob = { .data = NULL, .flags = CURL_BLOB_COPY };
+    debugPrintf("Reading " ROMFS_PATH "ca-certs.pem");
+    blob.len = readFile(ROMFS_PATH "ca-certs.pem", &blob.data);
+    if(blob.data == NULL)
+        return blob;
+
+    char path[strlen(NUSDIR_MLC "sys/title/0005001b/10054000/content/scerts/") + 128] __attribute__((__aligned__(0x40)));
+    size_t len = strlen(NUSDIR_MLC "sys/title/0005001b/10054000/content/scerts/") + 1;
+    OSBlockMove(path, NUSDIR_MLC "sys/title/0005001b/10054000/content/scerts/", len, false);
+
+    FSADirectoryHandle dir;
+    if(FSAOpenDir(getFSAClient(), path, &dir) == FS_ERROR_OK)
+    {
+        bool error = false;
+        FSADirectoryEntry entry;
+        size_t sb;
+        char *inSentence = &path[--len];
+        uint8_t *buf[2];
+        while(!error && FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
+        {
+            if(strncmp(entry.name, "CACERT_NINTENDO", strlen("CACERT_NINTENDO")) != 0)
+                continue;
+
+            len = strlen(entry.name);
+            OSBlockMove(inSentence, entry.name, ++len, false);
+            debugPrintf("Reading %s", path);
+            len = readFile(path, &buf[0]);
+            if(buf[0] != NULL)
+            {
+                mbedtls_base64_encode(NULL, 0, &sb, buf[0], len);
+                uint8_t bbuf[sb];
+                if(mbedtls_base64_encode(bbuf, sb, &sb, buf[0], len) == 0)
+                {
+                    buf[1] = MEMAllocFromDefaultHeap(blob.len + sb + strlen(PEM_HEADER PEM_FOOTER));
+                    if(buf[1] != NULL)
+                    {
+                        OSBlockMove(buf[1], blob.data, blob.len, false);
+                        OSBlockMove(buf[1] + blob.len, PEM_HEADER, strlen(PEM_HEADER), false);
+                        blob.len += strlen(PEM_HEADER);
+                        OSBlockMove(buf[1] + blob.len, bbuf, sb, false);
+                        blob.len += sb;
+                        OSBlockMove(buf[1] + blob.len, PEM_FOOTER, strlen(PEM_FOOTER), false);
+                        blob.len += strlen(PEM_FOOTER);
+
+                        MEMFreeToDefaultHeap(blob.data);
+                        blob.data = buf[1];
+                    }
+                    else
+                        error = true;
+                }
+                else
+                {
+                    debugPrintf("Base64 encode error!");
+                    error = true;
+                }
+
+                MEMFreeToDefaultHeap(buf[0]);
+            }
+            else
+                error = true;
+        }
+
+        FSACloseDir(getFSAClient(), dir);
+        if(error)
+        {
+            MEMFreeToDefaultHeap(blob.data);
+            blob.data = NULL;
+        }
+    }
+    else
+    {
+        MEMFreeToDefaultHeap(blob.data);
+        blob.data = NULL;
+        debugPrintf("Error opening %s", path);
+    }
+
+    return blob;
+}
+
 bool initDownloader()
 {
     initNetwork();
-
-    struct curl_blob blob = { .data = NULL, .flags = CURL_BLOB_COPY };
-    blob.len = readFile(ROMFS_PATH "ca-certs.pem", &blob.data);
+    struct curl_blob blob = loadCerts();
     if(blob.data == NULL)
         return false;
 
@@ -293,7 +377,67 @@ bool initDownloader()
                                                     opt = CURLOPT_ACCEPT_ENCODING;
                                                     ret = curl_easy_setopt(curl, opt, "");
                                                     if(ret == CURLE_OK)
-                                                        return true;
+                                                    {
+                                                        void *file;
+                                                        size_t fileSize = readFile(NUSDIR_MLC "sys/title/0005001b/10054000/content/ccerts/WIIU_COMMON_1_RSA_KEY.aes", &file);
+                                                        if(file != NULL)
+                                                        {
+                                                            void *encFile = MEMAllocFromDefaultHeap(fileSize);
+                                                            if(encFile != NULL)
+                                                            {
+                                                                uint8_t iv[16];
+                                                                OSBlockSet(iv, 0x00, 16);
+                                                                if(decryptAES(file, fileSize, getAesKey(), (unsigned char *)iv, encFile))
+                                                                {
+                                                                    // TODO: Convert PKCS#1 to PKCS#8 DER
+                                                                    FSAFileHandle file2 = openFile(DER_FILE, "w", fileSize);
+                                                                    if(file2 != 0)
+                                                                    {
+                                                                        addToIOQueue(encFile, 1, fileSize, file2);
+                                                                        addToIOQueue(NULL, 0, 0, file2);
+                                                                        flushIOQueue();
+                                                                    }
+                                                                    else
+                                                                        debugPrintf("Error opening " DER_FILE);
+                                                                }
+                                                                else
+                                                                    debugPrintf("Error decoding file");
+
+                                                                MEMFreeToDefaultHeap(encFile);
+                                                            }
+
+                                                            MEMFreeToDefaultHeap(file);
+                                                        }
+                                                        else
+                                                            debugPrintf("Error opening " NUSDIR_MLC "sys/title/0005001b/10054000/content/ccerts/WIIU_COMMON_1_RSA_KEY.aes");
+
+
+                                                        opt = CURLOPT_SSLCERTTYPE;
+                                                        ret = curl_easy_setopt(curl, opt, "DER");
+                                                        if(ret == CURLE_OK)
+                                                        {
+                                                            opt = CURLOPT_SSLKEYTYPE;
+                                                            ret = curl_easy_setopt(curl, opt, "DER");
+                                                            if(ret == CURLE_OK)
+                                                            {
+
+                                                                opt = CURLOPT_SSLCERT;
+                                                                ret = curl_easy_setopt(curl, opt, NUSDIR_MLC "sys/title/0005001b/10054000/content/ccerts/WIIU_COMMON_1_CERT.der");
+                                                                if(ret == CURLE_OK)
+                                                                {
+                                                                    opt = CURLOPT_SSLKEY;
+                                                                    ret = curl_easy_setopt(curl, opt, DER_FILE);
+                                                                    if(ret == CURLE_OK)
+                                                                    {
+                                                                        opt = CURLOPT_KEYPASSWD;
+                                                                        ret = curl_easy_setopt(curl, opt, "alpine");
+                                                                        if(ret == CURLE_OK)
+                                                                            return true;
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
 
@@ -333,6 +477,8 @@ void deinitDownloader()
         curl = NULL;
     }
     curl_global_cleanup();
+
+    FSARemove(getFSAClient(), DER_FILE);
 }
 
 static int dlThreadMain(int argc, const char **argv)

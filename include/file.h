@@ -31,6 +31,7 @@
 #define NUSDIR_USB1      "/vol/storage_usb01/"
 #define NUSDIR_USB2      "/vol/storage_usb02/"
 #define NUSDIR_MLC       "/vol/storage_mlc01/"
+#define NUSDIR_SLC       "/vol/slc/"
 
 #define INSTALL_DIR_SD   NUSDIR_SD "install/"
 #define INSTALL_DIR_USB1 NUSDIR_USB1 "install/"

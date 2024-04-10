@@ -30,31 +30,49 @@
 #include <stdio.h>
 
 static uint8_t otp_common_key[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+static uint8_t otp_aes_key[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-uint8_t *getCommonKey()
+static void readKeys()
 {
-    if(otp_common_key[0] == 0x00)
-    {
-        OSTime t = OSGetSystemTime();
-        WiiUConsoleOTP otp;
-        if(Mocha_ReadOTP(&otp) == MOCHA_RESULT_SUCCESS)
-        {
-            OSBlockMove(otp_common_key, otp.wiiUBank.wiiUCommonKey, 16, false);
+    if(otp_common_key[0] != 0x00)
+        return;
 
-            t = OSGetSystemTime() - t;
-            addEntropy(&t, sizeof(OSTime));
+    debugPrintf("Reading OTP:");
+    OSTime t = OSGetSystemTime();
+    WiiUConsoleOTP otp;
+    if(Mocha_ReadOTP(&otp) == MOCHA_RESULT_SUCCESS)
+    {
+        OSBlockMove(otp_common_key, otp.wiiUBank.wiiUCommonKey, 16, false);
+        OSBlockMove(otp_aes_key, otp.wiiUBank.sslRSAKey, 16, false);
+
+        t = OSGetSystemTime() - t;
+        addEntropy(&t, sizeof(OSTime));
 
 #ifdef NUSSPLI_DEBUG
-            char ret[33];
-            char *tmp = &ret[0];
-            for(int i = 0; i < 16; i++, tmp += 2)
-                sprintf(tmp, "%02x", otp_common_key[i]);
-            debugPrintf("Common key: %s", ret);
-#endif
-        }
-        else
-            debugPrintf("Common key: IOSUHAX_read_otp() failed!");
-    }
+        char ret[33];
+        char *tmp = &ret[0];
+        for(int i = 0; i < 16; i++, tmp += 2)
+            sprintf(tmp, "%02x", otp_common_key[i]);
+        debugPrintf("\tCommon key: %s", ret);
 
-    return otp_common_key;
+        tmp = &ret[0];
+        for(int i = 0; i < 16; i++, tmp += 2)
+            sprintf(tmp, "%02x", otp_aes_key[i]);
+        debugPrintf("\tAES key: %s", ret);
+#endif
+    }
+    else
+        debugPrintf("\tIOSUHAX_read_otp() failed!");
+}
+
+const uint8_t *getCommonKey()
+{
+    readKeys();
+    return (const uint8_t *)otp_common_key;
+}
+
+const uint8_t *getAesKey()
+{
+    readKeys();
+    return (const uint8_t *)otp_aes_key;
 }

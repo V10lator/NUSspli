@@ -45,7 +45,7 @@
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 
-#define TICKET_BUCKET "/vol/slc/sys/rights/ticket/apps/"
+#define TICKET_BUCKET NUSDIR_SLC "sys/rights/ticket/apps/"
 
 typedef struct
 {

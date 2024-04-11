@@ -378,6 +378,7 @@ bool initDownloader()
                                                     ret = curl_easy_setopt(curl, opt, "");
                                                     if(ret == CURLE_OK)
                                                     {
+                                                        bool error = true;
                                                         void *file;
                                                         size_t fileSize = readFile(NUSDIR_MLC "sys/title/0005001b/10054000/content/ccerts/WIIU_COMMON_1_RSA_KEY.aes", &file);
                                                         if(file != NULL)
@@ -395,7 +396,7 @@ bool initDownloader()
                                                                     {
                                                                         addToIOQueue(encFile, 1, fileSize, file2);
                                                                         addToIOQueue(NULL, 0, 0, file2);
-                                                                        flushIOQueue();
+                                                                        error = false;
                                                                     }
                                                                     else
                                                                         debugPrintf("Error opening " DER_FILE);
@@ -410,6 +411,13 @@ bool initDownloader()
                                                         }
                                                         else
                                                             debugPrintf("Error opening " NUSDIR_MLC "sys/title/0005001b/10054000/content/ccerts/WIIU_COMMON_1_RSA_KEY.aes");
+
+                                                        if(error)
+                                                        {
+                                                            curl_easy_cleanup(curl);
+                                                            curl_global_cleanup();
+                                                            return false;
+                                                        }
 
 
                                                         opt = CURLOPT_SSLCERTTYPE;
@@ -429,10 +437,8 @@ bool initDownloader()
                                                                     ret = curl_easy_setopt(curl, opt, DER_FILE);
                                                                     if(ret == CURLE_OK)
                                                                     {
-                                                                        opt = CURLOPT_KEYPASSWD;
-                                                                        ret = curl_easy_setopt(curl, opt, "alpine");
-                                                                        if(ret == CURLE_OK)
-                                                                            return true;
+                                                                        flushIOQueue();
+                                                                        return true;
                                                                     }
                                                                 }
                                                             }

@@ -20,6 +20,7 @@
 
 #include <wut-fixups.h>
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include <wut_structsize.h>
@@ -36,6 +37,13 @@ extern "C"
 #define TMD_CONTENT_TYPE_HASHED    0x0002 // Never seen alone, alsways combined with TMD_CONTENT_TYPE_ENCRYPTED
 #define TMD_CONTENT_TYPE_CONTENT   0x2000
 #define TMD_CONTENT_TYPE_UNKNOWN   0x4000 // Never seen alone, alsways combined with TMD_CONTENT_TYPE_CONTENT
+
+    typedef enum
+    {
+        TMD_STATE_GOOD,
+        TMD_STATE_BAD,
+        TMD_STATE_TECONMOON,
+    } TMD_STATE;
 
     typedef struct WUT_PACKED
     {
@@ -105,6 +113,9 @@ extern "C"
     WUT_CHECK_OFFSET(TMD, 0x0204, content_infos);
     WUT_CHECK_OFFSET(TMD, 0x0B04, contents);
     WUT_CHECK_SIZE(TMD, 0x0B04);
+
+    TMD *getTmd(const char *dir, bool allowNoIntro);
+    TMD_STATE verifyTmd(const TMD *tmd, size_t size) __attribute__((__hot__));
 
 #ifdef __cplusplus
 }

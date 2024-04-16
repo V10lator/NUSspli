@@ -69,13 +69,6 @@ extern "C"
         NUSDEV_MLC = 0x08,
     } NUSDEV;
 
-    typedef enum
-    {
-        TMD_STATE_GOOD,
-        TMD_STATE_BAD,
-        TMD_STATE_TECONMOON,
-    } TMD_STATE;
-
     bool fileExists(const char *path) __attribute__((__hot__));
     bool dirExists(const char *path) __attribute__((__hot__));
     FSError removeDirectory(const char *path) __attribute__((__hot__));
@@ -87,8 +80,6 @@ extern "C"
     NUSDEV getDevFromPath(const char *path);
     size_t readFile(const char *path, void **buffer) __attribute__((__hot__));
     size_t getDirsize(const char *path);
-    TMD *getTmd(const char *dir, bool allowNoIntro);
-    TMD_STATE verifyTmd(const TMD *tmd, size_t size) __attribute__((__hot__));
 
 #ifdef __cplusplus
 }

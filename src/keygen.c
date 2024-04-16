@@ -92,5 +92,5 @@ bool generateKey(const TitleEntry *te, uint8_t *out)
     // The final key needs to be AES encrypted with the Wii U common key and part of the title ID padded with zeroes as IV
     OSBlockMove(out, &(te->tid), 8, false);
     OSBlockSet(out + 8, 0, 8);
-    return encryptAES(key, 16, getCommonKey(), out, out);
+    return encryptAES(key, 16, 1 ? getCommonKey() : getVWiiKey(), out, out);
 }

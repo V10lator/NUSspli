@@ -20,6 +20,7 @@
 
 #include <stdbool.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/cache.h>
 #include <coreinit/core.h>
 #include <coreinit/filesystem_fsa.h>
@@ -27,6 +28,7 @@
 #include <coreinit/memory.h>
 #include <coreinit/thread.h>
 #include <coreinit/time.h>
+#pragma GCC diagnostic pop
 
 #include <crypto.h>
 #include <file.h>
@@ -302,7 +304,7 @@ FSAFileHandle openFile(const char *path, const char *mode, size_t filesize)
     if(checkForQueueErrors())
         return 0;
 
-    if(filesize != 0 && strncmp(NUSDIR_SD, path, strlen(NUSDIR_SD)) == 0)
+    if(filesize != 0 && strncmp(NUSDIR_SD, path, sizeof(NUSDIR_SD) - 1) == 0)
         filesize = 0;
 
     OSTime t = OSGetTime();

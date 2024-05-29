@@ -21,6 +21,8 @@
 
 #include <wut-fixups.h>
 
+#include <stdint.h>
+
 #include <input.h>
 #include <menu/download.h>
 #include <menu/predownload.h>
@@ -31,9 +33,9 @@
 #include <titles.h>
 #include <utils.h>
 
-#include <stdint.h>
-
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
+#pragma GCC diagnostic pop
 
 bool downloadMenu()
 {

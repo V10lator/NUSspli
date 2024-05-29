@@ -1,9 +1,9 @@
-FROM ghcr.io/wiiu-env/devkitppc:20231112
-COPY --from=ghcr.io/wiiu-env/libmocha:20230621 /artifacts $DEVKITPRO
-COPY --from=ghcr.io/wiiu-env/librpxloader:20230621 /artifacts $DEVKITPRO
+FROM ghcr.io/wiiu-env/devkitppc:20240505
+COPY --from=ghcr.io/wiiu-env/libmocha:20231127 /artifacts $DEVKITPRO
+COPY --from=ghcr.io/wiiu-env/librpxloader:20240425 /artifacts $DEVKITPRO
 
 ENV DEBIAN_FRONTEND=noninteractive \
- PATH=$DEVKITPPC/bin:$PATH \
+ PATH=$DEVKITPPC/bin:$DEVKITPRO/portlibs/wiiu/bin/:$PATH \
  WUT_ROOT=$DEVKITPRO/wut \
  BROTLI_VER=1.1.0 \
  CURL_VER=8.7.1 \
@@ -126,6 +126,19 @@ PKG_CONFIG=$DEVKITPRO/portlibs/wiiu/bin/powerpc-eabi-pkg-config && \
  make -j$(nproc) install && \
  cd ../.. && \
  rm -rf curl curl-$CURL_VER.tar.xz
+
+# Install libSDL since upstream is bugged
+RUN curl -LO https://libsdl.org/release/SDL2-2.26.5.tar.gz && \
+  curl -LO https://github.com/devkitPro/wut-packages/raw/3e10387023ced5d8baeb1ed161972d20bc8cdfa4/SDL2/SDL2-2.26.5.patch && \
+  mkdir -p sdl/build && \
+  tar xzf SDL2-2.26.5.tar.gz -C /sdl --strip-components=1 && \
+  cd sdl && \
+  patch -p1 < /SDL2-2.26.5.patch && \
+  cd build && \
+  powerpc-eabi-cmake .. -DCMAKE_BUILD_TYPE="Release" -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/wiiu && \
+  make -j$(nproc) install && \
+  cd ../.. && \
+  rm -rf sdl SDL2-2.26.5.tar.gz
 
 RUN git config --global --add safe.directory /project && \
   git config --global --add safe.directory /project/SDL_FontCache && \

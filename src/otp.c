@@ -19,15 +19,17 @@
 
 #include <wut-fixups.h>
 
-#include <coreinit/memory.h>
-#include <coreinit/time.h>
-#include <mocha/mocha.h>
+#include <stdio.h>
 
 #include <crypto.h>
 #include <otp.h>
 #include <utils.h>
 
-#include <stdio.h>
+#pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/memory.h>
+#include <coreinit/time.h>
+#include <mocha/mocha.h>
+#pragma GCC diagnostic pop
 
 static uint8_t otp_common_key[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 

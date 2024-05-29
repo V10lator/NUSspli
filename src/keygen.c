@@ -18,18 +18,20 @@
 
 #include <wut-fixups.h>
 
-#include <mbedtls/md5.h>
-#include <mbedtls/pkcs5.h>
+#include <stdint.h>
+#include <string.h>
 
 #include <crypto.h>
 #include <otp.h>
 #include <titles.h>
 #include <utils.h>
 
-#include <stdint.h>
-#include <string.h>
+#include <mbedtls/md5.h>
+#include <mbedtls/pkcs5.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memory.h>
+#pragma GCC diagnostic pop
 
 static const uint8_t KEYGEN_SECRET[10] = { 0xfd, 0x04, 0x01, 0x05, 0x06, 0x0b, 0x11, 0x1c, 0x2d, 0x49 };
 
@@ -57,6 +59,8 @@ static inline const char *transformPassword(TITLE_KEY in)
         case TITLE_KEY_:
             return "";
     }
+
+    return NULL; // Should never happen
 }
 
 bool generateKey(const TitleEntry *te, uint8_t *out)

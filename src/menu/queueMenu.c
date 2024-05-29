@@ -19,6 +19,8 @@
 
 #include <wut-fixups.h>
 
+#include <string.h>
+
 #include <input.h>
 #include <list.h>
 #include <localisation.h>
@@ -29,9 +31,9 @@
 #include <renderer.h>
 #include <state.h>
 
-#include <string.h>
-
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memory.h>
+#pragma GCC diagnostic pop
 
 #define MAX_ENTRIES (MAX_LINES - 4)
 #ifndef NUSSPLI_LITE
@@ -87,12 +89,12 @@ static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
 
         if(isDLC(data->tmd->tid))
         {
-            p = strlen("[DLC] ");
+            p = sizeof("[DLC] ") - 1;
             OSBlockMove(toScreen, "[DLC] ", p, false);
         }
         else if(isUpdate(data->tmd->tid))
         {
-            p = strlen("[UPD] ");
+            p = sizeof("[UPD] ") - 1;
             OSBlockMove(toScreen, "[UPD] ", p, false);
         }
         else

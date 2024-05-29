@@ -18,6 +18,8 @@
 
 #include <wut-fixups.h>
 
+#include <string.h>
+
 #include <input.h>
 #include <localisation.h>
 #include <menu/utils.h>
@@ -26,8 +28,6 @@
 #include <staticMem.h>
 #include <updater.h>
 #include <utils.h>
-
-#include <string.h>
 
 static void drawUpdateMenuFrame(const char *newVersion)
 {

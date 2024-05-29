@@ -31,10 +31,12 @@
 #include <thread.h>
 #include <utils.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memory.h>
 #include <padscore/kpad.h>
 #include <padscore/wpad.h>
 #include <vpad/input.h>
+#pragma GCC diagnostic pop
 
 #define SWKBD_QUEUE_SIZE 8
 
@@ -65,7 +67,7 @@ static OSTime lastButtonPress = 0;
 
 typedef struct
 {
-    int globalMaxlength;
+    size_t globalMaxlength;
     bool globalLimit;
     bool okButtonEnabled;
     OSThread *calcThread;
@@ -129,7 +131,7 @@ static void SWKBD_Render(SWKBD_Args *args, KeyboardChecks check)
                 }
         }
 
-        args->okButtonEnabled = args->globalLimit ? len == args->globalMaxlength : len <= args->globalMaxlength; // This rises a harmless compiler warning
+        args->okButtonEnabled = args->globalLimit ? len == args->globalMaxlength : len <= args->globalMaxlength;
     }
     else
         args->okButtonEnabled = false;

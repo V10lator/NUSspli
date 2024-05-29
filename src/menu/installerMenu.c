@@ -18,6 +18,8 @@
 
 #include <wut-fixups.h>
 
+#include <string.h>
+
 #include <config.h>
 #include <file.h>
 #include <filesystem.h>
@@ -32,21 +34,21 @@
 #include <tmd.h>
 #include <utils.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
-
-#include <string.h>
+#pragma GCC diagnostic pop
 
 static int cursorPos = MAX_LINES - 5;
 
-static bool addToOpQueue(const TitleEntry *entry, const char *dir, TMD *tmd, NUSDEV fromDev, bool toUSB, bool keepFiles)
+static bool addToOpQueue(const TitleEntry *entry, const char *dir, const TMD *tmd, NUSDEV fromDev, bool toUSB, bool keepFiles)
 {
     TitleData *titleInfo = MEMAllocFromDefaultHeap(sizeof(TitleData));
     if(titleInfo == NULL)
         return false;
 
-    titleInfo->tmd = tmd;
+    titleInfo->tmd = (TMD *)tmd;
 #ifndef NUSSPLI_LITE
     titleInfo->rambuf = NULL;
     titleInfo->operation = OPERATION_INSTALL;
@@ -63,7 +65,7 @@ static bool addToOpQueue(const TitleEntry *entry, const char *dir, TMD *tmd, NUS
 
     MEMFreeToDefaultHeap(titleInfo);
 
-    MEMFreeToDefaultHeap(tmd);
+    MEMFreeToDefaultHeap((TMD *)tmd);
     return ret;
 }
 
@@ -140,8 +142,14 @@ static void drawInstallerMenuFrame(const char *name, NUSDEV dev, NUSDEV toDev, b
 void installerMenu()
 {
     const char *dir = fileBrowserMenu(true, true);
-    if(dir == NULL || !AppRunning(true))
+    if(dir == NULL)
         return;
+
+    if(!AppRunning(true))
+    {
+        MEMFreeToDefaultHeap((char *)dir);
+        return;
+    }
 
     NUSDEV dev = getDevFromPath(dir);
     bool keepFiles = dev == NUSDEV_SD;
@@ -151,7 +159,7 @@ void installerMenu()
     if(!usbMounted)
         toDev = NUSDEV_MLC;
 
-    TMD *tmd;
+    const TMD *tmd;
     const TitleEntry *entry;
     const char *nd;
     bool redraw;
@@ -188,10 +196,7 @@ refreshDir:
         showFrame();
 
         if(vpad.trigger & VPAD_BUTTON_B)
-        {
-            MEMFreeToDefaultHeap(tmd);
             goto grabNewDir;
-        }
 
         if(vpad.trigger & VPAD_BUTTON_PLUS)
         {
@@ -209,7 +214,7 @@ refreshDir:
         else if(vpad.trigger & VPAD_BUTTON_MINUS)
         {
             if(!addToOpQueue(entry, dir, tmd, dev, toDev & NUSDEV_USB, keepFiles))
-                return;
+                break;
 
             goto grabNewDir;
         }
@@ -250,14 +255,19 @@ refreshDir:
         }
     }
 
-    MEMFreeToDefaultHeap(tmd);
+    MEMFreeToDefaultHeap((TMD *)tmd);
+    MEMFreeToDefaultHeap((char *)dir);
     return;
 
 grabNewDir:
-    if(!AppRunning(true))
-        return;
+    if(tmd != NULL)
+        MEMFreeToDefaultHeap((TMD *)tmd);
 
-    dir = fileBrowserMenu(true, true);
-    if(dir != NULL)
-        goto refreshDir;
+    MEMFreeToDefaultHeap((char *)dir);
+    if(AppRunning(true))
+    {
+        dir = fileBrowserMenu(true, true);
+        if(dir != NULL)
+            goto refreshDir;
+    }
 }

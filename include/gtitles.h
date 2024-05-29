@@ -22,9 +22,10 @@
 
 #include <stdint.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/mcp.h>
-
 #include <wut_structsize.h>
+#pragma GCC diagnostic pop
 
 #ifdef __cplusplus
 extern "C"

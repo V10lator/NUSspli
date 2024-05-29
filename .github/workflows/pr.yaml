@@ -6,7 +6,7 @@ on:
 
 jobs:
   clang-format:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -18,7 +18,7 @@ jobs:
           docker run --rm -v ${PWD}:/src wiiuenv/clang-format:13.0.0-2 -e ./src/gtitles.c -e ./src/SDL_FontCache.c -e ./include/SDL_FontCache.h -r ./src ./include
   build-binary:
     name: build-binary
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     needs: clang-format
     steps:
       - name: checkout

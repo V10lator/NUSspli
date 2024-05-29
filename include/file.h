@@ -21,11 +21,13 @@
 
 #include <wut-fixups.h>
 
-#include <tmd.h>
-
 #include <stdbool.h>
 
+#include <tmd.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
+#pragma GCC diagnostic pop
 
 #define NUSDIR_SD        "/vol/app_sd/"
 #define NUSDIR_USB1      "/vol/storage_usb01/"

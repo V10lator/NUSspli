@@ -26,7 +26,9 @@
 #include <queue.h>
 #include <state.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memdefaultheap.h>
+#pragma GCC diagnostic pop
 
 static LIST *titleQueue;
 

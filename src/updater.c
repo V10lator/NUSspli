@@ -18,6 +18,12 @@
 
 #include <wut-fixups.h>
 
+#include <file.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
 #include <config.h>
 #include <deinstaller.h>
 #include <downloader.h>
@@ -34,6 +40,12 @@
 #include <state.h>
 #include <utils.h>
 
+#include <ioapi.h>
+#include <unzip.h>
+
+#include <jansson.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/dynload.h>
 #include <coreinit/filesystem_fsa.h>
 #include <coreinit/mcp.h>
@@ -41,22 +53,14 @@
 #include <coreinit/memory.h>
 #include <coreinit/thread.h>
 #include <rpxloader/rpxloader.h>
-
-#include <ioapi.h>
-#include <unzip.h>
-
-#include <file.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-
-#include <jansson.h>
+#pragma GCC diagnostic pop
 
 #define UPDATE_CHECK_URL    NAPI_URL "s?t="
 #define UPDATE_DOWNLOAD_URL "https://github.com/V10lator/NUSspli/releases/download/v"
 #define UPDATE_TEMP_FOLDER  NUSDIR_SD "NUSspli_temp/"
 #define UPDATE_AROMA_FOLDER NUSDIR_SD "wiiu/apps/"
+
+#define MAX_ZIP_PATH_LENGTH 32
 
 #ifndef NUSSPLI_LITE
 #define UPDATE_AROMA_FILE "NUSspli.wuhb"
@@ -170,7 +174,7 @@ bool updateCheck()
 
 typedef struct
 {
-    RAMBUF *rambuf;
+    const RAMBUF *rambuf;
     long index;
 } ZIP_META;
 
@@ -234,9 +238,9 @@ static int ZCALLBACK nus_zstub(voidpf opaque, voidpf stream)
     return 0;
 }
 
-static bool unzipUpdate(RAMBUF *rambuf)
+static bool unzipUpdate(const RAMBUF *rambuf)
 {
-    ZIP_META meta = { .rambuf = rambuf, .index = 0 };
+    const ZIP_META meta = { .rambuf = rambuf, .index = 0 };
     zlib_filefunc_def rbfd = {
         .zopen_file = nus_zopen,
         .zread_file = nus_zread,
@@ -258,96 +262,78 @@ static bool unzipUpdate(RAMBUF *rambuf)
             if(buf != NULL)
             {
                 unz_file_info zipFileInfo;
-                char *zipFileName = getStaticPathBuffer(1);
-                char *path = getStaticPathBuffer(2);
-                char *fileName = getStaticPathBuffer(3);
-                strcpy(fileName, UPDATE_TEMP_FOLDER);
-                char *fnp = fileName + strlen(UPDATE_TEMP_FOLDER);
+                char fileName[sizeof(UPDATE_TEMP_FOLDER) + MAX_ZIP_PATH_LENGTH] = UPDATE_TEMP_FOLDER;
                 char *needle;
                 char *lastSlash;
-                char *lspp;
                 FSAFileHandle file;
                 int extracted;
                 ret = true;
 
                 do
                 {
-                    if(unzGetCurrentFileInfo(zip, &zipFileInfo, zipFileName, FS_MAX_PATH - strlen(UPDATE_TEMP_FOLDER) - 1, NULL, 0, NULL, 0) == UNZ_OK)
+                    if(unzGetCurrentFileInfo(zip, &zipFileInfo, fileName + (sizeof(UPDATE_TEMP_FOLDER) - 1), MAX_ZIP_PATH_LENGTH, NULL, 0, NULL, 0) == UNZ_OK)
                     {
                         if(unzOpenCurrentFile(zip) == UNZ_OK)
                         {
-                            needle = strchr(zipFileName, '/');
+                            needle = strchr(fileName + (sizeof(UPDATE_TEMP_FOLDER) - 1), '/');
                             if(needle != NULL)
                             {
-                                lastSlash = needle;
-                                lspp = needle + 1;
-                                needle = strchr(lspp, '/');
-                                while(needle != NULL)
+                                do
                                 {
                                     lastSlash = needle;
-                                    lspp = needle + 1;
-                                    needle = strchr(lspp, '/');
-                                }
+                                    needle = strchr(needle + 1, '/');
+                                } while(needle != NULL);
 
                                 if(lastSlash[1] == '\0')
-                                {
-                                    unzCloseCurrentFile(zip);
-                                    continue;
-                                }
+                                    goto closeCurrentZipFile;
 
-                                lastSlash[0] = '\0';
-                                strcpy(path, zipFileName);
-                                strcat(path, "/");
-                                strcpy(fnp, path);
-                                strcpy(zipFileName, lastSlash + 1);
+                                *lastSlash = '\0';
 
                                 if(!createDirRecursive(fileName))
                                 {
                                     showUpdateErrorf("%s: %s", localise("Error creating directory"), prettyDir(fileName));
                                     ret = false;
+                                    goto closeCurrentZipFile;
                                 }
-                            }
-                            else
-                                path[0] = '\0';
 
-                            if(ret)
+                                *lastSlash = '/';
+                            }
+
+                            file = openFile(fileName, "w", 0);
+                            if(file != 0)
                             {
-                                sprintf(fnp, "%s%s", path, zipFileName);
-                                file = openFile(fileName, "w", 0);
-                                if(file != 0)
+                                do
                                 {
-                                    while(ret)
+                                    extracted = unzReadCurrentFile(zip, buf, IO_BUFSIZE);
+                                    if(extracted < 0)
                                     {
-                                        extracted = unzReadCurrentFile(zip, buf, IO_BUFSIZE);
-                                        if(extracted < 0)
+                                        showUpdateErrorf("%s: %s", localise("Error extracting file"), prettyDir(fileName));
+                                        ret = false;
+                                        break;
+                                    }
+
+                                    if(extracted != 0)
+                                    {
+                                        if(addToIOQueue(buf, extracted, 1, file) != 1)
                                         {
-                                            showUpdateErrorf("%s: %s", localise("Error extracting file"), prettyDir(fileName));
+                                            showUpdateErrorf("%s: %s", localise("Error writing file"), prettyDir(fileName));
                                             ret = false;
                                             break;
                                         }
-
-                                        if(extracted != 0)
-                                        {
-                                            if(addToIOQueue(buf, 1, extracted, file) != (size_t)extracted)
-                                            {
-                                                showUpdateErrorf("%s: %s", localise("Error writing file"), prettyDir(fileName));
-                                                ret = false;
-                                                break;
-                                            }
-                                        }
-                                        else
-                                            break;
                                     }
+                                    else
+                                        break;
+                                } while(ret);
 
-                                    addToIOQueue(NULL, 0, 0, file);
-                                }
-                                else
-                                {
-                                    showUpdateErrorf("%s: %s", localise("Error opening file"), prettyDir(fileName));
-                                    ret = false;
-                                }
+                                addToIOQueue(NULL, 0, 0, file);
+                            }
+                            else
+                            {
+                                showUpdateErrorf("%s: %s", localise("Error opening file"), prettyDir(fileName));
+                                ret = false;
                             }
 
+                        closeCurrentZipFile:
                             unzCloseCurrentFile(zip);
                         }
                         else
@@ -409,7 +395,7 @@ bool update(const char *newVersion, NUSSPLI_TYPE type)
 
     char *path = getStaticPathBuffer(2);
     strcpy(path, UPDATE_DOWNLOAD_URL);
-    strcpy(path + strlen(UPDATE_DOWNLOAD_URL), newVersion);
+    strcpy(path + (sizeof(UPDATE_DOWNLOAD_URL) - 1), newVersion);
     strcat(path, "/NUSspli-");
     strcat(path, newVersion);
 
@@ -443,10 +429,9 @@ bool update(const char *newVersion, NUSSPLI_TYPE type)
     if(!unzipUpdate(rambuf))
         goto updateError;
 
-    bool toUSB = getUSB() != NUSDEV_NONE;
-
-    // Uninstall currently running type/version
+        // Uninstall currently running type/version
 #ifndef NUSSPLI_LITE
+    bool toUSB = getUSB() != NUSDEV_NONE;
     if(isChannel())
     {
         MCPTitleListType ownInfo __attribute__((__aligned__(0x40)));
@@ -465,14 +450,15 @@ bool update(const char *newVersion, NUSSPLI_TYPE type)
     else
     {
 #endif
-        RPXLoaderStatus rs = RPXLoader_GetPathOfRunningExecutable(path + strlen(NUSDIR_SD), FS_MAX_PATH - strlen(NUSDIR_SD));
+        RPXLoaderStatus rs = RPXLoader_GetPathOfRunningExecutable(path + (sizeof(NUSDIR_SD) - 1), FS_MAX_PATH - sizeof(NUSDIR_SD) - 1);
         if(rs == RPX_LOADER_RESULT_SUCCESS)
         {
             rs = RPXLoader_UnmountCurrentRunningBundle();
             if(rs == RPX_LOADER_RESULT_SUCCESS)
             {
-                OSBlockMove(path, NUSDIR_SD, strlen(NUSDIR_SD), false);
+                OSBlockMove(path, NUSDIR_SD, sizeof(NUSDIR_SD) - 1, false);
                 err = FSARemove(getFSAClient(), path);
+                OSSleepTicks(OSMillisecondsToTicks(200)); // TODO
                 if(err != FS_ERROR_OK)
                 {
                     showUpdateErrorf("%s: %s", localise("Error removing file"), translateFSErr(err));

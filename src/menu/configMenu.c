@@ -19,6 +19,8 @@
 
 #include <wut-fixups.h>
 
+#include <string.h>
+
 #include <config.h>
 #include <input.h>
 #include <menu/download.h>
@@ -29,9 +31,9 @@
 #include <swkbd_wrapper.h>
 #include <titles.h>
 
-#include <string.h>
-
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/mcp.h>
+#pragma GCC diagnostic pop
 
 #ifndef NUSSPLI_LITE
 #define ENTRY_COUNT 4

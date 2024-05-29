@@ -20,9 +20,9 @@
 
 #include <wut-fixups.h>
 
-#include <file.h>
-
 #include <stdbool.h>
+
+#include <file.h>
 
 #ifdef __cplusplus
 extern "C"

@@ -22,9 +22,11 @@
 #include <thread.h>
 #include <utils.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/thread.h>
 #include <coreinit/time.h>
+#pragma GCC diagnostic pop
 
 OSThread *prepareThread(const char *name, THREAD_PRIORITY priority, size_t stacksize, OSThreadEntryPointFn mainfunc, int argc, char *argv, OSThreadAttributes attribs)
 {

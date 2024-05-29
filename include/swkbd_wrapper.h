@@ -22,9 +22,11 @@
 
 #include <stdint.h>
 
-#include <nn/swkbd.h>
-
 #include <input.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
+#include <nn/swkbd.h>
+#pragma GCC diagnostic pop
 
 #ifndef __cplusplus
 typedef __uint_least16_t char16_t;

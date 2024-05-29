@@ -27,7 +27,9 @@
 #include <localisation.h>
 #include <swkbd_wrapper.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/mcp.h>
+#pragma GCC diagnostic pop
 
 #ifndef NUSSPLI_LITE
 #define CONFIG_PATH NUSDIR_SD "NUSspli.txt"

@@ -19,6 +19,10 @@
 
 #include <wut-fixups.h>
 
+#include <ctype.h>
+#include <stdbool.h>
+#include <string.h>
+
 #include <deinstaller.h>
 #include <file.h>
 #include <input.h>
@@ -33,14 +37,12 @@
 #include <titles.h>
 #include <utils.h>
 
-#include <ctype.h>
-#include <stdbool.h>
-#include <string.h>
-
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/mcp.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 #include <nn/acp/title.h>
+#pragma GCC diagnostic pop
 
 #define MAX_ITITLEBROWSER_LINES        (MAX_LINES - 3)
 #define MAX_ITITLEBROWSER_TITLE_LENGTH (MAX_TITLENAME_LENGTH >> 1)

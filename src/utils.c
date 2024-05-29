@@ -20,6 +20,12 @@
 
 #include <wut-fixups.h>
 
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
 #include <crypto.h>
 #include <input.h>
 #include <localisation.h>
@@ -28,15 +34,11 @@
 #include <state.h>
 #include <utils.h>
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/atomic.h>
 #include <coreinit/ios.h>
 #include <coreinit/memory.h>
+#pragma GCC diagnostic pop
 
 int mcpHandle;
 

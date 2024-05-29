@@ -21,11 +21,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <coreinit/filesystem_fsa.h>
-#include <coreinit/mcp.h>
-#include <coreinit/memory.h>
-#include <coreinit/time.h>
-
 #include <crypto.h>
 #include <deinstaller.h>
 #include <file.h>
@@ -41,6 +36,17 @@
 #include <staticMem.h>
 #include <ticket.h>
 #include <utils.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/filesystem_fsa.h>
+#include <coreinit/mcp.h>
+#include <coreinit/memory.h>
+#include <coreinit/time.h>
+#pragma GCC diagnostic pop
+
+#define IMPORTDIR_USB1 (NUSDIR_USB1 "usr/import/")
+#define IMPORTDIR_USB2 (NUSDIR_USB2 "usr/import/")
+#define IMPORTDIR_MLC  (NUSDIR_MLC "usr/import/")
 
 static void cleanupCancelledInstallation(NUSDEV dev, const char *path, bool toUsb, bool keepFiles)
 {
@@ -60,12 +66,12 @@ static void cleanupCancelledInstallation(NUSDEV dev, const char *path, bool toUs
         removeDirectory(path);
 
     FSADirectoryHandle dir;
-    char *importPath = getStaticPathBuffer(2);
-    strcpy(importPath, toUsb ? (getUSB() == NUSDEV_USB01 ? NUSDIR_USB1 "usr/import/" : NUSDIR_USB2 "usr/import/") : NUSDIR_MLC "usr/import/");
+    char importPath[sizeof(IMPORTDIR_MLC) + 8];
+    OSBlockMove(importPath, toUsb ? (getUSB() == NUSDEV_USB01 ? IMPORTDIR_USB1 : IMPORTDIR_USB2) : IMPORTDIR_MLC, sizeof(IMPORTDIR_MLC), false);
 
     if(FSAOpenDir(getFSAClient(), importPath, &dir) == FS_ERROR_OK)
     {
-        char *ptr = importPath + strlen(importPath);
+        importPath[sizeof(IMPORTDIR_MLC) + 7] = '\0';
         FSADirectoryEntry entry;
 
         while(FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
@@ -73,7 +79,7 @@ static void cleanupCancelledInstallation(NUSDEV dev, const char *path, bool toUs
             if(!(entry.info.flags & FS_STAT_DIRECTORY) || strlen(entry.name) != 8)
                 continue;
 
-            strcpy(ptr, entry.name);
+            OSBlockMove(importPath + (sizeof(IMPORTDIR_MLC) - 1), entry.name, 8, false);
             removeDirectory(importPath);
         }
 
@@ -124,7 +130,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     char *tmpPath = getStaticPathBuffer(1);
     size_t s = strlen(path);
     OSBlockMove(tmpPath, path, s, false);
-    OSBlockMove(tmpPath + s, "title.tmd", strlen("title.tmd") + 1, false);
+    OSBlockMove(tmpPath + s, "title.tmd", sizeof("title.tmd"), false);
     NO_INTRO_DATA *noIntro;
     if(fileExists(tmpPath))
         noIntro = NULL;
@@ -143,7 +149,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     // Fix tickets of broken NUSspli versions
     if(isDLC(tmd2->tid))
     {
-        OSBlockMove(tmpPath + s, "title.tik", strlen("title.tik") + 1, false);
+        OSBlockMove(tmpPath + s, "title.tik", sizeof("title.tik"), false);
         TICKET *tik;
         s = readFile(tmpPath, (void **)&tik);
         if(tik != NULL && hasMagicHeader(tik) && strcmp(tik->header.app, "NUSspli") == 0)

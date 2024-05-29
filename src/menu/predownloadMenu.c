@@ -22,6 +22,11 @@
 
 #include <wut-fixups.h>
 
+#include <inttypes.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+
 #include <config.h>
 #include <deinstaller.h>
 #include <downloader.h>
@@ -36,15 +41,12 @@
 #include <tmd.h>
 #include <utils.h>
 
-#include <inttypes.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <string.h>
-
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
 #include <coreinit/mcp.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
+#pragma GCC diagnostic pop
 
 #define PD_MENU_ENTRIES 5
 
@@ -262,7 +264,7 @@ static inline void changeTitleVersion(char *buf)
 
 static inline void changeFolderName(char *buf)
 {
-    if(!showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_NORMAL, buf, CHECK_ALPHANUMERICAL, FS_MAX_PATH - strlen(INSTALL_DIR_USB1), false, buf, NULL))
+    if(!showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_NORMAL, buf, CHECK_ALPHANUMERICAL, FS_MAX_PATH - (sizeof(INSTALL_DIR_USB1) - 1), false, buf, NULL))
         buf[0] = '\0';
 }
 

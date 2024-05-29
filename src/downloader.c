@@ -43,6 +43,11 @@
 #include <tmd.h>
 #include <utils.h>
 
+#include <mbedtls/entropy.h>
+#include <mbedtls/ssl.h>
+#include <mbedtls/x509_crt.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
 #include <coreinit/memory.h>
 #include <coreinit/time.h>
@@ -50,15 +55,12 @@
 #include <nn/ac/ac_c.h>
 #include <nn/result.h>
 #include <nsysnet/_socket.h>
-
-#include <mbedtls/entropy.h>
-#include <mbedtls/ssl.h>
-#include <mbedtls/x509_crt.h>
+#pragma GCC diagnostic pop
 
 #define USERAGENT        "NUSspli/" NUSSPLI_VERSION
 #define SMOOTHING_FACTOR 0.2f
 
-static volatile CURL *curl;
+static CURL *curl;
 static char curlError[CURL_ERROR_SIZE];
 static bool curlReuseConnection = true;
 
@@ -493,7 +495,9 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
             if(ret == CURLE_OK)
             {
                 opt = CURLOPT_WRITEFUNCTION;
-                ret = curl_easy_setopt(curl, opt, rambuf ? fwrite : (size_t(*)(const void *, size_t, size_t, FILE *))addToIOQueue); // This rises a compiler warning but that's fine
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+                ret = curl_easy_setopt(curl, opt, rambuf ? fwrite : (size_t(*)(const void *, size_t, size_t, FILE *))addToIOQueue);
+#pragma GCC diagnostic pop
                 if(ret == CURLE_OK)
                 {
                     opt = CURLOPT_WRITEDATA;

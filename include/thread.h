@@ -23,9 +23,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/atomic.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/thread.h>
+#pragma GCC diagnostic pop
 
 #define STACKSIZE_DEFAULT 0xFFF8
 #define STACKSIZE_SMALL   0x2000

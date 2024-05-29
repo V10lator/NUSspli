@@ -25,10 +25,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <coreinit/filesystem_fsa.h>
-#include <coreinit/mcp.h>
-#include <coreinit/memdefaultheap.h>
-
 #include <file.h>
 #include <filesystem.h>
 #include <input.h>
@@ -42,6 +38,13 @@
 #include <titles.h>
 #include <tmd.h>
 #include <utils.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/filesystem_fsa.h>
+#include <coreinit/mcp.h>
+#include <coreinit/memdefaultheap.h>
+#include <coreinit/memory.h>
+#pragma GCC diagnostic pop
 
 static LIST *logList = NULL;
 
@@ -328,20 +331,20 @@ const char *prettyDir(const char *dir)
 {
     static char ret[FS_MAX_PATH];
 
-    if(strncmp(NUSDIR_USB1, dir, strlen(NUSDIR_USB1)) == 0 || strncmp(NUSDIR_USB2, dir, strlen(NUSDIR_USB2)) == 0)
+    if(strncmp(NUSDIR_USB1, dir, sizeof(NUSDIR_USB1) - 1) == 0 || strncmp(NUSDIR_USB2, dir, sizeof(NUSDIR_USB2) - 1) == 0)
     {
-        dir += strlen(NUSDIR_USB1);
-        strcpy(ret, "USB:/");
+        dir += sizeof(NUSDIR_USB1) - 1;
+        OSBlockMove(ret, "USB:/", sizeof("USB:/"), false);
     }
-    else if(strncmp(NUSDIR_SD, dir, strlen(NUSDIR_SD)) == 0)
+    else if(strncmp(NUSDIR_SD, dir, sizeof(NUSDIR_SD) - 1) == 0)
     {
-        dir += strlen(NUSDIR_SD);
-        strcpy(ret, "SD:/");
+        dir += sizeof(NUSDIR_SD) - 1;
+        OSBlockMove(ret, "SD:/", sizeof("SD:/"), false);
     }
-    else if(strncmp(NUSDIR_MLC, dir, strlen(NUSDIR_MLC)) == 0)
+    else if(strncmp(NUSDIR_MLC, dir, sizeof(NUSDIR_MLC) - 1) == 0)
     {
-        dir += strlen(NUSDIR_MLC);
-        strcpy(ret, "NAND:/");
+        dir += sizeof(NUSDIR_MLC) - 1;
+        OSBlockMove(ret, "NAND:/", sizeof("NAND:/"), false);
     }
     else
         return dir;

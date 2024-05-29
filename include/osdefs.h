@@ -22,8 +22,10 @@
 
 #include <stdint.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/mcp.h>
 #include <nn/acp/title.h>
+#pragma GCC diagnostic pop
 
 #ifdef __cplusplus
 extern "C"

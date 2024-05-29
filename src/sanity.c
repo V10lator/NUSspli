@@ -26,10 +26,12 @@
 #include <romfs.h>
 #include <utils.h>
 
+#include <mbedtls/md5.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/time.h>
-
-#include <mbedtls/md5.h>
+#pragma GCC diagnostic pop
 
 #define MD5_FILES 2
 

@@ -28,7 +28,9 @@
 
 #include <mbedtls/aes.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/time.h>
+#pragma GCC diagnostic pop
 
 static spinlock rngLock;
 static volatile uint32_t entropy;

@@ -19,6 +19,11 @@
 
 #include <wut-fixups.h>
 
+#include <dirent.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <sys/stat.h>
+
 #include <crypto.h>
 #include <file.h>
 #include <filesystem.h>
@@ -29,17 +34,14 @@
 #include <tmd.h>
 #include <utils.h>
 
-#include <dirent.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <sys/stat.h>
+#include <mbedtls/sha256.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 #include <coreinit/time.h>
-
-#include <mbedtls/sha256.h>
+#pragma GCC diagnostic pop
 
 bool fileExists(const char *path)
 {
@@ -412,17 +414,17 @@ static bool fixTMD(const char *path, TMD *tmd, size_t size)
 TMD *getTmd(const char *dir, bool allowNoIntro)
 {
     size_t ss = strlen(dir);
-    char *path = MEMAllocFromDefaultHeap(ss + (strlen("/title.tmd") + 1));
+    char *path = MEMAllocFromDefaultHeap(ss + sizeof("/title.tmd"));
     TMD *tmd = NULL;
     if(path != NULL)
     {
         OSBlockMove(path, dir, ss, false);
-        OSBlockMove(path + ss, "/title.tmd", strlen("/title.tmd") + 1, false);
+        OSBlockMove(path + ss, "/title.tmd", sizeof("/title.tmd"), false);
 
         size_t s = readFile(path, (void **)&tmd);
         if(tmd == NULL && allowNoIntro)
         {
-            OSBlockMove(path + ss, "/tmd", strlen("/tmd") + 1, false);
+            OSBlockMove(path + ss, "/tmd", sizeof("/tmd"), false);
             s = readFile(path, (void **)&tmd);
         }
 
@@ -472,10 +474,10 @@ bool createDirRecursive(const char *dir)
     OSBlockMove(d, dir, len, false);
 
     char *needle = d;
-    if(strncmp(NUSDIR_SD, d, strlen(NUSDIR_SD)) == 0)
-        needle += strlen(NUSDIR_SD);
+    if(strncmp(NUSDIR_SD, d, sizeof(NUSDIR_SD) - 1) == 0)
+        needle += sizeof(NUSDIR_SD) - 1;
     else
-        needle += strlen(NUSDIR_MLC);
+        needle += sizeof(NUSDIR_MLC) - 1;
 
     do
     {
@@ -529,13 +531,13 @@ const char *translateFSErr(FSError err)
 
 NUSDEV getDevFromPath(const char *path)
 {
-    if(strncmp(NUSDIR_SD, path, strlen(NUSDIR_SD)) == 0)
+    if(strncmp(NUSDIR_SD, path, sizeof(NUSDIR_SD) - 1) == 0)
         return NUSDEV_SD;
-    if(strncmp(NUSDIR_USB1, path, strlen(NUSDIR_USB1)) == 0)
+    if(strncmp(NUSDIR_USB1, path, sizeof(NUSDIR_USB1) - 1) == 0)
         return NUSDEV_USB01;
-    if(strncmp(NUSDIR_USB2, path, strlen(NUSDIR_USB2)) == 0)
+    if(strncmp(NUSDIR_USB2, path, sizeof(NUSDIR_USB2) - 1) == 0)
         return NUSDEV_USB02;
-    if(strncmp(NUSDIR_MLC, path, strlen(NUSDIR_MLC)) == 0)
+    if(strncmp(NUSDIR_MLC, path, sizeof(NUSDIR_MLC) - 1) == 0)
         return NUSDEV_MLC;
 
     return NUSDEV_NONE;

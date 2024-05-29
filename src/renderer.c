@@ -19,21 +19,6 @@
 
 #include <wut-fixups.h>
 
-#include <gx2/enum.h>
-
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
-#include <SDL2/SDL_mixer.h>
-#include <SDL2/SDL_surface.h>
-#include <SDL_FontCache.h>
-
-#include <coreinit/memdefaultheap.h>
-#include <coreinit/memory.h>
-#include <coreinit/thread.h>
-#include <coreinit/time.h>
-#include <coreinit/title.h>
-#include <gx2/event.h>
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -50,6 +35,22 @@
 #include <swkbd_wrapper.h>
 #include <thread.h>
 #include <utils.h>
+
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_mixer.h>
+#include <SDL2/SDL_surface.h>
+#include <SDL_FontCache.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/memdefaultheap.h>
+#include <coreinit/memory.h>
+#include <coreinit/thread.h>
+#include <coreinit/time.h>
+#include <coreinit/title.h>
+#include <gx2/enum.h>
+#include <gx2/event.h>
+#pragma GCC diagnostic pop
 
 #define SSAA         8
 #define MAX_OVERLAYS 8

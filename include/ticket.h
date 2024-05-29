@@ -21,11 +21,11 @@
 
 #include <wut-fixups.h>
 
-#include <titles.h>
-#include <tmd.h>
-
 #include <stdbool.h>
 #include <stdint.h>
+
+#include <titles.h>
+#include <tmd.h>
 
 #ifdef __cplusplus
 extern "C"

@@ -19,13 +19,13 @@
 
 #include <wut-fixups.h>
 
+#include <stdbool.h>
+#include <string.h>
+
 #include <gtitles.h>
 #include <menu/utils.h>
 #include <titles.h>
 #include <utils.h>
-
-#include <stdbool.h>
-#include <string.h>
 
 const TitleEntry *getTitleEntryByTid(uint64_t tid)
 {

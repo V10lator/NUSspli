@@ -22,7 +22,9 @@
 
 #include <stdbool.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
+#pragma GCC diagnostic pop
 
 #ifdef __cplusplus
 extern "C"

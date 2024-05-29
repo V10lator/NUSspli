@@ -31,8 +31,10 @@
 
 #include <jansson.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
+#pragma GCC diagnostic pop
 
 typedef struct
 {

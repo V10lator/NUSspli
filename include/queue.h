@@ -21,14 +21,14 @@
 
 #include <wut-fixups.h>
 
+#include <stdbool.h>
+#include <stdint.h>
+
 #include <file.h>
 #include <filesystem.h>
 #include <list.h>
 #include <titles.h>
 #include <tmd.h>
-
-#include <stdbool.h>
-#include <stdint.h>
 
 #include <curl/curl.h>
 

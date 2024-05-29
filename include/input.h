@@ -23,8 +23,10 @@
 
 #include <stdbool.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <padscore/wpad.h>
 #include <vpad/input.h>
+#pragma GCC diagnostic pop
 
 #define BUTTON_A          "\uE000"
 #define BUTTON_B          "\uE001"

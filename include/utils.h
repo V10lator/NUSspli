@@ -25,7 +25,9 @@
 #include <stdint.h>
 #include <string.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/mcp.h>
+#pragma GCC diagnostic pop
 
 #define NUSSPLI_VERSION            "1.150"
 
@@ -36,8 +38,10 @@
 #define CUSTOM_MCP_ERROR_CANCELLED ((int)0xDEAD0002)
 
 #ifdef NUSSPLI_DEBUG
+#pragma GCC diagnostic ignored "-Wundef"
 #include <whb/log.h>
 #include <whb/log_udp.h>
+#pragma GCC diagnostic pop
 #else
 #define debugPrintf(...)
 #define checkStacks(...)

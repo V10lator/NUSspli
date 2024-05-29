@@ -18,14 +18,6 @@
 
 #include <wut-fixups.h>
 
-#include <coreinit/context.h>
-#include <coreinit/core.h>
-#include <coreinit/debug.h>
-#include <coreinit/exception.h>
-#include <coreinit/memdefaultheap.h>
-#include <coreinit/memorymap.h>
-#include <coreinit/thread.h>
-
 #include <exception.h>
 #include <thread.h>
 #include <utils.h>
@@ -34,6 +26,16 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/context.h>
+#include <coreinit/core.h>
+#include <coreinit/debug.h>
+#include <coreinit/exception.h>
+#include <coreinit/memdefaultheap.h>
+#include <coreinit/memorymap.h>
+#include <coreinit/thread.h>
+#pragma GCC diagnostic pop
 
 #define CRASH_BUFSIZE 0x800
 

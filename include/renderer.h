@@ -24,10 +24,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <SDL2/SDL.h>
-#include <coreinit/mcp.h>
-
 #include <staticMem.h>
+
+#include <SDL2/SDL.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/mcp.h>
+#pragma GCC diagnostic pop
 
 #define SCREEN_WIDTH     1280
 #define SCREEN_HEIGHT    720

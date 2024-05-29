@@ -20,12 +20,14 @@
 
 #include <stdint.h>
 
-#include <coreinit/filesystem_fsa.h>
-#include <coreinit/memdefaultheap.h>
-
 #include <renderer.h>
 #include <staticMem.h>
 #include <titles.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/filesystem_fsa.h>
+#include <coreinit/memdefaultheap.h>
+#pragma GCC diagnostic pop
 
 static char *staticMemToFrameBuffer;
 static char *staticMemLineBuffer;

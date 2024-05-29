@@ -19,6 +19,11 @@
 
 #include <wut-fixups.h>
 
+#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
 #include <cfw.h>
 #include <config.h>
 #include <crypto.h>
@@ -46,11 +51,7 @@
 #include <updater.h>
 #include <utils.h>
 
-#include <limits.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
 #include <coreinit/foreground.h>
 #include <coreinit/mcp.h>
@@ -66,6 +67,7 @@
 #include <padscore/wpad.h>
 #include <proc_ui/procui.h>
 #include <sysapp/launch.h>
+#pragma GCC diagnostic pop
 
 static void drawLoadingScreen(const char *toScreenLog, const char *loadingMsg)
 {

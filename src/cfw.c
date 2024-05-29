@@ -22,14 +22,16 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <state.h>
+#include <utils.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 #include <coreinit/title.h>
 #include <mocha/mocha.h>
 #include <rpxloader/rpxloader.h>
-
-#include <state.h>
-#include <utils.h>
+#pragma GCC diagnostic pop
 
 #define VALUE_A 0xE3A00000 // mov r0, #0
 #define VALUE_B 0xE12FFF1E // bx lr
@@ -58,12 +60,11 @@ static const char *printCfwError(const char *str, ...)
     if(cfwError == NULL)
         return CFW_ERR;
 
-    size_t l = strlen(CFW_ERR);
-    OSBlockMove(cfwError, CFW_ERR, l, false);
+    OSBlockMove(cfwError, CFW_ERR, sizeof(CFW_ERR) - 1, false);
 
     va_list va;
     va_start(va, str);
-    vsnprintf(cfwError + l, (1024 - 1) - l, str, va);
+    vsnprintf(cfwError + (sizeof(CFW_ERR) - 1), 1024 - sizeof(CFW_ERR), str, va);
     va_end(va);
 
     return cfwError;

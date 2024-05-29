@@ -20,9 +20,6 @@
 
 #include <stdbool.h>
 
-#include <coreinit/mcp.h>
-#include <coreinit/thread.h>
-
 #include <crypto.h>
 #include <deinstaller.h>
 #include <filesystem.h>
@@ -33,6 +30,11 @@
 #include <state.h>
 #include <ticket.h>
 #include <utils.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/mcp.h>
+#include <coreinit/thread.h>
+#pragma GCC diagnostic pop
 
 bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool skipEnd)
 {

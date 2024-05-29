@@ -20,6 +20,8 @@
 
 #include <wut-fixups.h>
 
+#include <string.h>
+
 #include <input.h>
 #include <installer.h>
 #include <localisation.h>
@@ -36,9 +38,9 @@
 #include <ticket.h>
 #include <utils.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memdefaultheap.h>
-
-#include <string.h>
+#pragma GCC diagnostic pop
 
 static int cursorPos = 11;
 

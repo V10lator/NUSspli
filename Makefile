@@ -37,9 +37,10 @@ INCLUDES	:=	include \
 CFLAGS		:=	$(MACHDEP) -Ofast -flto=auto -fno-fat-lto-objects \
 				-fuse-linker-plugin -fipa-pta -pipe \
 				-Wall -Wextra -Wundef -Wshadow -Wpointer-arith \
-				-Wcast-align  \
-				-D__WIIU__ -D__WUT__ -DIOAPI_NO_64 -D__unix__ \
-				-Wno-trigraphs
+				-Wcast-align -Wno-trigraphs -Wno-empty-body \
+				-Wno-maybe-uninitialized -Wno-pointer-sign \
+				-Wno-implicit-fallthrough \
+				-D__WIIU__ -D__WUT__ -DIOAPI_NO_64 -D__unix__
 
 ifeq ($(strip $(LITE)), 1)
 CFLAGS		+=	-DNUSSPLI_LITE

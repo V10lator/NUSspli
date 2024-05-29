@@ -18,6 +18,8 @@
 
 #include <wut-fixups.h>
 
+#include <stdbool.h>
+
 #include <cfw.h>
 #include <file.h>
 #include <filesystem.h>
@@ -27,10 +29,10 @@
 #include <thread.h>
 #include <utils.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
 #include <mocha/mocha.h>
-
-#include <stdbool.h>
+#pragma GCC diagnostic pop
 
 #define SPACEMAP_INVALID 9999
 

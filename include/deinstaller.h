@@ -20,9 +20,11 @@
 
 #include <wut-fixups.h>
 
-#include <coreinit/mcp.h>
-
 #include <stdbool.h>
+
+#pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/mcp.h>
+#pragma GCC diagnostic pop
 
 #ifdef __cplusplus
 extern "C"

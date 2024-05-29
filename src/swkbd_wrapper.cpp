@@ -23,10 +23,10 @@
 #include <cwchar>
 #include <string>
 
-#include <coreinit/memdefaultheap.h>
-
 #include <swkbd_wrapper.h>
 #include <utils.h>
+
+#include <coreinit/memdefaultheap.h>
 
 static bool kbd_initialized = false;
 static char ifs[FS_MAX_PATH]; // TODO

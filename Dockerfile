@@ -58,7 +58,7 @@ RUN git clone --depth 1 --single-branch https://github.com/google/brotli.git && 
  AR=$DEVKITPPC/bin/powerpc-eabi-ar \
  RANLIB=$DEVKITPPC/bin/powerpc-eabi-ranlib \
  PKG_CONFIG=$DEVKITPRO/portlibs/wiiu/bin/powerpc-eabi-pkg-config && \
- powerpc-eabi-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/portlibs/wiiu/ -DBUILD_SHARED_LIBS=OFF -DBROTLI_BUILD_TOOLS=OFF \
+ cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/portlibs/wiiu/ -DBUILD_SHARED_LIBS=OFF -DBROTLI_BUILD_TOOLS=OFF \
  -DCMAKE_C_FLAGS="-mcpu=750 -meabi -mhard-float -Ofast -ffunction-sections -fdata-sections" \
  -DCMAKE_CXX_FLAGS="-mcpu=750 -meabi -mhard-float -Ofast -ffunction-sections -fdata-sections" \
  -DCMAKE_CPP_FLAGS="-L$DEVKITPRO/wut/lib" \
@@ -66,7 +66,7 @@ RUN git clone --depth 1 --single-branch https://github.com/google/brotli.git && 
  -DCMAKE_C_COMPILER=$DEVKITPPC/bin/powerpc-eabi-gcc \
  -DCMAKE_CXX_COMPILER=$DEVKITPPC/bin/powerpc-eabi-g++ \
  .. && \
- powerpc-eabi-cmake --build . --config Release --target install && \
+ cmake --build . --config Release --target install && \
  cd ../.. && \
  rm -rf brotli
 

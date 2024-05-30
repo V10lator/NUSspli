@@ -11,11 +11,11 @@
 
     "Games": "Giochi",
     "Updates": "Aggiornamenti",
-    "All": "Tutto",
+    "All": "Tutte",
     "Press \uE000 to select": "Premi \uE000 per selezionare",
-    "\uE001 to return": "Premi \uE001 per tornare indietro",
-    "\uE002 to enter a title ID": "Premi \uE002 per inserire un ID del titolo",
-    "\uE003 to search": "Premi \uE003 per cercare",
+    "\uE001 to return": "\uE001 per indietro",
+    "\uE002 to enter a title ID": "\uE002 per inserire un ID titolo",
+    "\uE003 to search": "\uE003 per cercare",
     "\uE046 to open the queue": "Premi \uE046 per aprire la coda",
 
     "Select a folder:": "Seleziona una cartella:",
@@ -24,7 +24,7 @@
     "\uE002 to switch to USB": "Premi \uE002 per passare a USB",
     "Searching on": "Ricerca su",
 
-	"Press \uE045 to launch":  "Premi \uE045 per lanciare",
+    "Press \uE045 to launch":  "Premi \uE045 per lanciare",
     "Press \uE000 to delete": "Premi \uE000 per eliminare",
 
     "Press \uE000 to continue": "Premi \uE000 per continuare",
@@ -43,7 +43,7 @@
     "Rumble + LED": "Vibrazione + LED",
     "Region:": "Regione:",
     "Italian": "Italiano",
-    "System settings": "Impostazioni di sistema",
+    "System settings": "Come impostata sul sistema",
     "None": "Nessuno",
     "Europe": "Europa",
     "USA": "USA",

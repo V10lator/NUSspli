@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 19298e3..ce80073 100644
+index 19298e379..ce8007311 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -276,13 +276,18 @@ if(USE_GCC OR USE_CLANG)
@@ -89,7 +89,7 @@ index 19298e3..ce80073 100644
  
  if(HAVE_VULKAN AND NOT SDL_LOADSO)
 diff --git a/include/SDL_atomic.h b/include/SDL_atomic.h
-index 22ea019..e956ccf 100644
+index 22ea0191a..e956ccf4f 100644
 --- a/include/SDL_atomic.h
 +++ b/include/SDL_atomic.h
 @@ -230,6 +230,10 @@ typedef void (*SDL_KernelMemoryBarrierFunc)();
@@ -113,7 +113,7 @@ index 22ea019..e956ccf 100644
  #elif defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
      #define SDL_CPUPauseInstruction() _mm_pause()  /* this is actually "rep nop" and not a SIMD instruction. No inline asm in MSVC x86-64! */
 diff --git a/include/SDL_config.h.cmake b/include/SDL_config.h.cmake
-index b8e2144..b05ca5b 100644
+index b8e2144aa..b05ca5b2b 100644
 --- a/include/SDL_config.h.cmake
 +++ b/include/SDL_config.h.cmake
 @@ -327,6 +327,7 @@
@@ -165,7 +165,7 @@ index b8e2144..b05ca5b 100644
  /* Enable OpenGL support */
  #cmakedefine SDL_VIDEO_OPENGL @SDL_VIDEO_OPENGL@
 diff --git a/include/SDL_endian.h b/include/SDL_endian.h
-index 582c3a8..39db7ca 100644
+index 582c3a8b8..39db7cade 100644
 --- a/include/SDL_endian.h
 +++ b/include/SDL_endian.h
 @@ -79,7 +79,7 @@ _m_prefetch(void *__P)
@@ -178,7 +178,7 @@ index 582c3a8..39db7ca 100644
  #else
  #define SDL_BYTEORDER   SDL_LIL_ENDIAN
 diff --git a/include/SDL_platform.h b/include/SDL_platform.h
-index d2a7e05..262e1c3 100644
+index d2a7e052d..262e1c37f 100644
 --- a/include/SDL_platform.h
 +++ b/include/SDL_platform.h
 @@ -200,6 +200,10 @@
@@ -193,7 +193,7 @@ index d2a7e05..262e1c3 100644
  /* The NACL compiler defines __native_client__ and __pnacl__
   * Ref: http://www.chromium.org/nativeclient/pnacl/stability-of-the-pnacl-bitcode-abi
 diff --git a/include/SDL_test_common.h b/include/SDL_test_common.h
-index 6de63ca..76c6c6c 100644
+index 6de63cad6..76c6c6c8d 100644
 --- a/include/SDL_test_common.h
 +++ b/include/SDL_test_common.h
 @@ -40,6 +40,9 @@
@@ -207,7 +207,7 @@ index 6de63ca..76c6c6c 100644
  #define DEFAULT_WINDOW_WIDTH  640
  #define DEFAULT_WINDOW_HEIGHT 480
 diff --git a/include/SDL_video.h b/include/SDL_video.h
-index c70facb..fe3850b 100644
+index c70facb5e..fe3850bf8 100644
 --- a/include/SDL_video.h
 +++ b/include/SDL_video.h
 @@ -124,6 +124,8 @@ typedef enum
@@ -220,7 +220,7 @@ index c70facb..fe3850b 100644
      SDL_WINDOW_METAL            = 0x20000000,   /**< window usable for Metal view */
  
 diff --git a/src/SDL.c b/src/SDL.c
-index 8ccfa17..eaaf543 100644
+index 8ccfa1751..eaaf5434a 100644
 --- a/src/SDL.c
 +++ b/src/SDL.c
 @@ -624,6 +624,8 @@ SDL_GetPlatform(void)
@@ -233,7 +233,7 @@ index 8ccfa17..eaaf543 100644
      return "Unknown (see SDL_platform.h)";
  #endif
 diff --git a/src/SDL_log.c b/src/SDL_log.c
-index f710dd8..7ebdfea 100644
+index f710dd8a5..7ebdfea8b 100644
 --- a/src/SDL_log.c
 +++ b/src/SDL_log.c
 @@ -39,6 +39,10 @@
@@ -259,7 +259,7 @@ index f710dd8..7ebdfea 100644
      {
          FILE*        pFile;
 diff --git a/src/atomic/SDL_atomic.c b/src/atomic/SDL_atomic.c
-index ba2ecff..0dcc20d 100644
+index ba2ecff9e..c4ced334c 100644
 --- a/src/atomic/SDL_atomic.c
 +++ b/src/atomic/SDL_atomic.c
 @@ -35,6 +35,10 @@
@@ -329,25 +329,7 @@ index ba2ecff..0dcc20d 100644
  #elif defined(HAVE_GCC_ATOMICS)
      return __sync_lock_test_and_set(a, v);
  #elif defined(__SOLARIS__)
-@@ -234,12 +248,14 @@ SDL_AtomicAdd(SDL_atomic_t *a, int v)
-     return _InterlockedExchangeAdd((long*)&a->value, v);
- #elif defined(HAVE_WATCOM_ATOMICS)
-     return _SDL_xadd_watcom(&a->value, v);
-+#elif defined(__WIIU__)
-+    return OSAddAtomic((volatile int32_t *)&a->value, v);
- #elif defined(HAVE_GCC_ATOMICS)
-     return __sync_fetch_and_add(&a->value, v);
- #elif defined(__SOLARIS__)
--    int pv = a->value;
--    membar_consumer();
--    atomic_add_int((volatile uint_t*)&a->value, v);
-+    int pv = a->value;
-+    membar_consumer();
-+    atomic_add_int((volatile uint_t*)&a->value, v);
-     return pv;
- #else
-     int value;
-@@ -253,7 +269,9 @@ SDL_AtomicAdd(SDL_atomic_t *a, int v)
+@@ -253,7 +267,9 @@ SDL_AtomicAdd(SDL_atomic_t *a, int v)
  int
  SDL_AtomicGet(SDL_atomic_t *a)
  {
@@ -358,7 +340,7 @@ index ba2ecff..0dcc20d 100644
      return __atomic_load_n(&a->value, __ATOMIC_SEQ_CST);
  #elif defined(HAVE_MSC_ATOMICS)
      SDL_COMPILE_TIME_ASSERT(atomic_get, sizeof(long) == sizeof(a->value));
-@@ -278,7 +296,9 @@ SDL_AtomicGet(SDL_atomic_t *a)
+@@ -278,7 +294,9 @@ SDL_AtomicGet(SDL_atomic_t *a)
  void *
  SDL_AtomicGetPtr(void **a)
  {
@@ -370,22 +352,23 @@ index ba2ecff..0dcc20d 100644
  #elif defined(HAVE_MSC_ATOMICS)
      return _InterlockedCompareExchangePointer(a, NULL, NULL);
 diff --git a/src/atomic/SDL_spinlock.c b/src/atomic/SDL_spinlock.c
-index 2035ba6..e086bf0 100644
+index 2035ba6bd..e2a3f1cae 100644
 --- a/src/atomic/SDL_spinlock.c
 +++ b/src/atomic/SDL_spinlock.c
-@@ -36,6 +36,11 @@
+@@ -36,6 +36,12 @@
  #include <unixlib/local.h>
  #endif
  
 +#if defined(__WIIU__)
 +#include <coreinit/cache.h>
 +#include <coreinit/atomic.h>
++#include <coreinit/thread.h>
 +#endif
 +
  #if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
  #include <xmmintrin.h>
  #endif
-@@ -152,6 +157,8 @@ SDL_AtomicTryLock(SDL_SpinLock *lock)
+@@ -152,6 +158,8 @@ SDL_AtomicTryLock(SDL_SpinLock *lock)
      // enable interuption
      if(oldintr) { EIntr(); }
      return res;
@@ -394,7 +377,7 @@ index 2035ba6..e086bf0 100644
  #else
  #error Please implement for your platform.
      return SDL_FALSE;
-@@ -168,8 +175,12 @@ SDL_AtomicLock(SDL_SpinLock *lock)
+@@ -168,8 +176,12 @@ SDL_AtomicLock(SDL_SpinLock *lock)
              iterations++;
              SDL_CPUPauseInstruction();
          } else {
@@ -407,7 +390,7 @@ index 2035ba6..e086bf0 100644
          }
      }
  }
-@@ -177,7 +188,11 @@ SDL_AtomicLock(SDL_SpinLock *lock)
+@@ -177,7 +189,11 @@ SDL_AtomicLock(SDL_SpinLock *lock)
  void
  SDL_AtomicUnlock(SDL_SpinLock *lock)
  {
@@ -421,7 +404,7 @@ index 2035ba6..e086bf0 100644
  
  #elif defined(_MSC_VER) && (defined(_M_ARM) || defined(_M_ARM64))
 diff --git a/src/audio/SDL_audio.c b/src/audio/SDL_audio.c
-index b1b87d1..896957b 100644
+index b1b87d151..896957be5 100644
 --- a/src/audio/SDL_audio.c
 +++ b/src/audio/SDL_audio.c
 @@ -123,6 +123,9 @@ static const AudioBootStrap *const bootstrap[] = {
@@ -435,7 +418,7 @@ index b1b87d1..896957b 100644
      &DISKAUDIO_bootstrap,
  #endif
 diff --git a/src/audio/SDL_sysaudio.h b/src/audio/SDL_sysaudio.h
-index 002ae2a..3e2d583 100644
+index 002ae2a33..3e2d583e7 100644
 --- a/src/audio/SDL_sysaudio.h
 +++ b/src/audio/SDL_sysaudio.h
 @@ -212,6 +212,7 @@ extern AudioBootStrap VITAAUD_bootstrap;
@@ -448,7 +431,7 @@ index 002ae2a..3e2d583 100644
  
 diff --git a/src/audio/wiiu/SDL_wiiuaudio.c b/src/audio/wiiu/SDL_wiiuaudio.c
 new file mode 100644
-index 0000000..e6f1289
+index 000000000..e6f128915
 --- /dev/null
 +++ b/src/audio/wiiu/SDL_wiiuaudio.c
 @@ -0,0 +1,425 @@
@@ -879,7 +862,7 @@ index 0000000..e6f1289
 +#endif //SDL_AUDIO_DRIVER_WIIU
 diff --git a/src/audio/wiiu/SDL_wiiuaudio.h b/src/audio/wiiu/SDL_wiiuaudio.h
 new file mode 100644
-index 0000000..41cb4a4
+index 000000000..41cb4a48b
 --- /dev/null
 +++ b/src/audio/wiiu/SDL_wiiuaudio.h
 @@ -0,0 +1,51 @@
@@ -936,7 +919,7 @@ index 0000000..41cb4a4
 +#endif /* SDL_wiiuaudio_h_ */
 diff --git a/src/audio/wiiu/SDL_wiiuaudio_mix.h b/src/audio/wiiu/SDL_wiiuaudio_mix.h
 new file mode 100644
-index 0000000..57b661c
+index 000000000..57b661c89
 --- /dev/null
 +++ b/src/audio/wiiu/SDL_wiiuaudio_mix.h
 @@ -0,0 +1,65 @@
@@ -1006,7 +989,7 @@ index 0000000..57b661c
 +
 +#endif //SDL_wiiuaudio_mix_h_
 diff --git a/src/dynapi/SDL_dynapi.h b/src/dynapi/SDL_dynapi.h
-index 35acf1a..a72375b 100644
+index 35acf1a16..a72375b86 100644
 --- a/src/dynapi/SDL_dynapi.h
 +++ b/src/dynapi/SDL_dynapi.h
 @@ -59,6 +59,8 @@
@@ -1019,7 +1002,7 @@ index 35acf1a..a72375b 100644
  #define SDL_DYNAMIC_API 0  /* Turn off for static analysis, so reports are more clear. */
  #elif defined(__VITA__)
 diff --git a/src/joystick/SDL_gamecontrollerdb.h b/src/joystick/SDL_gamecontrollerdb.h
-index 76ab874..78a2862 100644
+index 76ab8740c..78a28629d 100644
 --- a/src/joystick/SDL_gamecontrollerdb.h
 +++ b/src/joystick/SDL_gamecontrollerdb.h
 @@ -1000,6 +1000,16 @@ static const char *s_ControllerMappings [] =
@@ -1040,7 +1023,7 @@ index 76ab874..78a2862 100644
      "hidapi,*,a:b0,b:b1,back:b4,dpdown:b12,dpleft:b13,dpright:b14,dpup:b11,guide:b5,leftshoulder:b9,leftstick:b7,lefttrigger:a4,leftx:a0,lefty:a1,rightshoulder:b10,rightstick:b8,righttrigger:a5,rightx:a2,righty:a3,start:b6,x:b2,y:b3,",
      NULL
 diff --git a/src/joystick/SDL_joystick.c b/src/joystick/SDL_joystick.c
-index b4d6d2e..4af6df6 100644
+index b4d6d2edc..4af6df612 100644
 --- a/src/joystick/SDL_joystick.c
 +++ b/src/joystick/SDL_joystick.c
 @@ -84,6 +84,9 @@ static SDL_JoystickDriver *SDL_joystick_drivers[] = {
@@ -1054,7 +1037,7 @@ index b4d6d2e..4af6df6 100644
      &SDL_BSD_JoystickDriver,
  #endif
 diff --git a/src/joystick/SDL_sysjoystick.h b/src/joystick/SDL_sysjoystick.h
-index 20216bb..b374e8d 100644
+index 20216bb49..b374e8d3e 100644
 --- a/src/joystick/SDL_sysjoystick.h
 +++ b/src/joystick/SDL_sysjoystick.h
 @@ -244,6 +244,7 @@ extern SDL_JoystickDriver SDL_PS2_JoystickDriver;
@@ -1067,7 +1050,7 @@ index 20216bb..b374e8d 100644
  #ifdef __cplusplus
 diff --git a/src/joystick/wiiu/SDL_wiiujoystick.c b/src/joystick/wiiu/SDL_wiiujoystick.c
 new file mode 100644
-index 0000000..19ba6c8
+index 000000000..312921101
 --- /dev/null
 +++ b/src/joystick/wiiu/SDL_wiiujoystick.c
 @@ -0,0 +1,647 @@
@@ -1720,7 +1703,7 @@ index 0000000..19ba6c8
 +#endif
 diff --git a/src/joystick/wiiu/SDL_wiiujoystick.h b/src/joystick/wiiu/SDL_wiiujoystick.h
 new file mode 100644
-index 0000000..24f79ca
+index 000000000..24f79ca76
 --- /dev/null
 +++ b/src/joystick/wiiu/SDL_wiiujoystick.h
 @@ -0,0 +1,110 @@
@@ -1835,7 +1818,7 @@ index 0000000..24f79ca
 +    } \
 +}
 diff --git a/src/libm/math_private.h b/src/libm/math_private.h
-index ee67c44..23fad18 100644
+index ee67c444e..23fad187b 100644
 --- a/src/libm/math_private.h
 +++ b/src/libm/math_private.h
 @@ -27,7 +27,7 @@
@@ -1848,7 +1831,7 @@ index ee67c44..23fad18 100644
  #endif
  
 diff --git a/src/render/SDL_render.c b/src/render/SDL_render.c
-index 86c51bf..d84c982 100644
+index 86c51bf9e..d84c9822b 100644
 --- a/src/render/SDL_render.c
 +++ b/src/render/SDL_render.c
 @@ -39,7 +39,7 @@ SDL_AddEventWatch to catch SDL_APP_WILLENTERBACKGROUND events and stopped
@@ -1871,7 +1854,7 @@ index 86c51bf..d84c982 100644
      &SW_RenderDriver
  #endif
 diff --git a/src/render/SDL_sysrender.h b/src/render/SDL_sysrender.h
-index 245b9f1..149a4b7 100644
+index 245b9f136..149a4b701 100644
 --- a/src/render/SDL_sysrender.h
 +++ b/src/render/SDL_sysrender.h
 @@ -306,6 +306,7 @@ extern SDL_RenderDriver PS2_RenderDriver;
@@ -1884,7 +1867,7 @@ index 245b9f1..149a4b7 100644
  extern SDL_BlendFactor SDL_GetBlendModeSrcColorFactor(SDL_BlendMode blendMode);
 diff --git a/src/render/wiiu/SDL_render_wiiu.c b/src/render/wiiu/SDL_render_wiiu.c
 new file mode 100644
-index 0000000..ad26e9a
+index 000000000..ad26e9a35
 --- /dev/null
 +++ b/src/render/wiiu/SDL_render_wiiu.c
 @@ -0,0 +1,288 @@
@@ -2178,7 +2161,7 @@ index 0000000..ad26e9a
 +/* vi: set ts=4 sw=4 expandtab: */
 diff --git a/src/render/wiiu/SDL_render_wiiu.h b/src/render/wiiu/SDL_render_wiiu.h
 new file mode 100644
-index 0000000..84347ba
+index 000000000..84347ba56
 --- /dev/null
 +++ b/src/render/wiiu/SDL_render_wiiu.h
 @@ -0,0 +1,367 @@
@@ -2551,7 +2534,7 @@ index 0000000..84347ba
 +#endif /* SDL_render_wiiu_h */
 diff --git a/src/render/wiiu/SDL_rpresent_wiiu.c b/src/render/wiiu/SDL_rpresent_wiiu.c
 new file mode 100644
-index 0000000..d71a941
+index 000000000..d71a941c4
 --- /dev/null
 +++ b/src/render/wiiu/SDL_rpresent_wiiu.c
 @@ -0,0 +1,99 @@
@@ -2656,7 +2639,7 @@ index 0000000..d71a941
 +#endif /* SDL_VIDEO_RENDER_WIIU */
 diff --git a/src/render/wiiu/SDL_rqueue_wiiu.c b/src/render/wiiu/SDL_rqueue_wiiu.c
 new file mode 100644
-index 0000000..bafdcec
+index 000000000..bafdcecd5
 --- /dev/null
 +++ b/src/render/wiiu/SDL_rqueue_wiiu.c
 @@ -0,0 +1,454 @@
@@ -3116,7 +3099,7 @@ index 0000000..bafdcec
 +#endif /* SDL_VIDEO_RENDER_WIIU */
 diff --git a/src/render/wiiu/SDL_rtexture_wiiu.c b/src/render/wiiu/SDL_rtexture_wiiu.c
 new file mode 100644
-index 0000000..828c33a
+index 000000000..828c33a17
 --- /dev/null
 +++ b/src/render/wiiu/SDL_rtexture_wiiu.c
 @@ -0,0 +1,225 @@
@@ -3347,7 +3330,7 @@ index 0000000..828c33a
 +#endif //SDL_VIDEO_RENDER_WIIU
 diff --git a/src/render/wiiu/SDL_rwindow_wiiu.c b/src/render/wiiu/SDL_rwindow_wiiu.c
 new file mode 100644
-index 0000000..0403e68
+index 000000000..0403e68de
 --- /dev/null
 +++ b/src/render/wiiu/SDL_rwindow_wiiu.c
 @@ -0,0 +1,38 @@
@@ -3391,7 +3374,7 @@ index 0000000..0403e68
 +#endif //SDL_VIDEO_RENDER_WIIU
 diff --git a/src/render/wiiu/SDL_shaders_wiiu.c b/src/render/wiiu/SDL_shaders_wiiu.c
 new file mode 100644
-index 0000000..f6c8a3d
+index 000000000..f6c8a3d51
 --- /dev/null
 +++ b/src/render/wiiu/SDL_shaders_wiiu.c
 @@ -0,0 +1,257 @@
@@ -3654,7 +3637,7 @@ index 0000000..f6c8a3d
 +#endif //SDL_VIDEO_RENDER_WIIU
 diff --git a/src/render/wiiu/SDL_shaders_wiiu.h b/src/render/wiiu/SDL_shaders_wiiu.h
 new file mode 100644
-index 0000000..fbb7903
+index 000000000..fbb7903af
 --- /dev/null
 +++ b/src/render/wiiu/SDL_shaders_wiiu.h
 @@ -0,0 +1,51 @@
@@ -3711,7 +3694,7 @@ index 0000000..fbb7903
 +#endif /* SDL_shaders_wiiu_h */
 diff --git a/src/render/wiiu/shaders/build_shaders.sh b/src/render/wiiu/shaders/build_shaders.sh
 new file mode 100755
-index 0000000..33b7cfc
+index 000000000..33b7cfc94
 --- /dev/null
 +++ b/src/render/wiiu/shaders/build_shaders.sh
 @@ -0,0 +1,17 @@
@@ -3734,7 +3717,7 @@ index 0000000..33b7cfc
 +echo "Done!"
 diff --git a/src/render/wiiu/shaders/colorShader.inc b/src/render/wiiu/shaders/colorShader.inc
 new file mode 100644
-index 0000000..90543c0
+index 000000000..90543c0ad
 --- /dev/null
 +++ b/src/render/wiiu/shaders/colorShader.inc
 @@ -0,0 +1,111 @@
@@ -3851,7 +3834,7 @@ index 0000000..90543c0
 +unsigned int colorShader_gsh_len = 1296;
 diff --git a/src/render/wiiu/shaders/colorShader.psh b/src/render/wiiu/shaders/colorShader.psh
 new file mode 100644
-index 0000000..bd3d9e7
+index 000000000..bd3d9e700
 --- /dev/null
 +++ b/src/render/wiiu/shaders/colorShader.psh
 @@ -0,0 +1,9 @@
@@ -3866,7 +3849,7 @@ index 0000000..bd3d9e7
 +END_OF_PROGRAM
 diff --git a/src/render/wiiu/shaders/colorShader.vsh b/src/render/wiiu/shaders/colorShader.vsh
 new file mode 100644
-index 0000000..ee69cbd
+index 000000000..ee69cbd3a
 --- /dev/null
 +++ b/src/render/wiiu/shaders/colorShader.vsh
 @@ -0,0 +1,40 @@
@@ -3912,7 +3895,7 @@ index 0000000..ee69cbd
 +END_OF_PROGRAM
 diff --git a/src/render/wiiu/shaders/textureShader.inc b/src/render/wiiu/shaders/textureShader.inc
 new file mode 100644
-index 0000000..a47c111
+index 000000000..a47c11136
 --- /dev/null
 +++ b/src/render/wiiu/shaders/textureShader.inc
 @@ -0,0 +1,149 @@
@@ -4067,7 +4050,7 @@ index 0000000..a47c111
 +unsigned int textureShader_gsh_len = 1752;
 diff --git a/src/render/wiiu/shaders/textureShader.psh b/src/render/wiiu/shaders/textureShader.psh
 new file mode 100644
-index 0000000..18e7770
+index 000000000..18e7770f6
 --- /dev/null
 +++ b/src/render/wiiu/shaders/textureShader.psh
 @@ -0,0 +1,23 @@
@@ -4096,7 +4079,7 @@ index 0000000..18e7770
 +END_OF_PROGRAM
 diff --git a/src/render/wiiu/shaders/textureShader.vsh b/src/render/wiiu/shaders/textureShader.vsh
 new file mode 100644
-index 0000000..86288ff
+index 000000000..86288ff34
 --- /dev/null
 +++ b/src/render/wiiu/shaders/textureShader.vsh
 @@ -0,0 +1,47 @@
@@ -4148,7 +4131,7 @@ index 0000000..86288ff
 +04 EXP_DONE: PARAM1, R3.xy00 NO_BARRIER
 +END_OF_PROGRAM
 diff --git a/src/stdlib/SDL_malloc.c b/src/stdlib/SDL_malloc.c
-index 07d95fa..0fff913 100644
+index 07d95fa34..0fff9133d 100644
 --- a/src/stdlib/SDL_malloc.c
 +++ b/src/stdlib/SDL_malloc.c
 @@ -513,6 +513,12 @@ DEFAULT_MMAP_THRESHOLD       default: 256K
@@ -4165,7 +4148,7 @@ index 07d95fa..0fff913 100644
  /* Mac OSX docs advise not to use sbrk; it seems better to use mmap */
  #ifndef HAVE_MORECORE
 diff --git a/src/thread/SDL_thread_c.h b/src/thread/SDL_thread_c.h
-index 013c75b..b99affe 100644
+index 013c75b1a..b99affe43 100644
 --- a/src/thread/SDL_thread_c.h
 +++ b/src/thread/SDL_thread_c.h
 @@ -46,6 +46,8 @@
@@ -4179,7 +4162,7 @@ index 013c75b..b99affe 100644
  #include "generic/SDL_systhread_c.h"
 diff --git a/src/thread/wiiu/SDL_syscond.c b/src/thread/wiiu/SDL_syscond.c
 new file mode 100644
-index 0000000..318a500
+index 000000000..318a50050
 --- /dev/null
 +++ b/src/thread/wiiu/SDL_syscond.c
 @@ -0,0 +1,146 @@
@@ -4331,7 +4314,7 @@ index 0000000..318a500
 +/* vi: set ts=4 sw=4 expandtab: */
 diff --git a/src/thread/wiiu/SDL_sysmutex.c b/src/thread/wiiu/SDL_sysmutex.c
 new file mode 100644
-index 0000000..f24cb40
+index 000000000..f24cb40e5
 --- /dev/null
 +++ b/src/thread/wiiu/SDL_sysmutex.c
 @@ -0,0 +1,73 @@
@@ -4410,7 +4393,7 @@ index 0000000..f24cb40
 +/* vi: set ts=4 sw=4 expandtab: */
 diff --git a/src/thread/wiiu/SDL_sysmutex_c.h b/src/thread/wiiu/SDL_sysmutex_c.h
 new file mode 100644
-index 0000000..2979437
+index 000000000..2979437b5
 --- /dev/null
 +++ b/src/thread/wiiu/SDL_sysmutex_c.h
 @@ -0,0 +1,22 @@
@@ -4438,7 +4421,7 @@ index 0000000..2979437
 +/* vi: set ts=4 sw=4 expandtab: */
 diff --git a/src/thread/wiiu/SDL_syssem.c b/src/thread/wiiu/SDL_syssem.c
 new file mode 100644
-index 0000000..a0038aa
+index 000000000..a0038aa87
 --- /dev/null
 +++ b/src/thread/wiiu/SDL_syssem.c
 @@ -0,0 +1,145 @@
@@ -4589,7 +4572,7 @@ index 0000000..a0038aa
 +/* vi: set ts=4 sw=4 expandtab: */
 diff --git a/src/thread/wiiu/SDL_systhread.c b/src/thread/wiiu/SDL_systhread.c
 new file mode 100644
-index 0000000..65fbebd
+index 000000000..65fbebdd0
 --- /dev/null
 +++ b/src/thread/wiiu/SDL_systhread.c
 @@ -0,0 +1,121 @@
@@ -4716,7 +4699,7 @@ index 0000000..65fbebd
 + */
 diff --git a/src/thread/wiiu/SDL_systhread_c.h b/src/thread/wiiu/SDL_systhread_c.h
 new file mode 100644
-index 0000000..ca06261
+index 000000000..ca0626101
 --- /dev/null
 +++ b/src/thread/wiiu/SDL_systhread_c.h
 @@ -0,0 +1,27 @@
@@ -4750,7 +4733,7 @@ index 0000000..ca06261
 \ No newline at end of file
 diff --git a/src/timer/wiiu/SDL_systimer.c b/src/timer/wiiu/SDL_systimer.c
 new file mode 100644
-index 0000000..13c5257
+index 000000000..13c5257f2
 --- /dev/null
 +++ b/src/timer/wiiu/SDL_systimer.c
 @@ -0,0 +1,86 @@
@@ -4841,7 +4824,7 @@ index 0000000..13c5257
 +/* vim: ts=4 sw=4
 + */
 diff --git a/src/video/SDL_sysvideo.h b/src/video/SDL_sysvideo.h
-index 5475f5f..342fcd1 100644
+index 5475f5f01..342fcd1a4 100644
 --- a/src/video/SDL_sysvideo.h
 +++ b/src/video/SDL_sysvideo.h
 @@ -476,6 +476,7 @@ extern VideoBootStrap OFFSCREEN_bootstrap;
@@ -4853,7 +4836,7 @@ index 5475f5f..342fcd1 100644
  /* Use SDL_OnVideoThread() sparingly, to avoid regressions in use cases that currently happen to work */
  extern SDL_bool SDL_OnVideoThread(void);
 diff --git a/src/video/SDL_video.c b/src/video/SDL_video.c
-index ac07ccb..a3a0e5f 100644
+index ac07ccb72..a3a0e5f8c 100644
 --- a/src/video/SDL_video.c
 +++ b/src/video/SDL_video.c
 @@ -128,6 +128,9 @@ static VideoBootStrap *bootstrap[] = {
@@ -4877,7 +4860,7 @@ index ac07ccb..a3a0e5f 100644
  IsAcceptingDragAndDrop(void)
 diff --git a/src/video/wiiu/SDL_wiiu_gfx_heap.c b/src/video/wiiu/SDL_wiiu_gfx_heap.c
 new file mode 100644
-index 0000000..5e77367
+index 000000000..5e77367c7
 --- /dev/null
 +++ b/src/video/wiiu/SDL_wiiu_gfx_heap.c
 @@ -0,0 +1,203 @@
@@ -5086,7 +5069,7 @@ index 0000000..5e77367
 +#endif /* SDL_VIDEO_DRIVER_WIIU */
 diff --git a/src/video/wiiu/SDL_wiiu_gfx_heap.h b/src/video/wiiu/SDL_wiiu_gfx_heap.h
 new file mode 100644
-index 0000000..373913a
+index 000000000..373913ada
 --- /dev/null
 +++ b/src/video/wiiu/SDL_wiiu_gfx_heap.h
 @@ -0,0 +1,53 @@
@@ -5145,7 +5128,7 @@ index 0000000..373913a
 +#endif /* SDL_wiiu_gfx_heap_h */
 diff --git a/src/video/wiiu/SDL_wiiuvideo.c b/src/video/wiiu/SDL_wiiuvideo.c
 new file mode 100644
-index 0000000..aff6d98
+index 000000000..aff6d98ff
 --- /dev/null
 +++ b/src/video/wiiu/SDL_wiiuvideo.c
 @@ -0,0 +1,387 @@
@@ -5538,7 +5521,7 @@ index 0000000..aff6d98
 +#endif /* SDL_VIDEO_DRIVER_WIIU */
 diff --git a/src/video/wiiu/SDL_wiiuvideo.h b/src/video/wiiu/SDL_wiiuvideo.h
 new file mode 100644
-index 0000000..a635012
+index 000000000..a635012d9
 --- /dev/null
 +++ b/src/video/wiiu/SDL_wiiuvideo.h
 @@ -0,0 +1,57 @@

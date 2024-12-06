@@ -1,7 +1,7 @@
 /***************************************************************************
  * This file is part of NUSspli.                                           *
  * Copyright (c) 2019-2020 Pokes303                                        *
- * Copyright (c) 2020-2022 V10lator <v10lator@myway.de>                    *
+ * Copyright (c) 2020-2024 V10lator <v10lator@myway.de>                    *
  *                                                                         *
  * This program is free software; you can redistribute it and/or modify    *
  * it under the terms of the GNU General Public License as published by    *
@@ -47,7 +47,7 @@
 static NUSDEV activeDevice = NUSDEV_NONE;
 // static char presavedPath[FS_MAX_PATH]; // TODO
 
-static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const size_t cursor, bool usbMounted, bool showQueue)
+static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const size_t cursor, bool usbMounted, bool installMenu, bool showQueue)
 {
     startNewFrame();
     textToFrame(0, 6, localise("Select a folder:"));
@@ -82,7 +82,14 @@ static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const s
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, toWrite);
 
     char *folder;
-    size_t i = 0;
+    TitleData *title;
+    char fp[FS_MAX_PATH];
+    size_t i = strlen(path);
+    OSBlockMove(fp, path, i, false);
+    l = fp + i;
+    i = 0;
+    showQueue = false;
+
     forEachListEntry(folders, folder)
     {
         if(pos)
@@ -94,7 +101,24 @@ static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const s
         if(cursor == i)
             arrowToFrame(i + 2, 1);
 
-        textToFrame(i + 2, 5, folder);
+        if(installMenu)
+        {
+            showQueue = false;
+            strcpy(l, folder);
+            forEachListEntry(getTitleQueue(), title)
+            {
+                if(strcmp(fp, title->folderName) == 0)
+                {
+                    showQueue = true;
+                    break;
+                }
+            }
+        }
+
+        if(showQueue)
+            textToFrameColored(i + 2, 5, folder, SCREEN_COLOR_YELLOW);
+        else
+            textToFrame(i + 2, 5, folder);
 
         if(++i == MAX_FILEBROWSER_LINES)
             break;
@@ -103,7 +127,7 @@ static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const s
     drawFrame();
 }
 
-char *fileBrowserMenu(bool showQueue, bool allowNoIntro)
+char *fileBrowserMenu(bool installMenu, bool allowNoIntro)
 {
     char *path = MEMAllocFromDefaultHeap(FS_MAX_PATH);
     if(path != NULL)
@@ -186,8 +210,8 @@ char *fileBrowserMenu(bool showQueue, bool allowNoIntro)
 
                 if(redraw)
                 {
-                    sQ = showQueue ? getListSize(getTitleQueue()) : false;
-                    drawFBMenuFrame(path, folders, pos, cursor, usbMounted, sQ);
+                    sQ = installMenu ? getListSize(getTitleQueue()) : false;
+                    drawFBMenuFrame(path, folders, pos, cursor, usbMounted, installMenu, sQ);
                     redraw = false;
                 }
                 showFrame();

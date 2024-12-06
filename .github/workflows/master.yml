@@ -56,20 +56,6 @@ jobs:
           name: NUSspli-${{ steps.version.outputs.version }}-Aroma-DEBUG
           path: out/Aroma-DEBUG/*
           if-no-files-found: error
-      - name: Upload Lite version
-        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: NUSspli-${{ steps.version.outputs.version }}-Lite
-          path: out/Lite/*
-          if-no-files-found: warn
-      - name: Upload Lite debug version
-        if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: NUSspli-${{ steps.version.outputs.version }}-Lite-DEBUG
-          path: out/Lite-DEBUG/*
-          if-no-files-found: error
       - name: Upload Channel version
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
         uses: actions/upload-artifact@v4
@@ -108,5 +94,3 @@ jobs:
             zips/NUSspli-${{ steps.version.outputs.version }}-Aroma-DEBUG.zip
             zips/NUSspli-${{ steps.version.outputs.version }}-Channel.zip
             zips/NUSspli-${{ steps.version.outputs.version }}-Channel-DEBUG.zip
-            zips/NUSspli-${{ steps.version.outputs.version }}-Lite.zip
-            zips/NUSspli-${{ steps.version.outputs.version }}-Lite-DEBUG.zip

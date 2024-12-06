@@ -179,7 +179,7 @@ extern "C"
     WUT_CHECK_OFFSET(CETK, sizeof(CA3_PPKI_CERT) + sizeof(OTHER_PPKI_CERT), cert3);
     WUT_CHECK_SIZE(CETK, sizeof(CA3_PPKI_CERT) + (sizeof(OTHER_PPKI_CERT) * 2));
 
-    bool generateTik(const char *path, const TitleEntry *titleEntry, const TMD *tmd);
+    bool generateTik(const char *path, const TMD *tmd);
     bool generateCert(const TMD *tmd, const TICKET *ticket, size_t ticketSize, const char *path);
     void generateFakeTicket();
     void deleteTicket(uint64_t tid);

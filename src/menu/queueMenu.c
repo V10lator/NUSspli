@@ -1,7 +1,7 @@
 /***************************************************************************
  * This file is part of NUSspli.                                           *
  * Copyright (c) 2022 Xpl0itU <DaThinkingChair@protonmail.com>             *
- * Copyright (c) 2022 V10lator <v10lator@myway.de>                         *
+ * Copyright (c) 2022-2024 V10lator <v10lator@myway.de>                    *
  *                                                                         *
  * This program is free software; you can redistribute it and/or modify    *
  * it under the terms of the GNU General Public License as published by    *
@@ -36,13 +36,8 @@
 #pragma GCC diagnostic pop
 
 #define MAX_ENTRIES (MAX_LINES - 4)
-#ifndef NUSSPLI_LITE
-#define SPACER     7
-#define SPACER_END 14
-#else
-#define SPACER     4
-#define SPACER_END 17
-#endif
+#define SPACER      7
+#define SPACER_END  14
 
 static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
 {
@@ -66,7 +61,6 @@ static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
         if(cursor == i++)
             arrowToFrame(i, 1);
 
-#ifndef NUSSPLI_LITE
         if(data->operation & OPERATION_DOWNLOAD)
         {
             switch(data->dlDev)
@@ -84,7 +78,6 @@ static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
         }
 
         if(data->operation & OPERATION_INSTALL)
-#endif
             deviceToFrame(i, SPACER, data->toUSB ? DEVICE_TYPE_USB : DEVICE_TYPE_NAND);
 
         if(isDLC(data->tmd->tid))

@@ -1,7 +1,7 @@
 /***************************************************************************
  * This file is part of NUSspli.                                           *
  * Copyright (c) 2022 Xpl0itU <DaThinkingChair@protonmail.com>             *
- * Copyright (c) 2022 V10lator <v10lator@myway.de>                         *
+ * Copyright (c) 2022-2024 V10lator <v10lator@myway.de>                    *
  *                                                                         *
  * This program is free software; you can redistribute it and/or modify    *
  * it under the terms of the GNU General Public License as published by    *
@@ -49,20 +49,16 @@ int addToQueue(TitleData *data)
     TitleData *title;
     forEachListEntry(titleQueue, title)
     {
-#ifndef NUSSPLI_LITE
         if(data->operation & OPERATION_INSTALL && title->operation & OPERATION_INSTALL)
         {
-#endif
             if(data->toUSB && title->toUSB && data->tmd->tid == title->tmd->tid)
                 return 2;
-#ifndef NUSSPLI_LITE
         }
         if(data->operation & OPERATION_DOWNLOAD && title->operation & OPERATION_DOWNLOAD)
         {
             if(data->dlDev == title->dlDev && data->tmd->tid == title->tmd->tid)
                 return 3;
         }
-#endif
     }
 
     return addToListEnd(titleQueue, data) ? 1 : 0;
@@ -73,11 +69,9 @@ static inline void removeFQ(TitleData *title)
     if(title != NULL)
     {
         removeFromList(titleQueue, title);
-#ifndef NUSSPLI_LITE
         if(title->rambuf != NULL)
             freeRamBuf(title->rambuf);
         else
-#endif
             MEMFreeToDefaultHeap(title->tmd);
 
         MEMFreeToDefaultHeap(title);
@@ -88,24 +82,17 @@ bool proccessQueue()
 {
     TitleData *title;
     uint64_t sizes[3] = { 0, 0, 0 };
-#ifndef NUSSPLI_LITE
     QUEUE_DATA queueData = { .downloaded = 0, .dlSize = 0, .packages = 0, .current = 0, .eta = -1 };
-#endif
 
     forEachListEntry(titleQueue, title)
     {
-#ifndef NUSSPLI_LITE
         if(title->operation & OPERATION_DOWNLOAD)
             queueData.packages++;
-#endif
         for(uint16_t i = 0; i < title->tmd->num_contents; ++i)
         {
-#ifndef NUSSPLI_LITE
             if(title->operation & OPERATION_INSTALL)
-#endif
                 sizes[title->toUSB ? 0 : 2] += title->tmd->contents[i].size;
 
-#ifndef NUSSPLI_LITE
             if(title->operation & OPERATION_DOWNLOAD)
             {
                 queueData.dlSize += title->tmd->contents[i].size;
@@ -121,7 +108,6 @@ bool proccessQueue()
                     sizes[j] += title->tmd->contents[i].size;
                 }
             }
-#endif
         }
     }
 
@@ -155,7 +141,6 @@ bool proccessQueue()
         if(!AppRunning(true))
             goto exitApd;
 
-#ifndef NUSSPLI_LITE
         if(title->operation & OPERATION_DOWNLOAD)
         {
             queueData.current++;
@@ -165,12 +150,9 @@ bool proccessQueue()
         }
         else if(title->operation & OPERATION_INSTALL)
         {
-#endif
             if(!install(title->entry == NULL ? prettyDir(title->folderName) : title->entry->name, false /* TODO */, title->dlDev, title->folderName, title->toUSB, title->keepFiles, title->tmd))
                 goto exitApd;
-#ifndef NUSSPLI_LITE
         }
-#endif
 
         last = title;
     }
@@ -189,11 +171,9 @@ bool removeFromQueue(uint32_t index)
     if(title == NULL)
         return false;
 
-#ifndef NUSSPLI_LITE
     if(title->rambuf != NULL)
         freeRamBuf(title->rambuf);
     else
-#endif
         MEMFreeToDefaultHeap(title->tmd);
 
     MEMFreeToDefaultHeap(title);

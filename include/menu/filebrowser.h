@@ -1,6 +1,6 @@
 /***************************************************************************
  * This file is part of NUSspli.                                           *
- * Copyright (c) 2020 V10lator <v10lator@myway.de>                         *
+ * Copyright (c) 2020-2024 V10lator <v10lator@myway.de>                    *
  *                                                                         *
  * This program is free software; you can redistribute it and/or modify    *
  * it under the terms of the GNU General Public License as published by    *
@@ -27,7 +27,7 @@ extern "C"
 {
 #endif
 
-    char *fileBrowserMenu(bool showQueue, bool allowNoIntro);
+    char *fileBrowserMenu(bool installMenu, bool allowNoIntro);
 
 #ifdef __cplusplus
 }

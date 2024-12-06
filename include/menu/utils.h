@@ -63,6 +63,7 @@ extern "C"
     void showNoSpaceOverlay(NUSDEV dev);
     void humanize(uint64_t size, char *out);
     void getFreeSpaceString(NUSDEV dev, char *out);
+    bool showExitOverlay();
 
 #ifdef __cplusplus
 }

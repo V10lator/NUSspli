@@ -168,7 +168,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
                     if(minor >= 113 && minor < 125)
                     {
                         debugPrintf("Broken ticket detected, fixing...");
-                        if(generateTik(tmpPath, getTitleEntryByTid(tmd2->tid), tmd2))
+                        if(generateTik(tmpPath, tmd2))
                         {
                             if(noIntro != NULL)
                                 revertNoIntro(noIntro);

@@ -1,6 +1,6 @@
 /***************************************************************************
  * This file is part of NUSspli.                                           *
- * Copyright (c) 2020-2022 V10lator <v10lator@myway.de>                    *
+ * Copyright (c) 2020-2024 V10lator <v10lator@myway.de>                    *
  * Copyright (c) 2022 Xpl0itU <DaThinkingChair@protonmail.com>             *
  *                                                                         *
  * This program is free software; you can redistribute it and/or modify    *
@@ -35,11 +35,7 @@
 #include <coreinit/mcp.h>
 #pragma GCC diagnostic pop
 
-#ifndef NUSSPLI_LITE
 #define ENTRY_COUNT 4
-#else
-#define ENTRY_COUNT 3
-#endif
 
 static int cursorPos = 0;
 
@@ -68,12 +64,10 @@ static void drawConfigMenu()
     strcat(toScreen, localise(getNotificationString(getNotificationMethod())));
     textToFrame(3, 4, toScreen);
 
-#ifndef NUSSPLI_LITE
     strcpy(toScreen, localise("Region:"));
     strcat(toScreen, " ");
     strcat(toScreen, localise(getFormattedRegion(getRegion())));
     textToFrame(4, 4, toScreen);
-#endif
 
     lineToFrame(MAX_LINES - 2, SCREEN_COLOR_WHITE);
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, localise("Press " BUTTON_B " to return"));
@@ -193,7 +187,6 @@ static inline void switchNotificationMethod()
     setNotificationMethod(m);
 }
 
-#ifndef NUSSPLI_LITE
 static inline void switchRegion()
 {
     MCPRegion reg = getRegion();
@@ -235,7 +228,6 @@ static inline void switchRegion()
 
     setRegion(reg);
 }
-#endif
 
 void configMenu()
 {
@@ -276,11 +268,9 @@ void configMenu()
                 case 3:
                     switchNotificationMethod();
                     break;
-#ifndef NUSSPLI_LITE
                 case 4:
                     switchRegion();
                     break;
-#endif
             }
 
             redraw = true;

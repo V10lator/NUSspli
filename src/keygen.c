@@ -34,6 +34,7 @@
 #pragma GCC diagnostic pop
 
 static const uint8_t KEYGEN_SECRET[10] = { 0xfd, 0x04, 0x01, 0x05, 0x06, 0x0b, 0x11, 0x1c, 0x2d, 0x49 };
+static const TitleEntry unkEnt = { .key = TITLE_KEY_mypass };
 
 static inline const char *transformPassword(TITLE_KEY in)
 {
@@ -63,12 +64,12 @@ static inline const char *transformPassword(TITLE_KEY in)
     return NULL; // Should never happen
 }
 
-bool generateKey(const TitleEntry *te, uint8_t *out)
+bool generateKey(uint64_t tid, uint8_t *out)
 {
-    const uint8_t *ti = (const uint8_t *)&(te->tid);
+    const uint8_t *ti = (const uint8_t *)&tid;
     size_t i;
     size_t j;
-    switch(getTidHighFromTid(te->tid))
+    switch(getTidHighFromTid(tid))
     {
         case TID_HIGH_VWII_IOS:
             ti += 2;
@@ -87,14 +88,18 @@ bool generateKey(const TitleEntry *te, uint8_t *out)
     mbedtls_md5(key, j, key);
 
     // The key is the password salted with the md5 hash from above
-    const char *pw = transformPassword(te->key);
+    const TitleEntry *entry = getTitleEntryByTid(tid);
+    if(entry == NULL)
+        entry = &unkEnt;
+
+    const char *pw = transformPassword(entry->key);
     mbedtls_md_context_t ctx;
     mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA1), 1);
     if(mbedtls_pkcs5_pbkdf2_hmac(&ctx, (const unsigned char *)pw, strlen(pw), key, 16, 20, 16, key) != 0)
         return false;
 
     // The final key needs to be AES encrypted with the Wii U common key and part of the title ID padded with zeroes as IV
-    OSBlockMove(out, &(te->tid), 8, false);
+    OSBlockMove(out, &tid, 8, false);
     OSBlockSet(out + 8, 0, 8);
     return encryptAES(key, 16, getCommonKey(), out, out);
 }

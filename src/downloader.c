@@ -889,7 +889,6 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     return 0;
 }
 
-#ifndef NUSSPLI_LITE
 bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry, const char *titleVer, char *folderName, bool inst, NUSDEV dlDev, bool toUSB, bool keepFiles, QUEUE_DATA *queueData)
 {
     char tid[17];
@@ -1046,7 +1045,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
         switch(tikRes)
         {
             case 2:
-                if(!generateTik(installDir, titleEntry, tmd))
+                if(!generateTik(installDir, tmd))
                     return false;
 
                 addToScreenLog("Fake ticket created successfully");
@@ -1149,7 +1148,6 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
 
     return ret;
 }
-#endif
 
 RAMBUF *allocRamBuf()
 {

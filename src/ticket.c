@@ -1,7 +1,7 @@
 /***************************************************************************
  * This file is part of NUSspli.                                           *
  * Copyright (c) 2019-2020 Pokes303                                        *
- * Copyright (c) 2020-2022 V10lator <v10lator@myway.de>                    *
+ * Copyright (c) 2020-2024 V10lator <v10lator@myway.de>                    *
  *                                                                         *
  * This program is free software; you can redistribute it and/or modify    *
  * it under the terms of the GNU General Public License as published by    *
@@ -74,18 +74,12 @@ WUT_CHECK_OFFSET(TICKET_HEADER_SECTION, 0x18, unk06);
 WUT_CHECK_SIZE(TICKET_HEADER_SECTION, 0x98);
 
 static const uint8_t magic_header[10] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09 };
-#ifndef NUSSPLI_LITE
 static uint8_t default_cert[sizeof(OTHER_PPKI_CERT)] = { 0xff };
-#endif
 
 static void generateHeader(FileType type, NUS_HEADER *out)
 {
     OSBlockMove(out->magic_header, magic_header, 10, false);
-#ifndef NUSSPLI_LITE
     OSBlockMove(out->app, "NUSspli", sizeof("NUSspli") - 1, false);
-#else
-    OSBlockMove(out->app, "NUSspli Lite", sizeof("NUSspli Lite") - 1, false);
-#endif
     OSBlockMove(out->app_version, NUSSPLI_VERSION, sizeof(NUSSPLI_VERSION) - 1, false);
 
     if(type == FILE_TYPE_TIK)
@@ -98,12 +92,12 @@ static void generateHeader(FileType type, NUS_HEADER *out)
     osslBytes(out->rand_area, sizeof(out->rand_area));
 }
 
-bool generateTik(const char *path, const TitleEntry *titleEntry, const TMD *tmd)
+bool generateTik(const char *path, const TMD *tmd)
 {
     TICKET ticket;
     OSBlockSet(&ticket, 0x00, sizeof(TICKET));
 
-    if(!generateKey(titleEntry, ticket.key))
+    if(!generateKey(tmd->tid, ticket.key))
         return false;
 
     generateHeader(FILE_TYPE_TIK, &ticket.header);
@@ -162,7 +156,6 @@ bool generateTik(const char *path, const TitleEntry *titleEntry, const TMD *tmd)
     return true;
 }
 
-#ifndef NUSSPLI_LITE
 static uint8_t *getDefaultCert()
 {
     uint8_t *ret = NULL;
@@ -351,13 +344,8 @@ gftEntry:
             if(!generateCert(tmd, NULL, 0, dir))
                 break;
 
-            const TitleEntry *entry = getTitleEntryByTid(tmd->tid);
-            const TitleEntry te = { .name = "UNKNOWN", .tid = tmd->tid, .region = MCP_REGION_UNKNOWN, .key = 99 };
-            if(entry == NULL)
-                entry = &te;
-
             strcpy(ptr, "tik");
-            if(!generateTik(dir, entry, tmd))
+            if(!generateTik(dir, tmd))
                 break;
 
             drawTicketGenFrame(dir);
@@ -384,8 +372,6 @@ gftEntry:
 
     MEMFreeToDefaultHeap(tmd);
 }
-
-#endif // ifndef NUSSPLI_LITE
 
 void deleteTicket(uint64_t tid)
 {

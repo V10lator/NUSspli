@@ -1,7 +1,7 @@
 /***************************************************************************
  * This file is part of NUSspli.                                           *
  * Copyright (c) 2019-2020 Pokes303                                        *
- * Copyright (c) 2020-2022 V10lator <v10lator@myway.de>                    *
+ * Copyright (c) 2020-2024 V10lator <v10lator@myway.de>                    *
  *                                                                         *
  * This program is free software; you can redistribute it and/or modify    *
  * it under the terms of the GNU General Public License as published by    *
@@ -16,8 +16,6 @@
  * You should have received a copy of the GNU General Public License along *
  * with this program; if not, If not, see <http://www.gnu.org/licenses/>.  *
  ***************************************************************************/
-
-#ifndef NUSSPLI_LITE
 
 #include <wut-fixups.h>
 
@@ -44,23 +42,22 @@ bool downloadMenu()
     char folderName[FS_MAX_PATH - 11];
     titleID[0] = titleVer[0] = folderName[0] = '\0';
 
-    if(!showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_RESTRICTED, titleID, CHECK_HEXADECIMAL, 16, true, "00050000101", NULL))
-        return false;
+    if(showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_RESTRICTED, titleID, CHECK_HEXADECIMAL, 16, true, "00050000101", NULL))
+    {
+        if(!AppRunning(true))
+            return true;
 
-    if(!AppRunning(true))
-        return true;
+        toLowercase(titleID);
+        uint64_t tid;
+        hexToByte(titleID, (uint8_t *)&tid);
 
-    toLowercase(titleID);
-    uint64_t tid;
-    hexToByte(titleID, (uint8_t *)&tid);
+        const TitleEntry *entry = getTitleEntryByTid(tid);
+        if(entry != NULL)
+        {
+            predownloadMenu(entry);
+            return true;
+        }
+    }
 
-    const TitleEntry *entry = getTitleEntryByTid(tid);
-    const TitleEntry e = { .name = "UNKNOWN", .tid = tid, .region = MCP_REGION_UNKNOWN, .key = 99 };
-    if(entry == NULL)
-        entry = &e;
-
-    predownloadMenu(entry);
-    return true;
+    return false;
 }
-
-#endif // ifndef NUSSPLI_LITE

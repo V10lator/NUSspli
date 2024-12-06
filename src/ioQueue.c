@@ -171,7 +171,7 @@ bool checkForQueueErrors()
             }
 
             if(AppRunning(true))
-                homeButtonCallback(NULL);
+                homeButtonCallback((void *)true);
         }
 
         return true;

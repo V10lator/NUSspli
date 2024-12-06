@@ -42,10 +42,6 @@ CFLAGS		:=	$(MACHDEP) -Ofast -flto=auto -fno-fat-lto-objects \
 				-Wno-implicit-fallthrough \
 				-D__WIIU__ -D__WUT__ -DIOAPI_NO_64 -D__unix__
 
-ifeq ($(strip $(LITE)), 1)
-CFLAGS		+=	-DNUSSPLI_LITE
-endif
-
 CXXFLAGS	:=	$(CFLAGS) -std=c++20 -fpermissive
 ASFLAGS		:=	-g $(ARCH)
 LDFLAGS		:=	-g $(ARCH) $(RPXSPECS) $(CFLAGS) -Wl,-Map,$(notdir $*.map)

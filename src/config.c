@@ -1,6 +1,6 @@
 /***************************************************************************
  * This file is part of NUSspli.                                           *
- * Copyright (c) 2020-2022 V10lator <v10lator@myway.de>                    *
+ * Copyright (c) 2020-2024 V10lator <v10lator@myway.de>                    *
  * Copyright (c) 2022 Xpl0itU <DaThinkingChair@protonmail.com>             *
  *                                                                         *
  * This program is free software; you can redistribute it and/or modify    *
@@ -77,10 +77,8 @@ static bool autoResume = true;
 static Swkbd_LanguageType lang = Swkbd_LanguageType__Invalid;
 static Swkbd_LanguageType sysLang;
 static Swkbd_LanguageType menuLang = Swkbd_LanguageType__English;
-#ifndef NUSSPLI_LITE
 static bool dlToUSB = true;
 static MCPRegion regionSetting = MCP_REGION_EUROPE | MCP_REGION_USA | MCP_REGION_JAPAN;
-#endif
 static NOTIF_METHOD notifSetting = NOTIF_METHOD_RUMBLE | NOTIF_METHOD_LED;
 
 static inline void intSetMenuLanguage()
@@ -249,7 +247,6 @@ void initConfig()
         changed = true;
     }
 
-#ifndef NUSSPLI_LITE
     configEntry = json_object_get(json, "Region");
     if(configEntry != NULL && json_is_string(configEntry))
     {
@@ -276,7 +273,6 @@ void initConfig()
         addToScreenLog("Download to setting not found!");
         changed = true;
     }
-#endif
 
     configEntry = json_object_get(json, "Notification method");
     if(configEntry != NULL && json_is_string(configEntry))
@@ -403,14 +399,12 @@ void saveConfig(bool force)
                         value = json_string(getLanguageString(lang));
                         if(setValue(config, "Keyboard language", value))
                         {
-#ifndef NUSSPLI_LITE
                             value = json_string(getFormattedRegion(getRegion()));
                             if(setValue(config, "Region", value))
                             {
                                 value = dlToUSB ? json_true() : json_false();
                                 if(setValue(config, "Download to USB", value))
                                 {
-#endif
                                     value = json_string(getNotificationString(getNotificationMethod()));
                                     if(setValue(config, "Notification method", value))
                                     {
@@ -438,10 +432,8 @@ void saveConfig(bool force)
                                             }
                                         }
                                     }
-#ifndef NUSSPLI_LITE
                                 }
                             }
-#endif
                         }
                     }
                 }
@@ -500,7 +492,6 @@ const char *getFormattedRegion(MCPRegion region)
     return region & MCP_REGION_JAPAN ? SET_JPN : "Unknown";
 }
 
-#ifndef NUSSPLI_LITE
 bool dlToUSBenabled()
 {
     return dlToUSB;
@@ -528,7 +519,6 @@ void setRegion(MCPRegion region)
     regionSetting = region;
     changed = true;
 }
-#endif
 
 Swkbd_LanguageType getMenuLanguage()
 {

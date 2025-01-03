@@ -97,6 +97,9 @@ static inline void switchMenuLanguage()
             case Swkbd_LanguageType__Portuguese_BR:
                 lang = Swkbd_LanguageType__Portuguese;
                 break;
+            case Swkbd_LanguageType__Turkish:
+                lang = Swkbd_LanguageType__Turkish;
+                break;
             case Swkbd_LanguageType__Portuguese:
                 lang = Swkbd_LanguageType__Spanish;
                 break;
@@ -132,6 +135,9 @@ static inline void switchMenuLanguage()
                 break;
             case Swkbd_LanguageType__Portuguese_BR:
                 lang = Swkbd_LanguageType__French;
+                break;
+            case Swkbd_LanguageType__Turkish:
+                lang = Swkbd_LanguageType__Turkish;
                 break;
             case Swkbd_LanguageType__French:
                 lang = Swkbd_LanguageType__Italian;

@@ -3,6 +3,7 @@
     "Install content": "İçerik yükle",
     "Generate a fake <title.tik> file": "Sahte bir <title.tik> dosyası oluştur",
     "Browse installed titles": "Yüklenmiş başlıkları gözden geçir",
+    "Uninstall a title": "Bir İçeriği Kaldır",
     "Options": "Seçenekler",
     "Press \uE044 or \uE001 to exit": "\uE044 veya \uE001 tuşuna basarak çık",
     "Developers:": "Geliştiriciler:",
@@ -25,6 +26,7 @@
     "Searching on": "Aranıyor",
 
     "Press \uE045 to launch": "Başlatmak için \uE045 tuşuna bas",
+    "Press \uE000 to delete": "Silmek için \uE000 tuşuna bas",
     "\uE046 to delete": "Silmek için \uE046 tuşuna bas",
 
     "Press \uE000 to continue": "Devam etmek için \uE000 tuşuna bas",
@@ -39,6 +41,7 @@
     "Auto resume failed downloads:": "Başarısız indirmeleri otomatik devam ettir:",
     "Notification method:": "Bildirim yöntemi:",
     "System settings": "Sistem ayarları",
+    "Region:": "Bölge:",
     "Turkish": "Türkçe",
     "None": "Hiçbiri",
     "Europe": "Avrupa",
@@ -70,6 +73,7 @@
     "Error moving file": "Dosya taşıma hatası",
     "Error moving directory": "Dizin taşıma hatası",
 
+    "Name:": "Adı:",
     "Size:": "Boyut:",
     "Provided title version": "Başlık sürümü",
     "Only numbers": "Sadece rakamlar",
@@ -93,6 +97,7 @@
 
     "Install to:": "Şuraya yükle:",
     "Install": "Yükle",
+    "Operation:": "İşlem:",
     "Download only": "Sadece indir",
     "Download to:": "Şuraya indir:",
     "Keep downloaded files:": "İndirilen dosyaları sakla:",
@@ -165,6 +170,7 @@
     "The server didn't return any data": "Sunucu herhangi bir veri döndürmedi",
     "I/O error": "G/Ç hatası",
     "Verification failed": "Doğrulama başarısız oldu",
+    "check your Wii U's date and time settings": "Wii U'nuzun tarih ve saat ayarlarını kontrol edin",
     "Handshake failed": "El sıkışma başarısız oldu",
     "Internal error": "Dahili hata",
     "Unknown libcurl error": "Bilinmeyen libcurl hatası",

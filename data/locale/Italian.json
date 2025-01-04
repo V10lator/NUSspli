@@ -182,7 +182,7 @@
     "Do you really want to cancel?": "Vuoi davvero annullare?",
     "The download of title.tmd failed with error: 404": "Il download di title.tmd è fallito con l'errore: 404.",
     "The title cannot be found on the NUS, maybe the provided title ID doesn't exist or\nthe TMD was deleted": "Il titolo non può essere trovato su NUS, forse l'ID del titolo fornito non esiste o\nil TMD è stato eliminato.",
-    "The download returned a result different from 200 (OK)": "Il download ha restituito un risultato diverso da 200 (OK)",
+    "The download returned a result different to 200 (OK)": "Il download ha restituito un risultato diverso da 200 (OK)",
     "Request failed. Try again": "Richiesta fallita. Riprova",
 
     "Press \uE003 to retry": "Premi \uE003 per riprovare",

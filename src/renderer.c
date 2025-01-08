@@ -735,6 +735,9 @@ void resumeRenderer()
                 loadTexture(tex, deviceTex + i);
             }
 
+            // TODO: Ugly workaround for the exit overlay working from the home button callback
+            showExitOverlay(false);
+
             t = OSGetSystemTime() - t;
             addEntropy(&t, sizeof(OSTime));
             return;

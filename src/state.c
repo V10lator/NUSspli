@@ -23,7 +23,6 @@
 
 #include <cfw.h>
 #include <crypto.h>
-#include <exception.h>
 #include <menu/utils.h>
 #include <renderer.h>
 #include <state.h>
@@ -114,7 +113,7 @@ bool isChannel()
 
 uint32_t homeButtonCallback(void *dummy)
 {
-    if(shutdownEnabled && dummy == (void *)false && showExitOverlay())
+    if(shutdownEnabled && dummy == (void *)false && showExitOverlay(true))
     {
         shutdownEnabled = false;
         app = APP_STATE_HOME;
@@ -127,7 +126,6 @@ uint32_t homeButtonCallback(void *dummy)
 void initState()
 {
     ProcUIInit(&OSSavesDone_ReadyToRelease);
-    initExceptionHandler();
     OSTime t = OSGetTime();
 
     app = APP_STATE_RUNNING;
@@ -167,7 +165,6 @@ void deinitState()
         enableApd();
     }
 
-    deinitExceptionHandler();
     ACPFinalize();
 }
 

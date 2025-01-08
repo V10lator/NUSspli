@@ -259,7 +259,7 @@ index f710dd8a5..7ebdfea8b 100644
      {
          FILE*        pFile;
 diff --git a/src/atomic/SDL_atomic.c b/src/atomic/SDL_atomic.c
-index ba2ecff9e..c4ced334c 100644
+index ba2ecff9e..0dcc20d48 100644
 --- a/src/atomic/SDL_atomic.c
 +++ b/src/atomic/SDL_atomic.c
 @@ -35,6 +35,10 @@
@@ -329,7 +329,25 @@ index ba2ecff9e..c4ced334c 100644
  #elif defined(HAVE_GCC_ATOMICS)
      return __sync_lock_test_and_set(a, v);
  #elif defined(__SOLARIS__)
-@@ -253,7 +267,9 @@ SDL_AtomicAdd(SDL_atomic_t *a, int v)
+@@ -234,12 +248,14 @@ SDL_AtomicAdd(SDL_atomic_t *a, int v)
+     return _InterlockedExchangeAdd((long*)&a->value, v);
+ #elif defined(HAVE_WATCOM_ATOMICS)
+     return _SDL_xadd_watcom(&a->value, v);
++#elif defined(__WIIU__)
++    return OSAddAtomic((volatile int32_t *)&a->value, v);
+ #elif defined(HAVE_GCC_ATOMICS)
+     return __sync_fetch_and_add(&a->value, v);
+ #elif defined(__SOLARIS__)
+-    int pv = a->value;
+-    membar_consumer();
+-    atomic_add_int((volatile uint_t*)&a->value, v);
++    int pv = a->value;
++    membar_consumer();
++    atomic_add_int((volatile uint_t*)&a->value, v);
+     return pv;
+ #else
+     int value;
+@@ -253,7 +269,9 @@ SDL_AtomicAdd(SDL_atomic_t *a, int v)
  int
  SDL_AtomicGet(SDL_atomic_t *a)
  {
@@ -340,7 +358,7 @@ index ba2ecff9e..c4ced334c 100644
      return __atomic_load_n(&a->value, __ATOMIC_SEQ_CST);
  #elif defined(HAVE_MSC_ATOMICS)
      SDL_COMPILE_TIME_ASSERT(atomic_get, sizeof(long) == sizeof(a->value));
-@@ -278,7 +294,9 @@ SDL_AtomicGet(SDL_atomic_t *a)
+@@ -278,7 +296,9 @@ SDL_AtomicGet(SDL_atomic_t *a)
  void *
  SDL_AtomicGetPtr(void **a)
  {

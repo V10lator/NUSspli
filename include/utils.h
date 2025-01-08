@@ -29,7 +29,7 @@
 #include <coreinit/mcp.h>
 #pragma GCC diagnostic pop
 
-#define NUSSPLI_VERSION            "1.153"
+#define NUSSPLI_VERSION            "1.154"
 
 #define NAPI_URL                   "https://napi.v10lator.de/v2/"
 #define NUSSPLI_COPYRIGHT          "© 2020-2024 V10lator <v10lator@myway.de>"

@@ -431,7 +431,7 @@ void showNoSpaceOverlay(NUSDEV dev)
     }
 }
 
-bool showExitOverlay()
+bool showExitOverlay(bool really)
 {
     const char *extMsg = localise("Do you really want to exit?");
     const char *yes = localise("Yes");
@@ -453,17 +453,20 @@ bool showExitOverlay()
         return true;
 
     bool ret = false;
-    while(AppRunning(true))
+    if(really)
     {
-        showFrame();
-
-        if(vpad.trigger & VPAD_BUTTON_A)
+        while(AppRunning(true))
         {
-            ret = true;
-            break;
+            showFrame();
+
+            if(vpad.trigger & VPAD_BUTTON_A)
+            {
+                ret = true;
+                break;
+            }
+            if(vpad.trigger & VPAD_BUTTON_B)
+                break;
         }
-        if(vpad.trigger & VPAD_BUTTON_B)
-            break;
     }
 
     removeErrorOverlay(ovl);

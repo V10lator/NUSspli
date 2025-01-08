@@ -105,7 +105,7 @@ void mainMenu()
 
         if(vpad.trigger & VPAD_BUTTON_B)
         {
-            if(showExitOverlay())
+            if(showExitOverlay(true))
             {
                 drawByeFrame();
                 return;

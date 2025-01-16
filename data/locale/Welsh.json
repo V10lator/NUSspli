@@ -103,10 +103,10 @@
     "\uE046 to add to the queue": "Pwyswch \uE046 i ychwanegu at y ciw",
     "\uE003 to uninstall": "Pwyswch \uE003 i ddadosod",
     
-    "days": "dyddiau",
-    "hours": "oriau",
-    "minutes": "munudau",
-    "seconds": "eiliadau",
+    "days": "dyd.",
+    "hours": "ori.",
+    "minutes": "mun.",
+    "seconds": "eil.",
     
     "Downloading": "Lawrlwytho",
     "Preparing": "Paratoi:",

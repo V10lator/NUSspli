@@ -103,6 +103,8 @@ void mainMenu()
         }
         showFrame();
 
+        checkAndDoDRCScreenOff();
+
         if(vpad.trigger & VPAD_BUTTON_B)
         {
             if(showExitOverlay(true))

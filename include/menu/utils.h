@@ -64,6 +64,7 @@ extern "C"
     void humanize(uint64_t size, char *out);
     void getFreeSpaceString(NUSDEV dev, char *out);
     bool showExitOverlay(bool really);
+    void checkAndDoDRCScreenOff();
 
 #ifdef __cplusplus
 }

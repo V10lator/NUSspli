@@ -65,6 +65,8 @@ bool updateMenu(const char *newVersion, NUSSPLI_TYPE type)
 
         showFrame();
 
+        checkAndDoDRCScreenOff();
+
         if(vpad.trigger & VPAD_BUTTON_A)
         {
             if(update(newVersion, type))

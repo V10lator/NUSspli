@@ -216,6 +216,8 @@ char *fileBrowserMenu(bool installMenu, bool allowNoIntro)
                 }
                 showFrame();
 
+                checkAndDoDRCScreenOff();
+
                 if(vpad.trigger & VPAD_BUTTON_B)
                     break;
                 if(vpad.trigger & VPAD_BUTTON_A)

@@ -232,6 +232,8 @@ loop:
         }
         showFrame();
 
+        checkAndDoDRCScreenOff();
+
         if(vpad.trigger & VPAD_BUTTON_A)
         {
             entry = filteredTitleEntries[cursor + pos];

@@ -473,6 +473,12 @@ bool showExitOverlay(bool really)
     return ret;
 }
 
+void checkAndDoDRCScreenOff() {
+    if (vpad.trigger & VPAD_BUTTON_STICK_R) {
+        VPADSetLcdMode(VPAD_CHAN_0, VPAD_LCD_STANDBY);
+    }
+}
+
 void humanize(uint64_t size, char *out)
 {
     const char *m;

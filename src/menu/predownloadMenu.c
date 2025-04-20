@@ -459,6 +459,8 @@ naNedNa:
             }
             showFrame();
 
+            checkAndDoDRCScreenOff();
+
             if(vpad.trigger & VPAD_BUTTON_B)
             {
                 freeRamBuf(rambuf);
@@ -561,6 +563,8 @@ naNedNa:
 
                 showFrame();
 
+                checkAndDoDRCScreenOff();
+
                 if(vpad.trigger & VPAD_BUTTON_B)
                 {
                     removeErrorOverlay(ovl);
@@ -592,6 +596,8 @@ naNedNa:
                         continue;
 
                     showFrame();
+
+                    checkAndDoDRCScreenOff();
 
                     if(vpad.trigger & VPAD_BUTTON_B)
                         break;
@@ -630,6 +636,8 @@ naNedNa:
 
                             showFrame();
 
+                            checkAndDoDRCScreenOff();
+
                             if(vpad.trigger & VPAD_BUTTON_B)
                                 break;
                             if(vpad.trigger & VPAD_BUTTON_A)
@@ -663,6 +671,8 @@ naNedNa:
                             continue;
 
                         showFrame();
+
+                        checkAndDoDRCScreenOff();
 
                         if(vpad.trigger & VPAD_BUTTON_B)
                             break;
@@ -717,6 +727,8 @@ naNedNa:
                             continue;
 
                         showFrame();
+
+                        checkAndDoDRCScreenOff();
 
                         if(vpad.trigger & VPAD_BUTTON_B)
                             break;

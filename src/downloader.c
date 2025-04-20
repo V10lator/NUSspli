@@ -235,6 +235,8 @@ static bool showNetworkError(const char *err)
 
         showFrame();
 
+        checkAndDoDRCScreenOff();
+
         if(vpad.trigger & VPAD_BUTTON_B)
             break;
         if(vpad.trigger & VPAD_BUTTON_Y || (autoResumeEnabled() && --frames == 0))
@@ -784,6 +786,8 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
 
         showFrame();
 
+        checkAndDoDRCScreenOff();
+
         if(cancelOverlay == NULL)
         {
             if(vpad.trigger & VPAD_BUTTON_B)
@@ -922,6 +926,8 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
 
                 showFrame();
 
+                checkAndDoDRCScreenOff();
+
                 if(vpad.trigger & VPAD_BUTTON_B)
                     break;
                 if(vpad.trigger & VPAD_BUTTON_Y)
@@ -960,6 +966,8 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
                     drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
 
                 showFrame();
+
+                checkAndDoDRCScreenOff();
 
                 if(vpad.trigger & VPAD_BUTTON_B)
                     break;

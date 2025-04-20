@@ -303,6 +303,8 @@ loopEntry:
         }
         showFrame();
 
+        checkAndDoDRCScreenOff();
+
         if(vpad.trigger & VPAD_BUTTON_PLUS)
         {
             launchTitle(ititleEntries + cursor + pos);
@@ -477,6 +479,8 @@ loopEntry:
         while(AppRunning(true))
         {
             showFrame();
+
+            checkAndDoDRCScreenOff();
 
             if(vpad.trigger & VPAD_BUTTON_B)
             {

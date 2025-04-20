@@ -146,6 +146,8 @@ bool queueMenu()
         }
         showFrame();
 
+        checkAndDoDRCScreenOff();
+
         if(vpad.trigger & VPAD_BUTTON_B)
             return false;
 

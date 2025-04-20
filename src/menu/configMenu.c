@@ -258,6 +258,8 @@ void configMenu()
         }
         showFrame();
 
+        checkAndDoDRCScreenOff();
+
         if(vpad.trigger & VPAD_BUTTON_B)
         {
             saveConfig(false);

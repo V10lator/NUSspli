@@ -193,6 +193,8 @@ refreshDir:
         }
         showFrame();
 
+        checkAndDoDRCScreenOff();
+
         if(vpad.trigger & VPAD_BUTTON_B)
         {
             MEMFreeToDefaultHeap((TMD *)tmd);

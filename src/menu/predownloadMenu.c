@@ -217,7 +217,7 @@ static void *drawPDWrongDeviceFrame(NUSDEV dev)
     strcat(toFrame, " ");
     strcat(toFrame, dev & NUSDEV_USB ? "USB" : "NAND");
     strcat(toFrame, "\n");
-    strcat(toFrame, "Do you want to change the target device to this?");
+    strcat(toFrame, localise("Do you want to change the target device to this?"));
     strcat(toFrame, "\n\n" BUTTON_A " ");
     strcat(toFrame, localise("Yes"));
     strcat(toFrame, " || " BUTTON_B " ");

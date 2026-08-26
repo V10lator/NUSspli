@@ -149,6 +149,16 @@ static void SWKBD_Render(SWKBD_Args *args, KeyboardChecks check)
     drawKeyboard(lastUsedController != CT_VPAD_0);
 }
 
+static inline void stopCalcThread(OSThread *calcThread)
+{
+    OSMessage msg = { .message = NUSSPLI_MESSAGE_EXIT };
+    OSSendMessage(&swkbd_queue, &msg, OS_MESSAGE_FLAGS_BLOCKING);
+    stopThread(calcThread, NULL);
+
+    if(appearArg.keyboardArg.configArg.str)
+        MEMFreeToDefaultHeap(appearArg.keyboardArg.configArg.str);
+}
+
 static bool SWKBD_Show(SWKBD_Args *args, KeyboardLayout layout, KeyboardType type, int maxlength, bool limit, const char *okStr)
 {
     debugPrintf("SWKBD_Show()");
@@ -218,7 +228,10 @@ static bool SWKBD_Show(SWKBD_Args *args, KeyboardLayout layout, KeyboardType typ
     debugPrintf("Swkbd_AppearInputForm(): %s", kbdVisible ? "true" : "false");
 
     if(!kbdVisible)
+    {
+        stopCalcThread(args->calcThread);
         return false;
+    }
 
     args->globalLimit = limit;
     VPADSetSensorBar(VPAD_CHAN_0, true);
@@ -243,12 +256,7 @@ static void SWKBD_Hide(SWKBD_Args *args)
     while(!Swkbd_IsHidden())
         SWKBD_Render(args, CHECK_NONE);
 
-    OSMessage msg = { .message = NUSSPLI_MESSAGE_EXIT };
-    OSSendMessage(&swkbd_queue, &msg, OS_MESSAGE_FLAGS_BLOCKING);
-    stopThread(args->calcThread, NULL);
-
-    if(appearArg.keyboardArg.configArg.str)
-        MEMFreeToDefaultHeap(appearArg.keyboardArg.configArg.str);
+    stopCalcThread(args->calcThread);
 }
 
 bool SWKBD_Init()

@@ -81,22 +81,17 @@ static SDL_Texture *bgTex;
 static SDL_Texture *byeTex;
 static SDL_Rect byeRect;
 
-static LIST *rectList;
+static SDL_Rect rectPool[SDL_RECTS];
+static uint32_t rectPoolIndex = 0;
+
 static LIST *errorOverlayList;
 
 static inline SDL_Rect *createRect()
 {
-    SDL_Rect *ret = MEMAllocFromDefaultHeap(sizeof(SDL_Rect));
-    if(!ret)
-        return NULL;
+    if(rectPoolIndex < SDL_RECTS)
+        return &rectPool[rectPoolIndex++];
 
-    if(!addToListEnd(rectList, ret))
-    {
-        MEMFreeToDefaultHeap(ret);
-        return NULL;
-    }
-
-    return ret;
+    return NULL;
 }
 
 #define internalTextToFrame(lineBuffer, bufSize)         \
@@ -790,9 +785,7 @@ bool initRenderer()
     if(font)
         return true;
 
-    rectList = createList();
-    if(rectList == NULL)
-        return false;
+    rectPoolIndex = 0;
 
     errorOverlayList = createList();
     if(errorOverlayList != NULL)
@@ -877,7 +870,6 @@ bool initRenderer()
         destroyList(errorOverlayList, true);
     }
 
-    destroyList(rectList, true);
     return false;
 }
 
@@ -944,7 +936,6 @@ void shutdownRenderer()
     SDL_DestroyWindow(window);
 
     quitSDL();
-    destroyList(rectList, true);
 }
 
 void colorStartNewFrame(SCREEN_COLOR color)
@@ -960,7 +951,7 @@ void colorStartNewFrame(SCREEN_COLOR color)
         SDL_RenderClear(renderer);
     }
 
-    clearList(rectList, true);
+    rectPoolIndex = 0;
 }
 
 void showFrame()

@@ -62,9 +62,7 @@ static bool addToOpQueue(const TitleEntry *entry, const char *dir, const TMD *tm
         return true;
 
     MEMFreeToDefaultHeap(titleInfo);
-
-    MEMFreeToDefaultHeap((TMD *)tmd);
-    return ret;
+    return false;
 }
 
 static void drawInstallerMenuFrame(const char *name, NUSDEV dev, NUSDEV toDev, bool usbMounted, bool keepFiles, MCPRegion region, const TMD *tmd)

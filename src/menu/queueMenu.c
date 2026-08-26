@@ -44,7 +44,7 @@ static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
     startNewFrame();
     boxToFrame(0, MAX_LINES - 3);
 
-    char *toScreen = getToFrameBuffer();
+    char toScreen[FS_MAX_PATH + 256];
     size_t i = 0;
     int p;
     TitleData *data;

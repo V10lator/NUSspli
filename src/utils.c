@@ -195,7 +195,7 @@ void glueMcpData(MCPInstallTitleInfo *info, McpData *data)
 void showMcpProgress(McpData *data, const char *game, bool inst)
 {
     MCPInstallProgress progress __attribute__((__aligned__(0x40))) = { .inProgress = 0, .sizeTotal = 0 };
-    char *toScreen = getToFrameBuffer();
+    char toScreen[512];
     MCPError err;
     OSTime lastSpeedCalc = 0;
     OSTime now;

@@ -36,7 +36,6 @@
 #include <renderer.h>
 #include <romfs.h>
 #include <state.h>
-#include <staticMem.h>
 #include <thread.h>
 #include <ticket.h>
 #include <titles.h>
@@ -192,7 +191,7 @@ static CURLcode ssl_ctx_init(CURL *cu, void *sslctx, void *parm)
 
 static bool showNetworkError(const char *err)
 {
-    char *toScreen = getToFrameBuffer();
+    char toScreen[512];
     if(toScreen != err)
         strcpy(toScreen, err);
 
@@ -531,7 +530,7 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
     else
         barToFrame(line, 0, 29, 0.0D);
 
-    char *toScreen = getToFrameBuffer();
+    char toScreen[256];
     humanize(currentSize, toScreen);
     char *ptr = toScreen + strlen(toScreen);
     strcpy(ptr, " / ");
@@ -562,7 +561,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
         name = file + haystack + 1;
     }
 
-    char *toScreen = getToFrameBuffer();
+    char toScreen[FS_MAX_PATH + 64];
     void *fp;
     size_t fileSize;
     if(rambuf)
@@ -901,9 +900,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
         if(!rambuf)
         {
             flushIOQueue();
-            char *newFile = getStaticPathBuffer(2);
-            strcpy(newFile, file);
-            FSARemove(getFSAClient(), newFile);
+            FSARemove(getFSAClient(), file);
         }
 
         if(resp == 404 && (type & FILE_TYPE_TMD) == FILE_TYPE_TMD) // Title.tmd not found
@@ -1015,7 +1012,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
         strcat(folderName, titleVer);
     }
 
-    char *installDir = getStaticPathBuffer(3);
+    char installDir[FS_MAX_PATH];
     strcpy(installDir, dlDev == NUSDEV_USB01 ? INSTALL_DIR_USB1 : (dlDev == NUSDEV_USB02 ? INSTALL_DIR_USB2 : (dlDev == NUSDEV_SD ? INSTALL_DIR_SD : INSTALL_DIR_MLC)));
     if(!dirExists(installDir))
     {
@@ -1025,9 +1022,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
             addToScreenLog("Install directory successfully created");
         else
         {
-            char *toScreen = getToFrameBuffer();
-            strcpy(toScreen, translateFSErr(err));
-            showErrorFrame(toScreen);
+            showErrorFrame(translateFSErr(err));
             return false;
         }
     }
@@ -1046,9 +1041,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
             addToScreenLog("Download directory successfully created");
         else
         {
-            char *toScreen = getToFrameBuffer();
-            strcpy(toScreen, translateFSErr(err));
-            showErrorFrame(toScreen);
+            showErrorFrame(translateFSErr(err));
             return false;
         }
     }
@@ -1069,7 +1062,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     addToIOQueue(NULL, 0, 0, fp);
     addToScreenLog("title.tmd saved");
 
-    char *toScreen = getToFrameBuffer();
+    char toScreen[128];
     strcpy(toScreen, "=>Title type: ");
     bool hasDependencies;
     switch(getTidHighFromTid(tmd->tid)) // Title type

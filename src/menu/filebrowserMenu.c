@@ -54,18 +54,18 @@ static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const s
 
     boxToFrame(1, MAX_LINES - 3);
 
-    char *toWrite = getToFrameBuffer();
+    char toWrite[FS_MAX_PATH + 256];
     strcpy(toWrite, localise("Press " BUTTON_A " to select"));
     strcat(toWrite, " || ");
     strcat(toWrite, localise(BUTTON_B " to return"));
     strcat(toWrite, " || ");
 
-    char *l = getStaticLineBuffer();
-    strcpy(l, BUTTON_X " to switch to ");
-    strcat(l, activeDevice == NUSDEV_USB ? "SD" : activeDevice == NUSDEV_SD ? "NAND"
+    char lbuf[64];
+    strcpy(lbuf, BUTTON_X " to switch to ");
+    strcat(lbuf, activeDevice == NUSDEV_USB ? "SD" : activeDevice == NUSDEV_SD ? "NAND"
             : usbMounted                                                    ? "USB"
                                                                             : "SD");
-    strcat(toWrite, localise(l));
+    strcat(toWrite, localise(lbuf));
     textToFrame(MAX_LINES - 2, ALIGNED_CENTER, toWrite);
 
     if(showQueue)
@@ -86,7 +86,7 @@ static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const s
     char fp[FS_MAX_PATH];
     size_t i = strlen(path);
     OSBlockMove(fp, path, i, false);
-    l = fp + i;
+    char *l = fp + i;
     i = 0;
     showQueue = false;
 

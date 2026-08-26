@@ -31,7 +31,6 @@
 #include <osdefs.h>
 #include <renderer.h>
 #include <romfs.h>
-#include <staticMem.h>
 #include <swkbd_wrapper.h>
 #include <thread.h>
 #include <utils.h>
@@ -100,7 +99,7 @@ static inline SDL_Rect *createRect()
     return ret;
 }
 
-#define internalTextToFrame()                                 \
+#define internalTextToFrame(lineBuffer, bufSize)              \
     {                                                         \
         ++line;                                               \
         line *= FONT_SIZE;                                    \
@@ -110,9 +109,11 @@ static inline SDL_Rect *createRect()
         if(maxWidth != 0 && w > maxWidth)                     \
         {                                                     \
             size_t i = strlen(str);                           \
-            char *lineBuffer = (char *)getStaticLineBuffer(); \
+            if(i >= bufSize)                                  \
+                i = bufSize - 1;                              \
             char *tmp = lineBuffer;                           \
-            OSBlockMove(tmp, str, i + 1, false);              \
+            OSBlockMove(tmp, str, i, false);                  \
+            tmp[i] = '\0';                                    \
             tmp += i;                                         \
                                                               \
             *--tmp = '\0';                                    \
@@ -122,7 +123,7 @@ static inline SDL_Rect *createRect()
                                                               \
             char *tmp2;                                       \
             w = FC_GetWidth(font, lineBuffer);                \
-            while(w > maxWidth)                               \
+            while(w > maxWidth && tmp > lineBuffer)           \
             {                                                 \
                 tmp2 = tmp;                                   \
                 *--tmp = '.';                                 \
@@ -131,7 +132,7 @@ static inline SDL_Rect *createRect()
                 w = FC_GetWidth(font, lineBuffer);            \
             }                                                 \
                                                               \
-            if(*--tmp == ' ')                                 \
+            if(tmp > lineBuffer && *--tmp == ' ')             \
             {                                                 \
                 *tmp = '.';                                   \
                 tmp[3] = '\0';                                \
@@ -159,7 +160,8 @@ void textToFrameCut(int line, int column, const char *str, int maxWidth)
     if(font == NULL)
         return;
 
-    internalTextToFrame();
+    char lineBuffer[1024];
+    internalTextToFrame(lineBuffer, sizeof(lineBuffer));
     FC_Draw(font, renderer, column, line, str);
 }
 
@@ -168,7 +170,8 @@ void textToFrameColoredCut(int line, int column, const char *str, SCREEN_COLOR c
     if(font == NULL)
         return;
 
-    internalTextToFrame();
+    char lineBuffer[1024];
+    internalTextToFrame(lineBuffer, sizeof(lineBuffer));
     FC_DrawColor(font, renderer, column, line, color, str);
 }
 
@@ -184,9 +187,13 @@ int textToFrameMultiline(int x, int y, const char *text, size_t len)
         return 1;
     }
 
-    char *p = getStaticLineBuffer();
+    char pBuf[2048];
+    char *p = pBuf;
     size_t l = strlen(text);
-    OSBlockMove(p, text, l + 1, false);
+    if(l >= sizeof(pBuf))
+        l = sizeof(pBuf) - 1;
+    OSBlockMove(p, text, l, false);
+    p[l] = '\0';
 
     char *t;
     char o;

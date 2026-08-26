@@ -72,7 +72,7 @@ static void drawInstallerMenuFrame(const char *name, NUSDEV dev, NUSDEV toDev, b
     startNewFrame();
     textToFrame(0, 0, localise("Name:"));
 
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, name);
     char tid[17];
     hex(tmd->tid, 16, tid);

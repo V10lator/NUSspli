@@ -42,6 +42,7 @@ uint8_t *getCommonKey()
         if(Mocha_ReadOTP(&otp) == MOCHA_RESULT_SUCCESS)
         {
             OSBlockMove(otp_common_key, otp.wiiUBank.wiiUCommonKey, 16, false);
+            OSMemoryBarrier();
 
             t = OSGetSystemTime() - t;
             addEntropy(&t, sizeof(OSTime));

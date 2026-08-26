@@ -123,7 +123,11 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         size += tmd2->contents[i].size;
 
     if(!checkFreeSpace(toUsb ? getUSB() : NUSDEV_MLC, size))
+    {
+        if(tmd == NULL && tmd2 != NULL)
+            MEMFreeToDefaultHeap(tmd2);
         return !(AppRunning(true));
+    }
 
     // No-intro
     char tmpPath[FS_MAX_PATH];
@@ -140,6 +144,9 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         noIntro = transformNoIntro(path);
         if(noIntro == NULL)
         {
+            if(tmd == NULL && tmd2 != NULL)
+                MEMFreeToDefaultHeap(tmd2);
+
             const char *err = localise("Error transforming no-image set");
             addToScreenLog("Installation failed!");
             showErrorFrame(err);
@@ -174,7 +181,11 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
                             if(noIntro != NULL)
                                 revertNoIntro(noIntro);
 
-                            return install(game, hasDeps, dev, path, toUsb, keepFiles, tmd2);
+                            bool ret = install(game, hasDeps, dev, path, toUsb, keepFiles, tmd2);
+                            if(tmd == NULL && tmd2 != NULL)
+                                MEMFreeToDefaultHeap(tmd2);
+
+                            return ret;
                         }
                         else
                             debugPrintf("Error fixing ticket!");
@@ -213,8 +224,15 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         debugPrintf(toScreen);
         addToScreenLog("Installation failed!");
         showErrorFrame(toScreen);
+
+        if(tmd == NULL && tmd2 != NULL)
+            MEMFreeToDefaultHeap(tmd2);
+
         return false;
     }
+
+    if(tmd == NULL && tmd2 != NULL)
+        MEMFreeToDefaultHeap(tmd2);
 
     // Allright, let's set if we want to install to USB or NAND
     MCPInstallTarget target = toUsb ? MCP_INSTALL_TARGET_USB : MCP_INSTALL_TARGET_MLC;

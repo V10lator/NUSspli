@@ -153,7 +153,7 @@ bool checkForQueueErrors()
     {
         if(fwriteOverlay == NULL && OSIsMainCore())
         {
-            char *errMsg = getToFrameBuffer();
+            char errMsg[256];
             sprintf(errMsg, "Write error:\n%s\n\nThis is an unrecoverable error!\nPress any button to exit.", translateFSErr(fwriteErrno));
             fwriteOverlay = addErrorOverlay(errMsg);
 

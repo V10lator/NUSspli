@@ -70,7 +70,7 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
 
     textToFrame(0, 0, localise("Name:"));
 
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, entry->name);
     char tid[17];
     hex(entry->tid, 16, tid);
@@ -212,7 +212,7 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
 
 static void *drawPDWrongDeviceFrame(NUSDEV dev)
 {
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, localise("The main game is installed to"));
     strcat(toFrame, " ");
     strcat(toFrame, dev & NUSDEV_USB ? "USB" : "NAND");
@@ -228,7 +228,7 @@ static void *drawPDWrongDeviceFrame(NUSDEV dev)
 
 static void *drawPDMainGameFrame(const TitleEntry *entry)
 {
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, entry->name);
     strcat(toFrame, "\n");
     strcat(toFrame, localise(isDLC(entry->tid) ? "is DLC." : (isUpdate(entry->tid) ? "is a update." : "is a demo.")));
@@ -242,7 +242,7 @@ static void *drawPDMainGameFrame(const TitleEntry *entry)
 
 static void *drawPDUpdateFrame(const TitleEntry *entry)
 {
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, entry->name);
     strcat(toFrame, "\n");
     strcat(toFrame, localise("Has an update available."));
@@ -539,7 +539,7 @@ naNedNa:
     {
         if(dlDev == NUSDEV_MLC)
         {
-            char *txt = getToFrameBuffer();
+            char txt[512];
             sprintf(txt,
                 "%s\n\n" BUTTON_A " %s || " BUTTON_B " %s",
                 localise(

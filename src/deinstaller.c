@@ -39,7 +39,7 @@
 bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool skipEnd)
 {
     startNewFrame();
-    char *toFrame = getToFrameBuffer();
+    char toFrame[256];
     strcpy(toFrame, localise("Uninstalling"));
     strcat(toFrame, " ");
     strcat(toFrame, name);

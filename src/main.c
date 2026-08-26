@@ -44,7 +44,6 @@
 #include <renderer.h>
 #include <sanity.h>
 #include <state.h>
-#include <staticMem.h>
 #include <thread.h>
 #include <ticket.h>
 #include <titles.h>
@@ -98,141 +97,134 @@ static void innerMain()
     KPADInit();
     WPADEnableURCC(true);
 
-    if(initStaticMem())
+    if(initFS(cfwError == NULL))
     {
-        if(initFS(cfwError == NULL))
+        if(initRenderer())
         {
-            if(initRenderer())
+            readInput(); // bug #95
+            char *lerr = NULL;
+            if(cfwError == NULL)
             {
-                readInput(); // bug #95
-                char *lerr = NULL;
-                if(cfwError == NULL)
+                if(OSSetThreadPriority(mainThread, THREAD_PRIORITY_HIGH))
+                    addToScreenLog("Changed main thread priority!");
+                else
+                    addToScreenLog("WARNING: Error changing main thread priority!");
+
+                startNewFrame();
+                textToFrame(0, 0, "Loading Crypto...");
+                writeScreenLog(1);
+                drawFrame();
+
+                if(initCrypto())
                 {
-                    if(OSSetThreadPriority(mainThread, THREAD_PRIORITY_HIGH))
-                        addToScreenLog("Changed main thread priority!");
-                    else
-                        addToScreenLog("WARNING: Error changing main thread priority!");
-
-                    startNewFrame();
-                    textToFrame(0, 0, "Loading Crypto...");
-                    writeScreenLog(1);
-                    drawFrame();
-
-                    if(initCrypto())
+                    drawLoadingScreen("Crypto initialized!", "Loading MCP...");
+                    mcpHandle = MCP_Open();
+                    if(mcpHandle != 0)
                     {
-                        drawLoadingScreen("Crypto initialized!", "Loading MCP...");
-                        mcpHandle = MCP_Open();
-                        if(mcpHandle != 0)
+                        drawLoadingScreen("MCP initialized!", "Checking sanity...");
+                        if(sanityCheck())
                         {
-                            drawLoadingScreen("MCP initialized!", "Checking sanity...");
-                            if(sanityCheck())
+                            drawLoadingScreen("Sanity checked!", "Loading notification system...");
+                            if(initNotifications())
                             {
-                                drawLoadingScreen("Sanity checked!", "Loading notification system...");
-                                if(initNotifications())
+                                drawLoadingScreen("Notification system initialized!", "Loading downloader...");
+                                if(initDownloader())
                                 {
-                                    drawLoadingScreen("Notification system initialized!", "Loading downloader...");
-                                    if(initDownloader())
+                                    drawLoadingScreen("Downloader initialized!", "Loading I/O thread...");
+                                    if(initIOThread())
                                     {
-                                        drawLoadingScreen("Downloader initialized!", "Loading I/O thread...");
-                                        if(initIOThread())
+                                        drawLoadingScreen("I/O thread initialized!", "Loading config...");
+                                        initConfig();
+                                        drawLoadingScreen("Config loaded!", "Loading SWKBD...");
+                                        if(SWKBD_Init())
                                         {
-                                            drawLoadingScreen("I/O thread initialized!", "Loading config...");
-                                            initConfig();
-                                            drawLoadingScreen("Config loaded!", "Loading SWKBD...");
-                                            if(SWKBD_Init())
+                                            drawLoadingScreen("SWKBD initialized!", "Loading menu...");
+                                            if(initQueue())
                                             {
-                                                drawLoadingScreen("SWKBD initialized!", "Loading menu...");
-                                                if(initQueue())
+                                                checkStacks("main()");
+                                                if(!updateCheck())
                                                 {
-                                                    checkStacks("main()");
-                                                    if(!updateCheck())
-                                                    {
-                                                        initFSSpace();
-                                                        checkStacks("main");
-                                                        mainMenu(); // main loop
-                                                        drawByeFrame();
-                                                        checkStacks("main");
-                                                        debugPrintf("Deinitializing libraries...");
-                                                    }
-                                                    else
-                                                        drawByeFrame();
-
-                                                    shutdownQueue();
+                                                    initFSSpace();
+                                                    checkStacks("main");
+                                                    mainMenu(); // main loop
+                                                    drawByeFrame();
+                                                    checkStacks("main");
+                                                    debugPrintf("Deinitializing libraries...");
                                                 }
                                                 else
-                                                    lerr = "Couldn't initialize queue!";
+                                                    drawByeFrame();
 
-                                                SWKBD_Shutdown();
-                                                debugPrintf("SWKBD closed");
+                                                shutdownQueue();
                                             }
                                             else
-                                                lerr = "Couldn't initialize SWKBD!";
+                                                lerr = "Couldn't initialize queue!";
 
-                                            saveConfig(false);
-                                            shutdownIOThread();
-                                            debugPrintf("I/O thread closed");
+                                            SWKBD_Shutdown();
+                                            debugPrintf("SWKBD closed");
                                         }
                                         else
-                                            lerr = "Couldn't load I/O thread!";
+                                            lerr = "Couldn't initialize SWKBD!";
 
-                                        deinitDownloader();
+                                        saveConfig(false);
+                                        shutdownIOThread();
+                                        debugPrintf("I/O thread closed");
                                     }
                                     else
-                                        lerr = "Couldn't initialize downloader!";
+                                        lerr = "Couldn't load I/O thread!";
 
-                                    deinitNotifications();
-                                    debugPrintf("Notification system closed");
+                                    deinitDownloader();
                                 }
                                 else
-                                    lerr = "Couldn't initialize notification system!";
+                                    lerr = "Couldn't initialize downloader!";
+
+                                deinitNotifications();
+                                debugPrintf("Notification system closed");
                             }
                             else
-                                lerr = "No support for rebrands, use original NUSspli!";
-
-                            MCP_Close(mcpHandle);
-                            debugPrintf("MCP closed");
+                                lerr = "Couldn't initialize notification system!";
                         }
                         else
-                            lerr = "Couldn't initialize MCP!";
+                            lerr = "No support for rebrands, use original NUSspli!";
 
-                        deinitCrypto();
-                        debugPrintf("Crypto closed");
+                        MCP_Close(mcpHandle);
+                        debugPrintf("MCP closed");
                     }
                     else
-                        lerr = "Couldn't initialize Crypto!";
+                        lerr = "Couldn't initialize MCP!";
+
+                    deinitCrypto();
+                    debugPrintf("Crypto closed");
                 }
                 else
-                    lerr = (char *)cfwError;
+                    lerr = "Couldn't initialize Crypto!";
+            }
+            else
+                lerr = (char *)cfwError;
 
-                if(lerr != NULL)
-                {
-                    drawErrorFrame(lerr, ANY_RETURN);
+            if(lerr != NULL)
+            {
+                drawErrorFrame(lerr, ANY_RETURN);
+                showFrame();
+
+                while(!(vpad.trigger))
                     showFrame();
 
-                    while(!(vpad.trigger))
-                        showFrame();
-
-                    drawByeFrame();
-                }
-
-                if(cfwError == NULL)
-                    checkSpaceThread();
-
-                shutdownRenderer();
-                locCleanUp();
-                debugPrintf("SDL closed");
+                drawByeFrame();
             }
 
-            deinitFS(cfwError == NULL);
-            debugPrintf("Filesystem closed");
-        }
-        else
-            debugPrintf("Error initializing filesystem!");
+            if(cfwError == NULL)
+                checkSpaceThread();
 
-        shutdownStaticMem();
+            shutdownRenderer();
+            locCleanUp();
+            debugPrintf("SDL closed");
+        }
+
+        deinitFS(cfwError == NULL);
+        debugPrintf("Filesystem closed");
     }
     else
-        debugPrintf("Error inititalizing static memory!");
+        debugPrintf("Error initializing filesystem!");
 
     debugPrintf("Clearing screen log");
     clearScreenLog();

@@ -223,7 +223,7 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall)
         }
     }
 
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     sprintf(toFrame,
         "%s\n\n" BUTTON_A " %s || " BUTTON_B " %s",
         localise("This is a reliable way to brick your console!\nAre you sure you want to do that?"),
@@ -413,7 +413,7 @@ void showNoSpaceOverlay(NUSDEV dev)
             nd = "MLC";
     }
 
-    char *toFrame = getToFrameBuffer();
+    char toFrame[256];
     sprintf(toFrame, "%s  %s\n\n%s", localise("Not enough free space on"), nd, localise("Press any key to return")); // nd is initialised!
 
     void *ovl = addErrorOverlay(toFrame);

@@ -47,7 +47,75 @@
 
 static TitleEntry **filteredTitleEntries;
 static size_t filteredTitleEntrySize;
-static size_t oldPos;
+static bool filterDirty;
+
+static void updateFilter(const TITLE_CATEGORY tab, char *search)
+{
+    filteredTitleEntrySize = getTitleEntriesSize(tab);
+    const TitleEntry *titleEntrys = getTitleEntries(tab);
+    MCPRegion currentRegion = getRegion();
+    size_t l = 0;
+    size_t j;
+    size_t max;
+
+    if(search[0] != '\0')
+    {
+        do
+            search[l] = tolower(search[l]);
+        while(search[l++]);
+
+        l = 0;
+        char *ptr[2];
+        bool found;
+        char tmpName[MAX_TITLENAME_LENGTH];
+        for(size_t i = 0; i < filteredTitleEntrySize; ++i)
+        {
+            if(!(currentRegion & titleEntrys[i].region))
+                continue;
+
+            max = strlen(titleEntrys[i].name);
+            for(j = 0; j < max; ++j)
+                tmpName[j] = tolower(titleEntrys[i].name[j]);
+
+            tmpName[j] = '\0';
+            ptr[0] = search;
+            ptr[1] = strstr(ptr[0], " ");
+            while(true)
+            {
+                if(ptr[1] != NULL)
+                    ptr[1][0] = '\0';
+
+                found = strstr(tmpName, ptr[0]) != NULL;
+
+                if(ptr[1] != NULL)
+                {
+                    ptr[1][0] = ' ';
+                    if(found)
+                    {
+                        ptr[0] = ptr[1];
+                        ptr[1] = strstr(++ptr[0], " ");
+                    }
+                    else
+                        break;
+                }
+                else
+                    break;
+            }
+
+            if(found)
+                filteredTitleEntries[l++] = (TitleEntry *)titleEntrys + i;
+        }
+    }
+    else
+    {
+        for(size_t i = 0; i < filteredTitleEntrySize; ++i)
+            if(currentRegion & titleEntrys[i].region)
+                filteredTitleEntries[l++] = (TitleEntry *)titleEntrys + i;
+    }
+
+    filteredTitleEntrySize = l;
+    filterDirty = false;
+}
 
 static void drawTBMenuFrame(const TITLE_CATEGORY tab, const size_t pos, const size_t cursor, char *search)
 {
@@ -77,74 +145,12 @@ static void drawTBMenuFrame(const TITLE_CATEGORY tab, const size_t pos, const si
 
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, toFrame);
 
-    size_t j;
-    size_t max;
+    if(filterDirty)
+        updateFilter(tab, search);
+
+    size_t j = filteredTitleEntrySize - pos;
+    size_t max = j < MAX_TITLEBROWSER_LINES ? j : MAX_TITLEBROWSER_LINES;
     size_t l;
-    if(pos != oldPos)
-    {
-        filteredTitleEntrySize = getTitleEntriesSize(tab);
-        const TitleEntry *titleEntrys = getTitleEntries(tab);
-        MCPRegion currentRegion = getRegion();
-        l = 0;
-
-        if(search[0] != '\0')
-        {
-            do
-                search[l] = tolower(search[l]);
-            while(search[l++]);
-
-            l = 0;
-            char *ptr[2];
-            bool found;
-            char tmpName[MAX_TITLENAME_LENGTH];
-            for(size_t i = 0; i < filteredTitleEntrySize; ++i)
-            {
-                if(!(currentRegion & titleEntrys[i].region))
-                    continue;
-
-                max = strlen(titleEntrys[i].name);
-                for(j = 0; j < max; ++j)
-                    tmpName[j] = tolower(titleEntrys[i].name[j]);
-
-                tmpName[j] = '\0';
-                ptr[0] = search;
-                ptr[1] = strstr(ptr[0], " ");
-                while(true)
-                {
-                    if(ptr[1] != NULL)
-                        ptr[1][0] = '\0';
-
-                    found = strstr(tmpName, ptr[0]) != NULL;
-
-                    if(ptr[1] != NULL)
-                    {
-                        ptr[1][0] = ' ';
-                        if(found)
-                        {
-                            ptr[0] = ptr[1];
-                            ptr[1] = strstr(++ptr[0], " ");
-                        }
-                        else
-                            break;
-                    }
-                    else
-                        break;
-                }
-
-                if(found)
-                    filteredTitleEntries[l++] = (TitleEntry *)titleEntrys + i;
-            }
-        }
-        else
-            for(size_t i = 0; i < filteredTitleEntrySize; ++i)
-                if(currentRegion & titleEntrys[i].region)
-                    filteredTitleEntries[l++] = (TitleEntry *)titleEntrys + i;
-
-        filteredTitleEntrySize = l;
-    }
-
-    j = filteredTitleEntrySize - pos;
-    max = j < MAX_TITLEBROWSER_LINES ? j : MAX_TITLEBROWSER_LINES;
     MCPTitleListType titleList __attribute__((__aligned__(0x40)));
     TitleData *title;
     bool inQueue;
@@ -206,8 +212,8 @@ void titleBrowserMenu()
     size_t cursor = 0;
     size_t pos = 0;
     char search[129];
-    search[0] = u'\0';
-    oldPos = 99;
+    search[0] = '\0';
+    filterDirty = true;
     bool redraw;
     const TitleEntry *entry;
     uint32_t oldHold = 0;
@@ -391,6 +397,7 @@ loop:
             if(strcmp(oldSearch, search) != 0)
             {
                 cursor = pos = 0;
+                filterDirty = true;
                 redraw = true;
             }
         }
@@ -403,6 +410,7 @@ loop:
 
             tab = (TITLE_CATEGORY)tt;
             cursor = pos = 0;
+            filterDirty = true;
             redraw = true;
         }
         else if(vpad.trigger & VPAD_BUTTON_L || vpad.trigger & VPAD_BUTTON_ZL)
@@ -417,6 +425,7 @@ loop:
             }
 
             cursor = pos = 0;
+            filterDirty = true;
             redraw = true;
         }
 

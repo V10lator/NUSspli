@@ -33,7 +33,3 @@ bool initStaticMem()
 {
     return true;
 }
-
-void shutdownStaticMem()
-{
-}

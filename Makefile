@@ -72,8 +72,9 @@ all: debug
 
 real:
 	@git submodule update --init --recursive
+	@git -C SDL_FontCache reset --hard HEAD
 	@rm -f zlib/contrib/minizip/iowin* zlib/contrib/minizip/mini* zlib/contrib/minizip/zip.? zlib/contrib/minizip/mztools.? zlib/contrib/minizip/configure.ac zlib/contrib/minizip/Makefile zlib/contrib/minizip/Makefile.am zlib/contrib/minizip/*.com zlib/contrib/minizip/*.txt
-	@cd SDL_FontCache && for patch in $(TOPDIR)/SDL_FontCache-patches/*.patch; do echo Applying $$patch && git apply $$patch; done || true
+	@cd SDL_FontCache && for patch in $(TOPDIR)/SDL_FontCache-patches/*.patch; do echo Applying $$patch && git apply $$patch; done
 	@[ -d $(BUILD) ] || mkdir -p $(BUILD)
 	@$(MAKE) -C $(BUILD) -f $(CURDIR)/Makefile BUILD=$(BUILD) $(MAKE_CMD)
 

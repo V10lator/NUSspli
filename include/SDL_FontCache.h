@@ -33,11 +33,11 @@ THE SOFTWARE.
 #ifndef _SDL_FONTCACHE_H__
 #define _SDL_FONTCACHE_H__
 
-#include "SDL2/SDL.h"
-#include "SDL2/SDL_ttf.h"
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 #ifdef FC_USE_SDL_GPU
-    #include "SDL2/SDL_gpu.h"
+    #include <SDL2/SDL_gpu.h>
 #endif
 
 
@@ -60,11 +60,10 @@ extern "C" {
 #define FC_Image GPU_Image
 #define FC_Log GPU_LogError
 #else
-#include <utils.h>
 #define FC_Rect SDL_Rect
 #define FC_Target SDL_Renderer
 #define FC_Image SDL_Texture
-#define FC_Log debugPrintf
+#define FC_Log SDL_Log
 #endif
 
 
@@ -114,15 +113,15 @@ typedef struct FC_GlyphData
 
 // Object creation
 
-#define FC_MakeRect(a, b, c, d) (FC_Rect){.x = a, .y = b, .w = c, .h = d}
+FC_Rect FC_MakeRect(float x, float y, float w, float h);
 
-#define FC_MakeScale(a, b) (FC_Scale){.x = a, .y = b}
+FC_Scale FC_MakeScale(float x, float y);
 
-#define FC_MakeColor(a, b, c, d) (FC_Color){.r = a, .g = b, .b = c, .a = d}
+SDL_Color FC_MakeColor(Uint8 r, Uint8 g, Uint8 b, Uint8 a);
 
-#define FC_MakeEffect(a, b, c) (FC_Effect){ .alignment = a, .scale = s, .color = c }
+FC_Effect FC_MakeEffect(FC_AlignEnum alignment, FC_Scale scale, SDL_Color color);
 
-#define FC_MakeGlyphData(a, b, c, d, e) (FC_GlyphData){ .cache_level = a, .rect.x = b, .rect.y = c, .rect.w = d, .rect.h = e }
+FC_GlyphData FC_MakeGlyphData(int cache_level, Sint16 x, Sint16 y, Uint16 w, Uint16 h);
 
 
 
@@ -187,7 +186,7 @@ void FC_GetUTF8FromCodepoint(char* result, Uint32 codepoint);
 char* U8_alloc(unsigned int size);
 
 /*! Deallocates the given string. */
-#define U8_free(string) free(string)
+void U8_free(char* string);
 
 /*! Allocates a copy of the given string. */
 char* U8_strdup(const char* string);
@@ -202,7 +201,7 @@ int U8_charsize(const char* character);
 int U8_charcpy(char* buffer, const char* source, int buffer_size);
 
 /*! Returns a pointer to the next UTF-8 character. */
-#define U8_next(string) (string + U8_charsize(string))
+const char* U8_next(const char* string);
 
 /*! Inserts a UTF-8 string into 'string' at the given position.  Use a position of -1 to append.  Returns 0 when unable to insert the string. */
 int U8_strinsert(char* string, int position, const char* source, int max_bytes);

@@ -29,7 +29,6 @@ extern "C"
 #endif
 
     bool initStaticMem() __attribute__((__cold__));
-    void shutdownStaticMem() __attribute__((__cold__));
 
 #ifdef __cplusplus
 }

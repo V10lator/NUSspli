@@ -1,0 +1,14 @@
+debug
+release
+payload
+*.elf
+*.rpx
+*.wuhb
+TODO.txt
+encryptKeyWith
+NUSPacker.jar
+zips
+zips/NUSspli*.zip
+out
+src/gtitles.c
+version.txt

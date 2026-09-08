@@ -95,60 +95,60 @@ static inline SDL_Rect *createRect()
     return &rectPool[rectPoolIndex++];
 }
 
-#define internalTextToFrame(lineBuffer, bufSize)              \
-    {                                                         \
-        ++line;                                               \
-        line *= FONT_SIZE;                                    \
-        line -= 7;                                            \
-        int w = FC_GetWidth(font, str);                       \
-                                                              \
-        if(maxWidth != 0 && w > maxWidth)                     \
-        {                                                     \
-            size_t i = strlen(str);                           \
-            if(i >= bufSize)                                  \
-                i = bufSize - 1;                              \
-            char *tmp = lineBuffer;                           \
-            OSBlockMove(tmp, str, i, false);                  \
-            tmp[i] = '\0';                                    \
-            tmp += i;                                         \
-                                                              \
-            *--tmp = '\0';                                    \
-            *--tmp = '.';                                     \
-            *--tmp = '.';                                     \
-            *--tmp = '.';                                     \
-                                                              \
-            char *tmp2;                                       \
-            w = FC_GetWidth(font, lineBuffer);                \
-            while(w > maxWidth && tmp > lineBuffer)           \
-            {                                                 \
-                tmp2 = tmp;                                   \
-                *--tmp = '.';                                 \
-                ++tmp2;                                       \
-                *++tmp2 = '\0';                               \
-                w = FC_GetWidth(font, lineBuffer);            \
-            }                                                 \
-                                                              \
-            if(tmp > lineBuffer && *--tmp == ' ')             \
-            {                                                 \
-                *tmp = '.';                                   \
-                tmp[3] = '\0';                                \
-            }                                                 \
-                                                              \
-            str = lineBuffer;                                 \
-        }                                                     \
-                                                              \
-        switch(column)                                        \
-        {                                                     \
-            case ALIGNED_CENTER:                              \
-                column = (SCREEN_WIDTH >> 1) - (w >> 1);      \
-                break;                                        \
-            case ALIGNED_RIGHT:                               \
-                column = SCREEN_WIDTH - w - FONT_SIZE;        \
-                break;                                        \
-            default:                                          \
-                column *= spaceWidth;                         \
-                column += FONT_SIZE;                          \
-        }                                                     \
+#define internalTextToFrame(lineBuffer, bufSize)         \
+    {                                                    \
+        ++line;                                          \
+        line *= FONT_SIZE;                               \
+        line -= 7;                                       \
+        int w = FC_GetWidth(font, str);                  \
+                                                         \
+        if(maxWidth != 0 && w > maxWidth)                \
+        {                                                \
+            size_t i = strlen(str);                      \
+            if(i >= bufSize)                             \
+                i = bufSize - 1;                         \
+            char *tmp = lineBuffer;                      \
+            OSBlockMove(tmp, str, i, false);             \
+            tmp[i] = '\0';                               \
+            tmp += i;                                    \
+                                                         \
+            *--tmp = '\0';                               \
+            *--tmp = '.';                                \
+            *--tmp = '.';                                \
+            *--tmp = '.';                                \
+                                                         \
+            char *tmp2;                                  \
+            w = FC_GetWidth(font, lineBuffer);           \
+            while(w > maxWidth && tmp > lineBuffer)      \
+            {                                            \
+                tmp2 = tmp;                              \
+                *--tmp = '.';                            \
+                ++tmp2;                                  \
+                *++tmp2 = '\0';                          \
+                w = FC_GetWidth(font, lineBuffer);       \
+            }                                            \
+                                                         \
+            if(tmp > lineBuffer && *--tmp == ' ')        \
+            {                                            \
+                *tmp = '.';                              \
+                tmp[3] = '\0';                           \
+            }                                            \
+                                                         \
+            str = lineBuffer;                            \
+        }                                                \
+                                                         \
+        switch(column)                                   \
+        {                                                \
+            case ALIGNED_CENTER:                         \
+                column = (SCREEN_WIDTH >> 1) - (w >> 1); \
+                break;                                   \
+            case ALIGNED_RIGHT:                          \
+                column = SCREEN_WIDTH - w - FONT_SIZE;   \
+                break;                                   \
+            default:                                     \
+                column *= spaceWidth;                    \
+                column += FONT_SIZE;                     \
+        }                                                \
     }
 
 void textToFrameCut(int line, int column, const char *str, int maxWidth)

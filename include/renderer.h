@@ -43,14 +43,14 @@
 #define SCREEN_COLOR_BG4 0x5205FFFF
 
 // These are with Nintendo font at size 24:
-#define MAX_CHARS            124 // TODO: This is here for historical reasons and only valid for spaces now
-#define MAX_LINES            24
+#define MAX_CHARS       124 // TODO: This is here for historical reasons and only valid for spaces now
+#define MAX_LINES       24
 
-#define ALIGNED_RIGHT        MAX_CHARS
-#define ALIGNED_CENTER       (MAX_CHARS + 1)
+#define ALIGNED_RIGHT   MAX_CHARS
+#define ALIGNED_CENTER  (MAX_CHARS + 1)
 
-#define FRAMERATE_60FPS      1
-#define FRAMERATE_30FPS      2
+#define FRAMERATE_60FPS 1
+#define FRAMERATE_30FPS 2
 
 #ifdef __cplusplus
 extern "C"

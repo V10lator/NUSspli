@@ -228,7 +228,6 @@ static void innerMain()
         }
         else
             debugPrintf("Error initializing filesystem!");
-
     }
     else
         debugPrintf("Error inititalizing static memory!");

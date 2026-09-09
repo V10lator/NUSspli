@@ -171,8 +171,12 @@ uint8_t charToByte(char c)
 
 void hexToByte(const char *hex, uint8_t *out)
 {
-    for(int i = 0; *hex != '\0' && i < 64; out[i++] |= charToByte(*hex++))
-        out[i] = charToByte(*hex++) << 4;
+    int i = 0;
+    while(*hex != '\0' && *(hex + 1) != '\0' && i < 64)
+    {
+        out[i++] = (charToByte(*hex) << 4) | charToByte(*(hex + 1));
+        hex += 2;
+    }
 }
 
 static void mcpCallback(MCPError err, void *rawData)
@@ -195,7 +199,7 @@ void glueMcpData(MCPInstallTitleInfo *info, McpData *data)
 void showMcpProgress(McpData *data, const char *game, bool inst)
 {
     MCPInstallProgress progress __attribute__((__aligned__(0x40))) = { .inProgress = 0, .sizeTotal = 0 };
-    char *toScreen = getToFrameBuffer();
+    char toScreen[512];
     MCPError err;
     OSTime lastSpeedCalc = 0;
     OSTime now;

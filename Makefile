@@ -34,19 +34,21 @@ INCLUDES	:=	include \
 # options for code generation
 #-------------------------------------------------------------------------------
 
-CFLAGS		:=	$(MACHDEP) -Ofast -flto=auto -fno-fat-lto-objects \
-				-fuse-linker-plugin -fipa-pta -pipe \
+CFLAGS		:=	$(MACHDEP) -O3 -pipe \
+				-mlongcall -ffunction-sections -fdata-sections \
+				-fno-pic -fno-pie \
 				-Wall -Wextra -Wundef -Wshadow -Wpointer-arith \
 				-Wcast-align -Wno-trigraphs -Wno-empty-body \
 				-Wno-maybe-uninitialized -Wno-pointer-sign \
 				-Wno-implicit-fallthrough \
+				-Wno-unused-parameter -Wno-undef \
 				-D__WIIU__ -D__WUT__ -DIOAPI_NO_64 -D__unix__
 
 CXXFLAGS	:=	$(CFLAGS) -std=c++20 -fpermissive
 ASFLAGS		:=	-g $(ARCH)
-LDFLAGS		:=	-g $(ARCH) $(RPXSPECS) $(CFLAGS) -Wl,-Map,$(notdir $*.map)
+LDFLAGS		:=	-g $(ARCH) $(RPXSPECS) $(CFLAGS) -Wl,--gc-sections -Wl,-Map,$(notdir $*.map)
 
-LIBS		:=	-lcurl -lnghttp2 -lbrotlicommon -lbrotlidec -lmbedtls -lmbedx509 -lmbedcrypto `$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image harfbuzz jansson` -lwut -lmocha -lrpxloader
+LIBS		:=	-lcurl -lnghttp2 -lbrotlidec -lbrotlicommon -lmbedtls -lmbedx509 -lmbedcrypto `$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image harfbuzz jansson` -lwut -lmocha -lrpxloader
 
 #-------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level

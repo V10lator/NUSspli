@@ -101,7 +101,7 @@ void checkSpaceThread()
 {
     if(spaceThread)
     {
-        void *ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
+        void *ovl = OSIsThreadTerminated(spaceThread) ? NULL : addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
         stopThread(spaceThread, NULL);
         spaceThread = NULL;
         if(ovl != NULL)
@@ -111,6 +111,12 @@ void checkSpaceThread()
 
 void deinitFS(bool validCfw)
 {
+    if(spaceThread)
+    {
+        stopThread(spaceThread, NULL);
+        spaceThread = NULL;
+    }
+
     if(validCfw)
     {
         FSAUnmount(handle, "/vol/app_sd", FSA_UNMOUNT_FLAG_BIND_MOUNT);

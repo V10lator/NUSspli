@@ -336,6 +336,8 @@ static bool unzipUpdate(const RAMBUF *rambuf)
 
                 MEMFreeToDefaultHeap(buf);
             }
+            else
+                showUpdateError(localise("Out of memory!"));
         }
         else
             showUpdateError(localise("Error getting zip info"));
@@ -369,7 +371,7 @@ bool update(const char *newVersion, NUSSPLI_TYPE type)
     FSError err = createDirectory(UPDATE_TEMP_FOLDER);
     if(err != FS_ERROR_OK)
     {
-        char *toScreen = getToFrameBuffer();
+        char toScreen[256];
         strcpy(toScreen, localise("Error creating temporary directory!"));
         strcat(toScreen, "\n\n");
         strcat(toScreen, translateFSErr(err));
@@ -378,7 +380,7 @@ bool update(const char *newVersion, NUSSPLI_TYPE type)
         goto updateError;
     }
 
-    char *path = getStaticPathBuffer(2);
+    char path[FS_MAX_PATH];
     strcpy(path, UPDATE_DOWNLOAD_URL);
     strcpy(path + (sizeof(UPDATE_DOWNLOAD_URL) - 1), newVersion);
     strcat(path, "/NUSspli-");
@@ -460,7 +462,7 @@ bool update(const char *newVersion, NUSSPLI_TYPE type)
     switch(type)
     {
         case NUSSPLI_TYPE_AROMA:
-            char *path2 = getStaticPathBuffer(0);
+            char path2[FS_MAX_PATH];
             strcpy(path2, UPDATE_TEMP_FOLDER UPDATE_AROMA_FILE);
 
             if(isChannel()) // On Aroma the path is the path of the currently running wuhb file already. On Channel we have to set it to default.

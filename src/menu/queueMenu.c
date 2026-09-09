@@ -44,11 +44,12 @@ static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
     startNewFrame();
     boxToFrame(0, MAX_LINES - 3);
 
-    char *toScreen = getToFrameBuffer();
+    char toScreen[FS_MAX_PATH + 256];
     size_t i = 0;
     int p;
     TitleData *data;
     MCPRegion region;
+    uint64_t tid;
 
     forEachListEntry(titleQueue, data)
     {
@@ -60,6 +61,8 @@ static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
 
         if(cursor == i++)
             arrowToFrame(i, 1);
+
+        tid = data->operation & OPERATION_DEINSTALL ? data->installedTitle->titleId : data->tmd->tid;
 
         if(data->operation & OPERATION_DOWNLOAD)
         {
@@ -80,12 +83,12 @@ static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
         if(data->operation & OPERATION_INSTALL)
             deviceToFrame(i, SPACER, data->toUSB ? DEVICE_TYPE_USB : DEVICE_TYPE_NAND);
 
-        if(isDLC(data->tmd->tid))
+        if(isDLC(tid))
         {
             p = sizeof("[DLC] ") - 1;
             OSBlockMove(toScreen, "[DLC] ", p, false);
         }
-        else if(isUpdate(data->tmd->tid))
+        else if(isUpdate(tid))
         {
             p = sizeof("[UPD] ") - 1;
             OSBlockMove(toScreen, "[UPD] ", p, false);
@@ -95,8 +98,9 @@ static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
 
         if(data->entry == NULL)
         {
-            region = MCP_REGION_UNKNOWN;
-            strcpy(toScreen + p, prettyDir(data->folderName));
+            const TitleEntry *entry = getTitleEntryByTid(tid);
+            region = entry == NULL ? MCP_REGION_UNKNOWN : entry->region;
+            strcpy(toScreen + p, data->operation & OPERATION_DEINSTALL ? data->folderName : prettyDir(data->folderName));
         }
         else
         {

@@ -19,7 +19,10 @@
 
 #include <wut-fixups.h>
 
+#include <string.h>
+
 #include <downloader.h>
+#include <deinstaller.h>
 #include <installer.h>
 #include <list.h>
 #include <menu/utils.h>
@@ -59,9 +62,44 @@ int addToQueue(TitleData *data)
             if(data->dlDev == title->dlDev && data->tmd->tid == title->tmd->tid)
                 return 3;
         }
+        if(data->operation & OPERATION_DEINSTALL && title->operation & OPERATION_DEINSTALL)
+        {
+            if(data->installedTitle->titleId == title->installedTitle->titleId)
+                return 4;
+        }
     }
 
     return addToListEnd(titleQueue, data) ? 1 : 0;
+}
+
+bool addToDeinstallQueue(const MCPTitleListType *title, const char *name)
+{
+    TitleData *titleInfo = MEMAllocFromDefaultHeap(sizeof(TitleData));
+    if(titleInfo == NULL)
+        return false;
+
+    titleInfo->installedTitle = MEMAllocFromDefaultHeapEx(sizeof(MCPTitleListType), 0x40);
+    if(titleInfo->installedTitle == NULL)
+    {
+        MEMFreeToDefaultHeap(titleInfo);
+        return false;
+    }
+
+    *titleInfo->installedTitle = *title;
+    titleInfo->tmd = NULL;
+    titleInfo->rambuf = NULL;
+    titleInfo->operation = OPERATION_DEINSTALL;
+    titleInfo->entry = NULL;
+    strncpy(titleInfo->folderName, name, sizeof(titleInfo->folderName) - 1);
+    titleInfo->folderName[sizeof(titleInfo->folderName) - 1] = '\0';
+
+    int ret = addToQueue(titleInfo);
+    if(ret == 1)
+        return true;
+
+    MEMFreeToDefaultHeap(titleInfo->installedTitle);
+    MEMFreeToDefaultHeap(titleInfo);
+    return false;
 }
 
 static inline void removeFQ(TitleData *title)
@@ -71,8 +109,11 @@ static inline void removeFQ(TitleData *title)
         removeFromList(titleQueue, title);
         if(title->rambuf != NULL)
             freeRamBuf(title->rambuf);
-        else
+        else if(title->tmd != NULL)
             MEMFreeToDefaultHeap(title->tmd);
+
+        if(title->installedTitle != NULL)
+            MEMFreeToDefaultHeap(title->installedTitle);
 
         MEMFreeToDefaultHeap(title);
     }
@@ -88,6 +129,8 @@ bool proccessQueue()
     {
         if(title->operation & OPERATION_DOWNLOAD)
             queueData.packages++;
+        if(title->operation & OPERATION_DEINSTALL)
+            continue;
         for(uint16_t i = 0; i < title->tmd->num_contents; ++i)
         {
             if(title->operation & OPERATION_INSTALL)
@@ -153,6 +196,11 @@ bool proccessQueue()
             if(!install(title->entry == NULL ? prettyDir(title->folderName) : title->entry->name, false /* TODO */, title->dlDev, title->folderName, title->toUSB, title->keepFiles, title->tmd))
                 goto exitApd;
         }
+        else if(title->operation & OPERATION_DEINSTALL)
+        {
+            if(!deinstall(title->installedTitle, title->folderName, false, true))
+                goto exitApd;
+        }
 
         last = title;
     }
@@ -173,8 +221,11 @@ bool removeFromQueue(uint32_t index)
 
     if(title->rambuf != NULL)
         freeRamBuf(title->rambuf);
-    else
+    else if(title->tmd != NULL)
         MEMFreeToDefaultHeap(title->tmd);
+
+    if(title->installedTitle != NULL)
+        MEMFreeToDefaultHeap(title->installedTitle);
 
     MEMFreeToDefaultHeap(title);
     return true;

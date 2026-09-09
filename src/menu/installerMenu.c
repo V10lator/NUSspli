@@ -52,6 +52,7 @@ static bool addToOpQueue(const TitleEntry *entry, const char *dir, const TMD *tm
     titleInfo->rambuf = NULL;
     titleInfo->operation = OPERATION_INSTALL;
     titleInfo->entry = entry;
+    titleInfo->installedTitle = NULL;
     strcpy(titleInfo->folderName, dir);
     titleInfo->dlDev = fromDev;
     titleInfo->toUSB = toUSB;
@@ -62,9 +63,7 @@ static bool addToOpQueue(const TitleEntry *entry, const char *dir, const TMD *tm
         return true;
 
     MEMFreeToDefaultHeap(titleInfo);
-
-    MEMFreeToDefaultHeap((TMD *)tmd);
-    return ret;
+    return false;
 }
 
 static void drawInstallerMenuFrame(const char *name, NUSDEV dev, NUSDEV toDev, bool usbMounted, bool keepFiles, MCPRegion region, const TMD *tmd)
@@ -72,7 +71,7 @@ static void drawInstallerMenuFrame(const char *name, NUSDEV dev, NUSDEV toDev, b
     startNewFrame();
     textToFrame(0, 0, localise("Name:"));
 
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, name);
     char tid[17];
     hex(tmd->tid, 16, tid);

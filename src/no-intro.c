@@ -232,6 +232,7 @@ NO_INTRO_DATA *transformNoIntro(const char *path)
         if(!generateTik(data->path, tmd))
         {
             debugPrintf("Error creating ticket at %s", data->path);
+            MEMFreeToDefaultHeap(tmd);
             goto transformError2;
         }
     }
@@ -241,9 +242,11 @@ NO_INTRO_DATA *transformNoIntro(const char *path)
     if(!generateCert(tmd, NULL, 0, data->path))
     {
         debugPrintf("Error creating cert at %s", data->path);
+        MEMFreeToDefaultHeap(tmd);
         goto transformError2;
     }
 
+    MEMFreeToDefaultHeap(tmd);
     *fromP = '\0';
     return data;
 

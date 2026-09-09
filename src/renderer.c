@@ -40,6 +40,7 @@
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_mixer.h>
 #include <SDL2/SDL_surface.h>
+#include <SDL2/SDL_ttf.h>
 #include <SDL_FontCache.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
@@ -82,25 +83,19 @@ static SDL_Texture *bgTex;
 static SDL_Texture *byeTex;
 static SDL_Rect byeRect;
 
-static LIST *rectList;
+static SDL_Rect rectPool[SDL_RECTS];
+static uint32_t rectPoolIndex = 0;
 static LIST *errorOverlayList;
 
 static inline SDL_Rect *createRect()
 {
-    SDL_Rect *ret = MEMAllocFromDefaultHeap(sizeof(SDL_Rect));
-    if(!ret)
+    if(rectPoolIndex >= SDL_RECTS)
         return NULL;
 
-    if(!addToListEnd(rectList, ret))
-    {
-        MEMFreeToDefaultHeap(ret);
-        return NULL;
-    }
-
-    return ret;
+    return &rectPool[rectPoolIndex++];
 }
 
-#define internalTextToFrame()                                 \
+#define internalTextToFrame(lineBuffer, bufSize)              \
     {                                                         \
         ++line;                                               \
         line *= FONT_SIZE;                                    \
@@ -110,9 +105,11 @@ static inline SDL_Rect *createRect()
         if(maxWidth != 0 && w > maxWidth)                     \
         {                                                     \
             size_t i = strlen(str);                           \
-            char *lineBuffer = (char *)getStaticLineBuffer(); \
+            if(i >= bufSize)                                  \
+                i = bufSize - 1;                              \
             char *tmp = lineBuffer;                           \
-            OSBlockMove(tmp, str, i + 1, false);              \
+            OSBlockMove(tmp, str, i, false);                  \
+            tmp[i] = '\0';                                    \
             tmp += i;                                         \
                                                               \
             *--tmp = '\0';                                    \
@@ -122,7 +119,7 @@ static inline SDL_Rect *createRect()
                                                               \
             char *tmp2;                                       \
             w = FC_GetWidth(font, lineBuffer);                \
-            while(w > maxWidth)                               \
+            while(w > maxWidth && tmp > lineBuffer)           \
             {                                                 \
                 tmp2 = tmp;                                   \
                 *--tmp = '.';                                 \
@@ -131,7 +128,7 @@ static inline SDL_Rect *createRect()
                 w = FC_GetWidth(font, lineBuffer);            \
             }                                                 \
                                                               \
-            if(*--tmp == ' ')                                 \
+            if(tmp > lineBuffer && *--tmp == ' ')             \
             {                                                 \
                 *tmp = '.';                                   \
                 tmp[3] = '\0';                                \
@@ -159,7 +156,8 @@ void textToFrameCut(int line, int column, const char *str, int maxWidth)
     if(font == NULL)
         return;
 
-    internalTextToFrame();
+    char lineBuffer[1024];
+    internalTextToFrame(lineBuffer, sizeof(lineBuffer));
     FC_Draw(font, renderer, column, line, str);
 }
 
@@ -168,7 +166,8 @@ void textToFrameColoredCut(int line, int column, const char *str, SCREEN_COLOR c
     if(font == NULL)
         return;
 
-    internalTextToFrame();
+    char lineBuffer[1024];
+    internalTextToFrame(lineBuffer, sizeof(lineBuffer));
     FC_DrawColor(font, renderer, column, line, color, str);
 }
 
@@ -184,9 +183,13 @@ int textToFrameMultiline(int x, int y, const char *text, size_t len)
         return 1;
     }
 
-    char *p = getStaticLineBuffer();
+    char pBuf[2048];
+    char *p = pBuf;
     size_t l = strlen(text);
-    OSBlockMove(p, text, l + 1, false);
+    if(l >= sizeof(pBuf))
+        l = sizeof(pBuf) - 1;
+    OSBlockMove(p, text, l, false);
+    p[l] = '\0';
 
     char *t;
     char o;
@@ -783,9 +786,7 @@ bool initRenderer()
     if(font)
         return true;
 
-    rectList = createList();
-    if(rectList == NULL)
-        return false;
+    rectPoolIndex = 0;
 
     errorOverlayList = createList();
     if(errorOverlayList != NULL)
@@ -870,7 +871,6 @@ bool initRenderer()
         destroyList(errorOverlayList, true);
     }
 
-    destroyList(rectList, true);
     return false;
 }
 
@@ -937,7 +937,6 @@ void shutdownRenderer()
     SDL_DestroyWindow(window);
 
     quitSDL();
-    destroyList(rectList, true);
 }
 
 void colorStartNewFrame(SCREEN_COLOR color)
@@ -953,7 +952,7 @@ void colorStartNewFrame(SCREEN_COLOR color)
         SDL_RenderClear(renderer);
     }
 
-    clearList(rectList, true);
+    rectPoolIndex = 0;
 }
 
 void showFrame()

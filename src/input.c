@@ -218,7 +218,17 @@ static bool SWKBD_Show(SWKBD_Args *args, KeyboardLayout layout, KeyboardType typ
     debugPrintf("Swkbd_AppearInputForm(): %s", kbdVisible ? "true" : "false");
 
     if(!kbdVisible)
+    {
+        OSMessage msg = { .message = NUSSPLI_MESSAGE_EXIT };
+        OSSendMessage(&swkbd_queue, &msg, OS_MESSAGE_FLAGS_BLOCKING);
+        stopThread(args->calcThread, NULL);
+        if(appearArg.keyboardArg.configArg.str)
+        {
+            MEMFreeToDefaultHeap(appearArg.keyboardArg.configArg.str);
+            appearArg.keyboardArg.configArg.str = NULL;
+        }
         return false;
+    }
 
     args->globalLimit = limit;
     VPADSetSensorBar(VPAD_CHAN_0, true);
@@ -248,7 +258,10 @@ static void SWKBD_Hide(SWKBD_Args *args)
     stopThread(args->calcThread, NULL);
 
     if(appearArg.keyboardArg.configArg.str)
+    {
         MEMFreeToDefaultHeap(appearArg.keyboardArg.configArg.str);
+        appearArg.keyboardArg.configArg.str = NULL;
+    }
 }
 
 bool SWKBD_Init()

@@ -20,6 +20,7 @@
 #include <wut-fixups.h>
 
 #include <dirent.h>
+#include <errno.h>
 #include <netinet/tcp.h>
 
 #include <config.h>
@@ -111,70 +112,30 @@ static int progressCallback(void *rawData, curl_off_t dltotal, curl_off_t dlnow,
     return 0;
 }
 
+// All the socket options we set below are pure performance tweaks, so a failure
+// is never fatal. CafeOS answers with ENOPROTOOPT (92, "Non-supported option")
+// for options it doesn't know about and returning CURL_SOCKOPT_ERROR on that
+// would kill the whole transfer instead of just losing the tweak.
+static void trySockopt(curl_socket_t socket, int level, int option, int value, const char *name)
+{
+    (void)name;
+
+    if(setsockopt(socket, level, option, &value, sizeof(value)) != 0)
+        debugPrintf("initSocket: Error setting %s: %d", name, errno);
+}
+
 static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
 {
     (void)ptr;
     (void)type;
 
-    int o = 1;
-
-    // Activate WinScale
-    int r = setsockopt(socket, SOL_SOCKET, SO_WINSCALE, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings WinScale: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    // Activate TCP SAck
-    r = setsockopt(socket, SOL_SOCKET, SO_TCPSACK, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings TCP SAck: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    // Activate TCP nodelay - libCURL default
-    r = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings TCP nodelay: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    // Disable slowstart. Should be more important fo a server but doesn't hurt a client, too
-    r = setsockopt(socket, SOL_SOCKET, 0x4000, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings Noslowstart: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    o = 0;
-    // Disable TCP keepalive - libCURL default
-    r = setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings TCP nodelay: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    o = IO_BUFSIZE;
-    // Set send buffersize
-    r = setsockopt(socket, SOL_SOCKET, SO_SNDBUF, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings SBS: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    // Set receive buffersize
-    r = setsockopt(socket, SOL_SOCKET, SO_RCVBUF, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings RBS: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
+    trySockopt(socket, SOL_SOCKET, SO_WINSCALE, 1, "WinScale");
+    trySockopt(socket, SOL_SOCKET, SO_TCPSACK, 1, "TCP SAck");
+    trySockopt(socket, IPPROTO_TCP, TCP_NODELAY, 1, "TCP nodelay"); // libCURL default
+    trySockopt(socket, SOL_SOCKET, 0x4000, 1, "Noslowstart");       // Disable slowstart
+    trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default
+    trySockopt(socket, SOL_SOCKET, SO_SNDBUF, IO_BUFSIZE, "send buffersize");
+    trySockopt(socket, SOL_SOCKET, SO_RCVBUF, IO_BUFSIZE, "receive buffersize");
 
     return CURL_SOCKOPT_OK;
 }
@@ -192,7 +153,7 @@ static CURLcode ssl_ctx_init(CURL *cu, void *sslctx, void *parm)
 
 static bool showNetworkError(const char *err)
 {
-    char *toScreen = getToFrameBuffer();
+    char toScreen[512];
     if(toScreen != err)
         strcpy(toScreen, err);
 
@@ -201,14 +162,17 @@ static bool showNetworkError(const char *err)
     char *p = NULL;
     if(autoResumeEnabled())
     {
-        os = 9 * 60; // 9 seconds with 60 FPS
-        frames = os;
+        frames = 4 * 60; // 9 seconds with 60 FPS
+        os = -1;
         strcat(toScreen, "\n\n");
         p = toScreen + strlen(toScreen);
         const char *pt = localise("Next try in _ seconds.");
         strcpy(p, pt);
         const char *n = strchr(pt, '_');
-        p += n - pt;
+        if(n != NULL)
+            p += n - pt;
+        else
+            p = NULL;
     }
     else
         drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
@@ -224,10 +188,11 @@ static bool showNetworkError(const char *err)
 
         if(autoResumeEnabled())
         {
-            s = frames / 60;
+            s = (frames + 59) / 60;
             if(s != os)
             {
-                *p = '1' + s;
+                if(p != NULL)
+                    *p = '0' + s;
                 os = s;
                 drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
             }
@@ -250,25 +215,22 @@ static bool showNetworkError(const char *err)
 // We're not using WUTs NNResult_IsSuccess() / NNResult_IsFailure() here as it's wrong
 static void resetNetwork()
 {
-    BOOL con;
-    NNResult nnres = ACIsApplicationConnected(&con);
-    if(nnres.value != 0 || con)
-        return;
-
     void *ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
 
     // Disconnect from network
     deinitDownloader();
     restartUdpLog1();
-    socket_lib_finish();
     NNResult cr;
 
-closeAgain:
-    nnres = ACClose();
+    ACClose();
+    int timeout = 100;
     do
     {
-        cr = ACGetCloseStatus(nnres);
-        if(cr.value == -1) // FAILED
+        cr = ACGetCloseStatus();
+        if(cr.value == 0) // SUCCESS
+            break;
+
+        if(cr.value != 1 || --timeout <= 0) // Failed or timeout
         {
             if(ovl)
                 removeErrorOverlay(ovl);
@@ -276,21 +238,29 @@ closeAgain:
             if(showNetworkError(localise("Error closing network!")))
             {
                 ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
-                goto closeAgain;
+                ACFinalize();
+                socket_lib_finish();
+                goto reconnect;
             }
 
             goto exitApp;
         }
-    } while(cr.value != 0); // SUCCESS. A value of 1 means processing, so we're not handling it.
+
+        OSSleepTicks(OSMillisecondsToTicks(10));
+    } while(true);
+
+    ACFinalize();
+    socket_lib_finish();
 
     // Connect to network
 reconnect:
-    nnres = ACConnect();
+    socket_lib_init();
+    set_multicast_state(true);
+    ACInitialize();
+
+    NNResult nnres = ACConnect();
     if(nnres.value == 0)
     {
-        socket_lib_init();
-        set_multicast_state(true);
-
         restartUdpLog2();
         initDownloader();
 
@@ -299,6 +269,9 @@ reconnect:
 
         return;
     }
+
+    ACFinalize();
+    socket_lib_finish();
 
     if(ovl)
         removeErrorOverlay(ovl);
@@ -310,6 +283,7 @@ reconnect:
     }
 
 exitApp:
+    restartUdpLog2();
     if(AppRunning(true))
         homeButtonCallback((void *)true);
 }
@@ -372,92 +346,65 @@ bool initDownloader()
         debugPrintf("Netconf error!");
 
     CURLcode ret = curl_global_init(CURL_GLOBAL_DEFAULT & ~(CURL_GLOBAL_SSL));
-    if(ret == CURLE_OK)
+    if(ret != CURLE_OK)
     {
-        curl = curl_easy_init();
-        if(curl != NULL)
-        {
-            CURLoption opt;
-#ifdef NUSSPLI_DEBUG
-            curlError[0] = '\0';
-            opt = CURLOPT_ERRORBUFFER;
-            ret = curl_easy_setopt(curl, opt, curlError);
-            if(ret == CURLE_OK)
-            {
-#endif
-                opt = CURLOPT_SOCKOPTFUNCTION;
-                ret = curl_easy_setopt(curl, opt, initSocket);
-                if(ret == CURLE_OK)
-                {
-                    opt = CURLOPT_USERAGENT;
-                    ret = curl_easy_setopt(curl, opt, USERAGENT);
-                    if(ret == CURLE_OK)
-                    {
-                        opt = CURLOPT_XFERINFOFUNCTION;
-                        ret = curl_easy_setopt(curl, opt, progressCallback);
-                        if(ret == CURLE_OK)
-                        {
-                            opt = CURLOPT_NOPROGRESS;
-                            ret = curl_easy_setopt(curl, opt, 0L);
-                            if(ret == CURLE_OK)
-                            {
-                                opt = CURLOPT_FOLLOWLOCATION;
-                                ret = curl_easy_setopt(curl, opt, 1L);
-                                if(ret == CURLE_OK)
-                                {
-                                    opt = CURLOPT_SSL_CTX_FUNCTION;
-                                    ret = curl_easy_setopt(curl, opt, ssl_ctx_init);
-                                    if(ret == CURLE_OK)
-                                    {
-                                        opt = CURLOPT_CAINFO_BLOB;
-                                        ret = curl_easy_setopt(curl, opt, blob);
-                                        if(ret == CURLE_OK)
-                                        {
-                                            MEMFreeToDefaultHeap(blob.data);
-                                            opt = CURLOPT_LOW_SPEED_LIMIT;
-                                            ret = curl_easy_setopt(curl, opt, 1L);
-                                            if(ret == CURLE_OK)
-                                            {
-                                                opt = CURLOPT_LOW_SPEED_TIME;
-                                                ret = curl_easy_setopt(curl, opt, 60L);
-                                                if(ret == CURLE_OK)
-                                                {
-                                                    opt = CURLOPT_ACCEPT_ENCODING;
-                                                    ret = curl_easy_setopt(curl, opt, "");
-                                                    if(ret == CURLE_OK)
-                                                    {
-                                                        opt = CURLOPT_PROXY;
-                                                        ret = curl_easy_setopt(curl, opt, pUrl2);
-                                                        if(ret == CURLE_OK)
-                                                        {
-                                                            initialised = true;
-                                                            return true;
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            blob.data = NULL;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-#ifdef NUSSPLI_DEBUG
-            }
-            debugPrintf("curl_easy_setopt() failed: %s (%u / %d)", curlError, opt, ret);
-#endif
-            curl_easy_cleanup(curl);
-            curl = NULL;
-        }
-#ifdef NUSSPLI_DEBUG
-        else
-            debugPrintf("curl_easy_init() failed!");
-#endif
-        curl_global_cleanup();
+        MEMFreeToDefaultHeap(blob.data);
+        return false;
     }
+
+    curl = curl_easy_init();
+    if(curl == NULL)
+    {
+        debugPrintf("curl_easy_init() failed!");
+        curl_global_cleanup();
+        MEMFreeToDefaultHeap(blob.data);
+        return false;
+    }
+
+    CURLoption opt;
+
+#define setOpt(o, v)                        \
+    opt = (o);                              \
+    ret = curl_easy_setopt(curl, opt, (v)); \
+    if(ret != CURLE_OK)                     \
+        goto setoptFailed;
+
+#ifdef NUSSPLI_DEBUG
+    curlError[0] = '\0';
+    setOpt(CURLOPT_ERRORBUFFER, curlError);
+#endif
+    setOpt(CURLOPT_SOCKOPTFUNCTION, initSocket);
+    setOpt(CURLOPT_USERAGENT, USERAGENT);
+    setOpt(CURLOPT_XFERINFOFUNCTION, progressCallback);
+    setOpt(CURLOPT_NOPROGRESS, 0L);
+    setOpt(CURLOPT_FOLLOWLOCATION, 1L);
+    setOpt(CURLOPT_MAXREDIRS, 8L);
+    // curl_easy_perform() runs on its own thread (see dlThreadMain()) and CafeOS has
+    // no usable signal support, so keep libCURL away from signals and alarm().
+    setOpt(CURLOPT_NOSIGNAL, 1L);
+    // Without this a dead socket makes us hang instead of reporting an error.
+    setOpt(CURLOPT_CONNECTTIMEOUT, 30L);
+    setOpt(CURLOPT_SSL_CTX_FUNCTION, ssl_ctx_init);
+    setOpt(CURLOPT_CAINFO_BLOB, &blob);
+
+    // libCURL copied the certificates (CURL_BLOB_COPY), so we're done with our copy.
+    MEMFreeToDefaultHeap(blob.data);
+    blob.data = NULL;
+
+    setOpt(CURLOPT_LOW_SPEED_LIMIT, 1L);
+    setOpt(CURLOPT_LOW_SPEED_TIME, 60L);
+    setOpt(CURLOPT_ACCEPT_ENCODING, "");
+    setOpt(CURLOPT_PROXY, pUrl2);
+#undef setOpt
+
+    initialised = true;
+    return true;
+
+setoptFailed:
+    debugPrintf("curl_easy_setopt() failed: %s (%u / %d)", curlError, opt, ret);
+    curl_easy_cleanup(curl);
+    curl = NULL;
+    curl_global_cleanup();
 
     if(blob.data != NULL)
         MEMFreeToDefaultHeap(blob.data);
@@ -492,27 +439,33 @@ static const char *translateCurlError(CURLcode err, const char *error)
     switch(err)
     {
         case CURLE_COULDNT_RESOLVE_HOST:
-            return "Couldn't resolve hostname";
+            return localise("Couldn't resolve hostname");
         case CURLE_COULDNT_CONNECT:
-            return "Couldn't connect to server";
+            return localise("Couldn't connect to server");
         case CURLE_OPERATION_TIMEDOUT:
-            return "Operation timed out";
+            return localise("Operation timed out");
         case CURLE_GOT_NOTHING:
-            return "The server didn't return any data";
+            return localise("The server didn't return any data");
         case CURLE_SEND_ERROR:
+            return localise("Failed sending data");
         case CURLE_RECV_ERROR:
+            return localise("Failed receiving data");
         case CURLE_PARTIAL_FILE:
-            return "I/O error";
+            return localise("Transferred a partial file");
         case CURLE_PEER_FAILED_VERIFICATION:
-            return "Verification failed";
+            return localise("Verification failed");
         case CURLE_SSL_CONNECT_ERROR:
-            return "Handshake failed";
+            return localise("Handshake failed");
         case CURLE_FAILED_INIT:
+            return localise("Initialization failed");
         case CURLE_READ_ERROR:
+            return localise("Read error");
         case CURLE_OUT_OF_MEMORY:
-            return "Internal error";
-        case CURLE_BAD_FUNCTION_ARGUMENT: // TODO: WUT bug
-            return "Internal WUT error";
+            return localise("Out of memory");
+        // libCURL is right here: CafeOS answered ENOPROTOOPT (92) to a WUT socket
+        // call, so libCURL got an invalid argument. See issue #302.
+        case CURLE_BAD_FUNCTION_ARGUMENT:
+            return localise("Internal WUT error");
         default:
             return error[0] == '\0' ? curl_easy_strerror(err) : error;
     }
@@ -531,7 +484,7 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
     else
         barToFrame(line, 0, 29, 0.0D);
 
-    char *toScreen = getToFrameBuffer();
+    char toScreen[256];
     humanize(currentSize, toScreen);
     char *ptr = toScreen + strlen(toScreen);
     strcpy(ptr, " / ");
@@ -562,7 +515,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
         name = file + haystack + 1;
     }
 
-    char *toScreen = getToFrameBuffer();
+    char toScreen[FS_MAX_PATH + 64];
     void *fp;
     size_t fileSize;
     if(rambuf)
@@ -843,6 +796,14 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
             }
         }
 
+        // Whatever went wrong, the connection libCURL has cached is not trustworthy
+        // anymore. This matters most for CURLE_BAD_FUNCTION_ARGUMENT: CafeOS kills
+        // the socket behind libCURLs back ("Received request to kill all sockets"),
+        // select() then fails with ENOPROTOOPT and libCURL reports an unrecoverable
+        // poll. Retrying on that very same socket just reproduces the error, so make
+        // sure the next attempt does a fresh connect.
+        curlReuseConnection = false;
+
         const char *te = translateCurlError(ret, curlError);
         switch(ret)
         {
@@ -853,22 +814,42 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
                     rambuf->buf = NULL;
                     rambuf->size = 0;
                 }
-                int r = downloadFile(url, file, data, type, false, queueData, rambuf);
-                curlReuseConnection = false;
-                return r;
+                return downloadFile(url, file, data, type, false, queueData, rambuf);
             case CURLE_COULDNT_RESOLVE_HOST:
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Network error"), te, localise("check your DNS and network settings"));
+                break;
             case CURLE_COULDNT_CONNECT:
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Network error"), te, localise("check your internet connection and try again"));
+                break;
             case CURLE_OPERATION_TIMEDOUT:
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Network error"), te, localise("the operation timed out, please try again"));
+                break;
             case CURLE_GOT_NOTHING:
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Network error"), te, localise("the server didn't return any data, please try again"));
+                break;
             case CURLE_SEND_ERROR:
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Network error"), te, localise("failed to send data, check the network settings and try again"));
+                break;
             case CURLE_RECV_ERROR:
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Network error"), te, localise("failed to receive data, check the network settings and try again"));
+                break;
             case CURLE_PARTIAL_FILE:
-            case CURLE_BAD_FUNCTION_ARGUMENT: // TODO: WUT bug
-                sprintf(toScreen, "%s:\n\t%s\n\n%s", "Network error", te, ret != CURLE_BAD_FUNCTION_ARGUMENT ? "check the network settings and try again" : "See https://github.com/V10lator/NUSspli/issues/302#issuecomment-2108134284");
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Network error"), te, localise("the file transfer was incomplete, please try again"));
+                break;
+            case CURLE_BAD_FUNCTION_ARGUMENT: // Killed socket, see above
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Internal WUT error"), te, "See https://github.com/V10lator/NUSspli/issues/302#issuecomment-2108134284");
+                deinitDownloader();
                 break;
             case CURLE_PEER_FAILED_VERIFICATION:
+                sprintf(toScreen, "%s:\n\t%s!\n\n%s", localise("SSL error"), te, localise("peer certificate verification failed, check your Wii Us date and time settings"));
+                break;
             case CURLE_SSL_CONNECT_ERROR:
-                sprintf(toScreen, "%s:\n\t%s!\n\n%s", "SSL error", te, "check your Wii Us date and time settings");
+                sprintf(toScreen, "%s:\n\t%s!\n\n%s", localise("SSL error"), te, localise("SSL handshake failed, check your Wii Us date and time settings"));
+                break;
+            case CURLE_FAILED_INIT:
+            case CURLE_READ_ERROR:
+            case CURLE_OUT_OF_MEMORY:
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Internal error"), te, localise("an internal error occurred, please restart the console"));
                 break;
             default:
                 sprintf(toScreen, "%s:\n\t%d %s", te, ret, curlError);
@@ -901,9 +882,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
         if(!rambuf)
         {
             flushIOQueue();
-            char *newFile = getStaticPathBuffer(2);
-            strcpy(newFile, file);
-            FSARemove(getFSAClient(), newFile);
+            FSARemove(getFSAClient(), file);
         }
 
         if(resp == 404 && (type & FILE_TYPE_TMD) == FILE_TYPE_TMD) // Title.tmd not found
@@ -1015,7 +994,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
         strcat(folderName, titleVer);
     }
 
-    char *installDir = getStaticPathBuffer(3);
+    char installDir[FS_MAX_PATH];
     strcpy(installDir, dlDev == NUSDEV_USB01 ? INSTALL_DIR_USB1 : (dlDev == NUSDEV_USB02 ? INSTALL_DIR_USB2 : (dlDev == NUSDEV_SD ? INSTALL_DIR_SD : INSTALL_DIR_MLC)));
     if(!dirExists(installDir))
     {
@@ -1025,9 +1004,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
             addToScreenLog("Install directory successfully created");
         else
         {
-            char *toScreen = getToFrameBuffer();
-            strcpy(toScreen, translateFSErr(err));
-            showErrorFrame(toScreen);
+            showErrorFrame(translateFSErr(err));
             return false;
         }
     }
@@ -1046,9 +1023,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
             addToScreenLog("Download directory successfully created");
         else
         {
-            char *toScreen = getToFrameBuffer();
-            strcpy(toScreen, translateFSErr(err));
-            showErrorFrame(toScreen);
+            showErrorFrame(translateFSErr(err));
             return false;
         }
     }
@@ -1061,7 +1036,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     FSAFileHandle fp = openFile(installDir, "w", tmdSize);
     if(fp == 0)
     {
-        showErrorFrame("Can't save title.tmd file!");
+        showErrorFrame(localise("Can't save title.tmd file!"));
         return false;
     }
 
@@ -1069,7 +1044,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     addToIOQueue(NULL, 0, 0, fp);
     addToScreenLog("title.tmd saved");
 
-    char *toScreen = getToFrameBuffer();
+    char toScreen[128];
     strcpy(toScreen, "=>Title type: ");
     bool hasDependencies;
     switch(getTidHighFromTid(tmd->tid)) // Title type
@@ -1157,7 +1132,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
                 if(fp == 0)
                 {
                     freeRamBuf(tikBuf);
-                    showErrorFrame("Can't save title.tik file!");
+                    showErrorFrame(localise("Can't save title.tik file!"));
                     return false;
                 }
 
@@ -1263,6 +1238,9 @@ RAMBUF *allocRamBuf()
 
 void freeRamBuf(RAMBUF *rambuf)
 {
+    if(rambuf == NULL)
+        return;
+
     if(rambuf->buf != NULL)
         MEMFreeToDefaultHeap(rambuf->buf);
 

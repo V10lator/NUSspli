@@ -52,8 +52,6 @@
 #define FRAMERATE_60FPS      1
 #define FRAMERATE_30FPS      2
 
-#define TO_FRAME_BUFFER_SIZE (1024 * 1024)
-
 #ifdef __cplusplus
 extern "C"
 {
@@ -113,4 +111,3 @@ extern "C"
 #define startNewFrame()                              colorStartNewFrame(SCREEN_COLOR_BLUE)
 #define textToFrame(line, column, str)               textToFrameCut(line, column, str, column == 0 ? SCREEN_WIDTH - (FONT_SIZE * 2) : 0)
 #define textToFrameColored(line, column, str, color) textToFrameColoredCut(line, column, str, color, column == 0 ? SCREEN_WIDTH - (FONT_SIZE * 2) : 0)
-#define getToFrameBuffer()                           getStaticScreenBuffer()

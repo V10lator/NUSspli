@@ -23,13 +23,15 @@
 #include <stdbool.h>
 #include <string.h>
 
-#include <deinstaller.h>
 #include <file.h>
 #include <input.h>
+#include <list.h>
 #include <localisation.h>
 #include <menu/insttitlebrowser.h>
+#include <menu/queue.h>
 #include <menu/utils.h>
 #include <osdefs.h>
+#include <queue.h>
 #include <renderer.h>
 #include <state.h>
 #include <staticMem.h>
@@ -190,10 +192,12 @@ static void drawITBMenuFrame(const size_t pos, const size_t cursor)
     startNewFrame();
     boxToFrame(0, MAX_LINES - 2);
 
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, localise("Press " BUTTON_PLUS " to launch"));
     strcat(toFrame, " || ");
     strcat(toFrame, localise(BUTTON_MINUS " to delete"));
+    strcat(toFrame, " || ");
+    strcat(toFrame, localise(BUTTON_X " to open the queue"));
     strcat(toFrame, " || ");
     strcat(toFrame, localise(BUTTON_B " to return"));
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, toFrame);
@@ -313,6 +317,14 @@ loopEntry:
         {
             entry = ititleEntries + cursor + pos;
             break;
+        }
+
+        if(vpad.trigger & VPAD_BUTTON_X && getListSize(getTitleQueue()))
+        {
+            if(queueMenu())
+                goto instExit;
+
+            redraw = true;
         }
 
         if(vpad.trigger & VPAD_BUTTON_B)
@@ -454,8 +466,8 @@ loopEntry:
     if(AppRunning(true))
     {
         volatile INST_META *im = installedTitles + cursor + pos;
-        char *toFrame = getToFrameBuffer();
-        strcpy(toFrame, localise("Do you really want to uninstall"));
+        char toFrame[512];
+        strcpy(toFrame, localise("Do you really want to add to the uninstall queue"));
         strcat(toFrame, "\n");
         strcat(toFrame, (char *)im->name);
         strcat(toFrame, "\n");
@@ -490,7 +502,10 @@ loopEntry:
         removeErrorOverlay(r);
 
         if(checkSystemTitleFromListType(entry, true) && AppRunning(true)) // entry is initialised, the compiler just can't follow
-            deinstall(entry, (const char *)im->name, false, false);
+        {
+            addToDeinstallQueue(entry, (const char *)im->name);
+            goto loopEntry;
+        }
         else
             goto loopEntry;
     }

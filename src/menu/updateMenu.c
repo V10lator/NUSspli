@@ -34,7 +34,7 @@ static void drawUpdateMenuFrame(const char *newVersion)
     startNewFrame();
     boxToFrame(0, 5);
     textToFrame(1, ALIGNED_CENTER, "NUSspli");
-    char *toScreen = getToFrameBuffer();
+    char toScreen[256];
     strcpy(toScreen, "NUS simple packet loader/installer [");
     strcat(toScreen, NUSSPLI_VERSION);
     strcat(toScreen, "]");

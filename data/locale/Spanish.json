@@ -143,6 +143,8 @@
     "Queue finished successfully!": "¡La cola ha finalizado con éxito!",
 
     "Could not open path": "No se ha podido abrir la ruta:",
+    "Can't save title.tmd file!": "¡No se puede guardar el archivo title.tmd!",
+    "Can't save title.tik file!": "¡No se puede guardar el archivo title.tik!",
     "Invalid title.tmd file!": "¡Archivo <title.tmd> inválido!",
     "Couldn't save config file!\nYour SD card might be write locked.": "No se ha podido guardar la configuración.\nLa tarjeta SD podría estar protegida contra escritura.",
     "Downloading to NAND is dangerous,\nit could brick your Wii U!\n\nAre you sure you want to do this?": "Descargar en la memoria interna es peligroso,\npodría brickear tu Wii U\n\n¿Estás seguro de que quieres hacerlo?",
@@ -167,6 +169,8 @@
     "Unknown Error": "Error desconocido",
 
     "Network error": "Error de red",
+    "Error closing network!": "¡Error al cerrar la red!",
+    "Error connecting to network!": "¡Error al conectar con la red!",
     "check the network settings and try again": "comprueba la configuración de la red y vuelve a intentarlo",
     "SSL error": "Error de SSL",
     "check your Wii Us date and time settings": "comprueba los ajustes de fecha y hora de tu Wii U",

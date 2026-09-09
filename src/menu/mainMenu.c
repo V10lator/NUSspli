@@ -69,16 +69,17 @@ static void drawMainMenuFrame()
     textToFrame(8, MAX_CHARS - 26, "• DaThinkingChair");
     textToFrame(9, MAX_CHARS - 26, "• Pokes303");
     textToFrame(10, MAX_CHARS - 26, "• V10lator");
+    textToFrame(11, MAX_CHARS - 26, "• Funregis");
 
-    textToFrame(12, MAX_CHARS - 27, localise("Thanks to:"));
-    textToFrame(13, MAX_CHARS - 26, "• E1ite007");
-    textToFrame(14, MAX_CHARS - 26, "• SDL");
-    textToFrame(15, MAX_CHARS - 26, "• WUP installer");
+    textToFrame(13, MAX_CHARS - 27, localise("Thanks to:"));
+    textToFrame(14, MAX_CHARS - 26, "• E1ite007");
+    textToFrame(15, MAX_CHARS - 26, "• SDL");
+    textToFrame(16, MAX_CHARS - 26, "• WUP installer");
 
-    textToFrame(17, MAX_CHARS - 27, localise("Beta testers:"));
-    textToFrame(18, MAX_CHARS - 26, "• jacobsson");
-    textToFrame(19, MAX_CHARS - 26, "• LuckyDingo");
-    textToFrame(20, MAX_CHARS - 26, "• Vague Rant");
+    textToFrame(18, MAX_CHARS - 27, localise("Beta testers:"));
+    textToFrame(19, MAX_CHARS - 26, "• jacobsson");
+    textToFrame(20, MAX_CHARS - 26, "• LuckyDingo");
+    textToFrame(21, MAX_CHARS - 26, "• Vague Rant");
 
     lineToFrame(MAX_LINES - 2, SCREEN_COLOR_WHITE);
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, localise("Press " BUTTON_HOME " or " BUTTON_B " to exit"));

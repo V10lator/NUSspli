@@ -32,6 +32,10 @@
 
 #include <curl/curl.h>
 
+#pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/mcp.h>
+#pragma GCC diagnostic pop
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -41,6 +45,7 @@ extern "C"
     {
         OPERATION_DOWNLOAD = 0x01,
         OPERATION_INSTALL = 0x02,
+        OPERATION_DEINSTALL = 0x04,
         OPERATION_DOWNLOAD_INSTALL = OPERATION_DOWNLOAD | OPERATION_INSTALL,
     } OPERATION;
 
@@ -51,6 +56,7 @@ extern "C"
         void *rambuf; // TODO
         OPERATION operation;
         const TitleEntry *entry;
+        MCPTitleListType *installedTitle;
         char titleVer[33];
         char folderName[FS_MAX_PATH - 11] __attribute__((__aligned__(0x40)));
         NUSDEV dlDev;
@@ -70,6 +76,7 @@ extern "C"
     bool initQueue();
     void shutdownQueue();
     int addToQueue(TitleData *data);
+    bool addToDeinstallQueue(const MCPTitleListType *title, const char *name);
     bool removeFromQueue(uint32_t index);
     void clearQueue();
     bool proccessQueue();

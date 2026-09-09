@@ -31,10 +31,6 @@ extern "C"
     bool initStaticMem() __attribute__((__cold__));
     void shutdownStaticMem() __attribute__((__cold__));
 
-    char *getStaticScreenBuffer() __attribute__((__hot__)) __attribute__((deprecated("Use a buffer on stack or heap instead")));
-    char *getStaticLineBuffer() __attribute__((__hot__)) __attribute__((deprecated("Use a buffer on stack or heap instead")));
-    char *getStaticPathBuffer(uint32_t i) __attribute__((__hot__)) __attribute__((deprecated("Use a buffer on stack or heap instead")));
-
 #ifdef __cplusplus
 }
 #endif

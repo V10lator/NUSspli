@@ -58,9 +58,11 @@ bool dirExists(const char *path)
 FSError removeDirectory(const char *path)
 {
     size_t len = strlen(path);
-    char *newPath = getStaticPathBuffer(0);
-    if(newPath != path)
-        OSBlockMove(newPath, path, len + 1, false);
+    if(len >= FS_MAX_PATH)
+        return FS_ERROR_INVALID_PATH;
+
+    char newPath[FS_MAX_PATH];
+    strcpy(newPath, path);
 
     if(newPath[len - 1] != '/')
     {
@@ -105,9 +107,11 @@ FSError removeDirectory(const char *path)
 FSError moveDirectory(const char *src, const char *dest)
 {
     size_t len = strlen(src) + 1;
-    char *newSrc = getStaticPathBuffer(0);
-    if(newSrc != src)
-        OSBlockMove(newSrc, src, len, false);
+    if(len >= FS_MAX_PATH || strlen(dest) + 1 >= FS_MAX_PATH)
+        return FS_ERROR_INVALID_PATH;
+
+    char newSrc[FS_MAX_PATH];
+    OSBlockMove(newSrc, src, len, false);
 
     char *inSrc = newSrc + --len;
     if(*--inSrc != '/')
@@ -125,9 +129,8 @@ FSError moveDirectory(const char *src, const char *dest)
     if(ret == FS_ERROR_OK)
     {
         len = strlen(dest) + 1;
-        char *newDest = getStaticPathBuffer(1);
-        if(newDest != dest)
-            OSBlockMove(newDest, dest, len, false);
+        char newDest[FS_MAX_PATH];
+        OSBlockMove(newDest, dest, len, false);
 
         ret = createDirectory(newDest);
         if(ret == FS_ERROR_OK)
@@ -174,13 +177,10 @@ FSError moveDirectory(const char *src, const char *dest)
 // There are no files > 4 GB on the Wii U, so size_t should be more than enough.
 size_t getFilesize(const char *path)
 {
-    char *newPath = getStaticPathBuffer(0);
-    strcpy(newPath, path);
-
     FSAStat stat;
     OSTime t = OSGetTime();
 
-    if(FSAGetStat(getFSAClient(), newPath, &stat) != FS_ERROR_OK)
+    if(FSAGetStat(getFSAClient(), path, &stat) != FS_ERROR_OK)
         return -1;
 
     t = OSGetTime() - t;
@@ -191,7 +191,7 @@ size_t getFilesize(const char *path)
 
 size_t readFile(const char *path, void **buffer)
 {
-    char *toScreen = getToFrameBuffer();
+    char toScreen[FS_MAX_PATH + 128];
     toScreen[0] = '\0';
     size_t filesize = getFilesize(path);
     if(filesize == (size_t)0)
@@ -199,7 +199,6 @@ size_t readFile(const char *path, void **buffer)
     else if(filesize != (size_t)-1)
     {
         FSAFileHandle handle;
-        path = getStaticPathBuffer(0); // getFilesize() setted it for us
         FSError err = FSAOpenFileEx(getFSAClient(), path, "r", 0x000, 0, 0, &handle);
         if(err == FS_ERROR_OK)
         {

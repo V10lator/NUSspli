@@ -30,4 +30,4 @@ To install the app, download and unzip the contents of the [latest release](http
 - Use `docker run --rm -v ${PWD}:/project nussplibuilder python3 build.py` to build NUSspli
 
 # Info
-NUSspli is based on [WUPDownloader](https://github.com/Pokes303/WUPDownloader) by Pokes303.
+this NUSspli fork is based on [NUSsspli](https://github.com/V10lator/NUSspli) by V10lator.

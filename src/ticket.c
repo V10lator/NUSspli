@@ -128,7 +128,7 @@ bool generateTik(const char *path, const TMD *tmd)
     FSAFileHandle tik = openFile(path, "w", 0);
     if(tik == 0)
     {
-        char *err = getStaticScreenBuffer();
+        char err[FS_MAX_PATH + 256];
         sprintf(err, "%s\n%s", localise("Could not open path"), prettyDir(path));
         showErrorFrame(err);
         return false;
@@ -255,7 +255,7 @@ bool generateCert(const TMD *tmd, const TICKET *ticket, size_t ticketSize, const
     FSAFileHandle cert = openFile(path, "w", 0);
     if(cert == 0)
     {
-        char *err = getStaticScreenBuffer();
+        char err[FS_MAX_PATH + 256];
         sprintf(err, "%s\n%s", localise("Could not open path"), prettyDir(path));
         showErrorFrame(err);
         return false;
@@ -375,11 +375,7 @@ gftEntry:
 
 void deleteTicket(uint64_t tid)
 {
-    LIST *ticketList = createList();
-    if(ticketList == NULL)
-        return;
-
-    char *path = getStaticPathBuffer(0);
+    char path[FS_MAX_PATH];
     OSBlockMove(path, TICKET_BUCKET, sizeof(TICKET_BUCKET), false);
 
     char *inSentence = path + (sizeof(TICKET_BUCKET) - 1);
@@ -389,6 +385,13 @@ void deleteTicket(uint64_t tid)
     if(ret != FS_ERROR_OK)
     {
         debugPrintf("Error opening %s: %s", path, translateFSErr(ret));
+        return;
+    }
+
+    LIST *ticketList = createList();
+    if(ticketList == NULL)
+    {
+        FSACloseDir(getFSAClient(), dir);
         return;
     }
 

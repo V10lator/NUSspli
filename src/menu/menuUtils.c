@@ -121,6 +121,7 @@ void drawErrorFrame(const char *text, ErrorOptions option)
     char *l;
     size_t size;
     int line = -1;
+    char tmp[MAX_CHARS * 2 + 1];
     while(text)
     {
         l = strchr(text, '\n');
@@ -128,10 +129,9 @@ void drawErrorFrame(const char *text, ErrorOptions option)
         size = l == NULL ? strlen(text) : (size_t)(l - text);
         if(size > 0)
         {
-            char tmp[size + 1];
-            for(size_t i = 0; i < size; ++i)
-                tmp[i] = text[i];
-
+            if(size >= sizeof(tmp))
+                size = sizeof(tmp) - 1;
+            OSBlockMove(tmp, text, size, false);
             tmp[size] = '\0';
             textToFrame(line, 0, tmp);
         }
@@ -223,7 +223,7 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall)
         }
     }
 
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     sprintf(toFrame,
         "%s\n\n" BUTTON_A " %s || " BUTTON_B " %s",
         localise("This is a reliable way to brick your console!\nAre you sure you want to do that?"),
@@ -413,7 +413,7 @@ void showNoSpaceOverlay(NUSDEV dev)
             nd = "MLC";
     }
 
-    char *toFrame = getToFrameBuffer();
+    char toFrame[256];
     sprintf(toFrame, "%s  %s\n\n%s", localise("Not enough free space on"), nd, localise("Press any key to return")); // nd is initialised!
 
     void *ovl = addErrorOverlay(toFrame);

@@ -105,7 +105,7 @@ static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const s
         {
             showQueue = false;
             strcpy(l, folder);
-            forEachListEntry(getTitleQueue(), title)
+            for(ELEMENT *title_entry = getTitleQueue()->first; title_entry != NULL && (title = title_entry->content); title_entry = title_entry->next)
             {
                 if(strcmp(fp, title->folderName) == 0)
                 {

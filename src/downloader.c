@@ -222,7 +222,6 @@ static void resetNetwork()
     restartUdpLog1();
     NNResult cr;
 
-closeAgain:
     ACClose();
     int timeout = 100;
     do

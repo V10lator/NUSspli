@@ -1,6 +1,6 @@
-FROM devkitpro/devkitppc:20250102
-COPY --from=ghcr.io/wiiu-env/libmocha:20240603 /artifacts $DEVKITPRO
-COPY --from=ghcr.io/wiiu-env/librpxloader:20240425 /artifacts $DEVKITPRO
+FROM devkitpro/devkitppc:20260117
+COPY --from=ghcr.io/wiiu-env/libmocha:20260110 /artifacts $DEVKITPRO
+COPY --from=ghcr.io/wiiu-env/librpxloader:20260112 /artifacts $DEVKITPRO
 
 ENV DEBIAN_FRONTEND=noninteractive \
  PATH=$DEVKITPPC/bin:$DEVKITPRO/portlibs/wiiu/bin/:$PATH \
@@ -27,7 +27,7 @@ RUN mkdir -p /usr/share/man/man1 /usr/share/man/man2 && \
  apt-get -y --no-install-recommends upgrade
 
 # Install the requirements to package the homebrew
-RUN apt-get -y install --no-install-recommends autoconf automake libtool openjdk-11-jre-headless python3-pycurl && \
+RUN apt-get -y install --no-install-recommends autoconf automake libtool openjdk-17-jre-headless python3-pycurl && \
  apt-get clean
 
 # Install nghttp2 for HTTP/2 support (WUT don't include this)

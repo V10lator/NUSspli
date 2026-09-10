@@ -49,7 +49,7 @@ RUN curl -LO https://github.com/nghttp2/nghttp2/releases/download/v$NGHTTP2_VER/
   rm -rf nghttp2 nghttp2-$NGHTTP2_VER.tar.xz
 
 # Install Brotli
-RUN git clone --depth 1 --single-branch https://github.com/google/brotli.git && \
+RUN git clone --depth 1 --branch v$BROTLI_VER --single-branch --recurse-submodules -j$(nproc) https://github.com/google/brotli.git && \
  cd brotli && \
  sed -i 's/POSITION_INDEPENDENT_CODE TRUE/POSITION_INDEPENDENT_CODE FALSE/' CMakeLists.txt && \
  mkdir out && cd out && \

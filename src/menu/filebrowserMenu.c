@@ -63,8 +63,8 @@ static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const s
     char lbuf[64];
     strcpy(lbuf, BUTTON_X " to switch to ");
     strcat(lbuf, activeDevice == NUSDEV_USB ? "SD" : activeDevice == NUSDEV_SD ? "NAND"
-            : usbMounted                                                    ? "USB"
-                                                                            : "SD");
+            : usbMounted                                                       ? "USB"
+                                                                               : "SD");
     strcat(toWrite, localise(lbuf));
     textToFrame(MAX_LINES - 2, ALIGNED_CENTER, toWrite);
 

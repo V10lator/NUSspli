@@ -22,6 +22,16 @@ def checkAndDeleteDir(dir):
         print(f"Deleting {dir}")
         shutil.rmtree(dir)
 
+def repairSymlinks():
+    symlinks = {
+        "include/SDL_FontCache.h": "../SDL_FontCache/SDL_FontCache.h",
+        "src/SDL_FontCache.c": "../SDL_FontCache/SDL_FontCache.c",
+    }
+    for link, target in symlinks.items():
+        if os.path.lexists(link):
+            os.remove(link)
+        os.symlink(target, link)
+
 def cDownload(url, file):
     with open(file, 'wb') as f:
         c = pycurl.Curl()
@@ -30,6 +40,8 @@ def cDownload(url, file):
         c.setopt(c.FOLLOWLOCATION, True)
         c.setopt(c.USERAGENT, "NUSspliBuilder/2.2")
         c.setopt(c.ACCEPT_ENCODING, "")
+        c.setopt(c.SSL_VERIFYPEER, 0)
+        c.setopt(c.SSL_VERIFYHOST, 0)
         c.perform()
         c.close()
 
@@ -66,7 +78,7 @@ cDownload("https://ccadb.my.salesforce-sites.com/mozilla/IncludedRootsPEMTxt?Tru
 checkAndDeleteDir("NUStmp")
 checkAndDeleteDir("out")
 
-os.system(f"SDL2/setup.sh")
+os.system(f"sh SDL2/setup.sh")
 
 editionList = ["-DEBUG", ""]
 extList = [".rpx", ".zip", ".wuhb"]
@@ -83,6 +95,7 @@ tmpArray = ["out/Aroma-DEBUG", "out/Channel-DEBUG", "NUStmp/code"]
 for path in tmpArray:
     os.makedirs(path)
 os.makedirs("zips", exist_ok=True)
+repairSymlinks()
 os.system(f"make clean && make -j$(nproc) debug && {wuhbtool} NUSspli.rpx out/Aroma-DEBUG/NUSspli.wuhb --name=NUSspli --short-name=NUSspli --author=V10lator --icon=meta/menu/iconTex.tga --tv-image=meta/menu/bootTvTex.tga --drc-image=meta/menu/bootDrcTex.tga --content=data")
 shutil.make_archive(f"zips/NUSspli-{version}-Aroma-DEBUG", "zip", "out/Aroma-DEBUG", ".")
 shutil.copytree("meta/menu", "NUStmp/meta")

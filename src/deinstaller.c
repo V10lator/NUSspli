@@ -39,7 +39,7 @@
 bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool skipEnd)
 {
     startNewFrame();
-    char *toFrame = getToFrameBuffer();
+    char toFrame[256];
     strcpy(toFrame, localise("Uninstalling"));
     strcat(toFrame, " ");
     strcat(toFrame, name);
@@ -65,6 +65,9 @@ bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool
         debugPrintf("Err1: %#010x (%d)", err, err);
         if(!channelHaxx)
             enableShutdown();
+        char errBuf[128];
+        sprintf(errBuf, "%s: %#010x", localise("Deinstallation failed!"), err);
+        showErrorFrame(errBuf);
         return false;
     }
 
@@ -75,6 +78,16 @@ bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool
     }
 
     showMcpProgress(&data, name, false);
+    if(data.err != 0)
+    {
+        enableShutdown();
+        addToScreenLog("Deinstallation failed!");
+        char errBuf[128];
+        sprintf(errBuf, "%s: %#010x", localise("Deinstallation failed!"), data.err);
+        showErrorFrame(errBuf);
+        return false;
+    }
+
     deleteTicket(title->titleId);
     enableShutdown();
     t = OSGetTick() - t;

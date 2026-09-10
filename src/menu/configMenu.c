@@ -42,7 +42,7 @@ static int cursorPos = 0;
 static void drawConfigMenu()
 {
     startNewFrame();
-    char *toScreen = getToFrameBuffer();
+    char toScreen[256];
 
     strcpy(toScreen, localise("Language:"));
     strcat(toScreen, " ");

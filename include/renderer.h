@@ -43,16 +43,14 @@
 #define SCREEN_COLOR_BG4 0x5205FFFF
 
 // These are with Nintendo font at size 24:
-#define MAX_CHARS            124 // TODO: This is here for historical reasons and only valid for spaces now
-#define MAX_LINES            24
+#define MAX_CHARS       124 // TODO: This is here for historical reasons and only valid for spaces now
+#define MAX_LINES       24
 
-#define ALIGNED_RIGHT        MAX_CHARS
-#define ALIGNED_CENTER       (MAX_CHARS + 1)
+#define ALIGNED_RIGHT   MAX_CHARS
+#define ALIGNED_CENTER  (MAX_CHARS + 1)
 
-#define FRAMERATE_60FPS      1
-#define FRAMERATE_30FPS      2
-
-#define TO_FRAME_BUFFER_SIZE (1024 * 1024)
+#define FRAMERATE_60FPS 1
+#define FRAMERATE_30FPS 2
 
 #ifdef __cplusplus
 extern "C"
@@ -113,4 +111,3 @@ extern "C"
 #define startNewFrame()                              colorStartNewFrame(SCREEN_COLOR_BLUE)
 #define textToFrame(line, column, str)               textToFrameCut(line, column, str, column == 0 ? SCREEN_WIDTH - (FONT_SIZE * 2) : 0)
 #define textToFrameColored(line, column, str, color) textToFrameColoredCut(line, column, str, color, column == 0 ? SCREEN_WIDTH - (FONT_SIZE * 2) : 0)
-#define getToFrameBuffer()                           getStaticScreenBuffer()

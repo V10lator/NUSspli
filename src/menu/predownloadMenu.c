@@ -70,7 +70,7 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
 
     textToFrame(0, 0, localise("Name:"));
 
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, entry->name);
     char tid[17];
     hex(entry->tid, 16, tid);
@@ -150,9 +150,9 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
     strcat(toFrame, " ");
     strcat(toFrame, localise(keepFiles ? "Yes" : "No"));
     if(dlDev == NUSDEV_SD && operation == OPERATION_DOWNLOAD_INSTALL)
-        textToFrame(--line, 4, localise(toFrame));
+        textToFrame(--line, 4, toFrame);
     else
-        textToFrameColored(--line, 4, localise(toFrame), SCREEN_COLOR_WHITE_TRANSP);
+        textToFrameColored(--line, 4, toFrame, SCREEN_COLOR_WHITE_TRANSP);
 
     strcpy(toFrame, localise("Download to:"));
     strcat(toFrame, " ");
@@ -170,7 +170,7 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
     }
 
     getFreeSpaceString(dlDev, toFrame + strlen(toFrame));
-    textToFrame(--line, 4, localise(toFrame));
+    textToFrame(--line, 4, toFrame);
 
     strcpy(toFrame, localise("Operation:"));
     strcat(toFrame, " ");
@@ -212,12 +212,12 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
 
 static void *drawPDWrongDeviceFrame(NUSDEV dev)
 {
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, localise("The main game is installed to"));
     strcat(toFrame, " ");
     strcat(toFrame, dev & NUSDEV_USB ? "USB" : "NAND");
     strcat(toFrame, "\n");
-    strcat(toFrame, "Do you want to change the target device to this?");
+    strcat(toFrame, localise("Do you want to change the target device to this?"));
     strcat(toFrame, "\n\n" BUTTON_A " ");
     strcat(toFrame, localise("Yes"));
     strcat(toFrame, " || " BUTTON_B " ");
@@ -228,7 +228,7 @@ static void *drawPDWrongDeviceFrame(NUSDEV dev)
 
 static void *drawPDMainGameFrame(const TitleEntry *entry)
 {
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, entry->name);
     strcat(toFrame, "\n");
     strcat(toFrame, localise(isDLC(entry->tid) ? "is DLC." : (isUpdate(entry->tid) ? "is a update." : "is a demo.")));
@@ -242,7 +242,7 @@ static void *drawPDMainGameFrame(const TitleEntry *entry)
 
 static void *drawPDUpdateFrame(const TitleEntry *entry)
 {
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, entry->name);
     strcat(toFrame, "\n");
     strcat(toFrame, localise("Has an update available."));
@@ -539,7 +539,7 @@ naNedNa:
     {
         if(dlDev == NUSDEV_MLC)
         {
-            char *txt = getToFrameBuffer();
+            char txt[512];
             sprintf(txt,
                 "%s\n\n" BUTTON_A " %s || " BUTTON_B " %s",
                 localise(

@@ -59,9 +59,12 @@ char *Swkbd_GetInputFormString()
         return nullptr;
 
     size_t i = 0;
-    do
+    while(cppRet[i] != u'\0' && i < sizeof(ifs) - 1)
+    {
         ifs[i] = cppRet[i] > 0x7F ? '?' : (char)cppRet[i];
-    while(ifs[i++] != '\0');
+        i++;
+    }
+    ifs[i] = '\0';
 
     return ifs;
 }

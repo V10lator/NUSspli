@@ -1,6 +1,6 @@
-FROM devkitpro/devkitppc:20250102
-COPY --from=ghcr.io/wiiu-env/libmocha:20240603 /artifacts $DEVKITPRO
-COPY --from=ghcr.io/wiiu-env/librpxloader:20240425 /artifacts $DEVKITPRO
+FROM devkitpro/devkitppc:20260117
+COPY --from=ghcr.io/wiiu-env/libmocha:20260110 /artifacts $DEVKITPRO
+COPY --from=ghcr.io/wiiu-env/librpxloader:20260112 /artifacts $DEVKITPRO
 
 ENV DEBIAN_FRONTEND=noninteractive \
  PATH=$DEVKITPPC/bin:$DEVKITPRO/portlibs/wiiu/bin/:$PATH \
@@ -10,8 +10,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
  AR=$DEVKITPPC/bin/powerpc-eabi-ar \
  RANLIB=$DEVKITPPC/bin/powerpc-eabi-ranlib \
  PKG_CONFIG=$DEVKITPRO/portlibs/wiiu/bin/powerpc-eabi-pkg-config \
- CFLAGS="-mcpu=750 -meabi -mhard-float -Ofast -fipa-pta -ffunction-sections -fdata-sections" \
- CXXFLAGS="-mcpu=750 -meabi -mhard-float -Ofast -fipa-pta -ffunction-sections -fdata-sections" \
+ CFLAGS="-mcpu=750 -meabi -mhard-float -O3 -pipe -mlongcall -fno-pic -fno-pie -fno-plt -ffunction-sections -fdata-sections" \
+ CXXFLAGS="-mcpu=750 -meabi -mhard-float -O3 -pipe -mlongcall -fno-pic -fno-pie -fno-plt -ffunction-sections -fdata-sections" \
  CPPFLAGS="-D__WIIU__ -D__WUT__ -I$DEVKITPRO/wut/include -L$DEVKITPRO/wut/lib" \
  LDFLAGS="-L$DEVKITPRO/wut/lib" \
  LIBS="-lwut -lm" \
@@ -27,7 +27,7 @@ RUN mkdir -p /usr/share/man/man1 /usr/share/man/man2 && \
  apt-get -y --no-install-recommends upgrade
 
 # Install the requirements to package the homebrew
-RUN apt-get -y install --no-install-recommends autoconf automake libtool openjdk-11-jre-headless python3-pycurl && \
+RUN apt-get -y install --no-install-recommends autoconf automake libtool openjdk-17-jre-headless python3-pycurl && \
  apt-get clean
 
 # Install nghttp2 for HTTP/2 support (WUT don't include this)
@@ -42,6 +42,8 @@ RUN curl -LO https://github.com/nghttp2/nghttp2/releases/download/v$NGHTTP2_VER/
 --enable-lib-only \
 --prefix=$DEVKITPRO/portlibs/wiiu/ \
 --enable-static \
+--disable-shared \
+--without-pic \
 --disable-threads \
 --host=powerpc-eabi && \
   make -j$(nproc) install && \
@@ -52,13 +54,13 @@ RUN curl -LO https://github.com/nghttp2/nghttp2/releases/download/v$NGHTTP2_VER/
 RUN git clone --depth 1 --single-branch https://github.com/google/brotli.git && \
  cd brotli && \
  mkdir out && cd out && \
- cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/portlibs/wiiu/ -DBUILD_SHARED_LIBS=OFF -DBROTLI_BUILD_TOOLS=OFF .. && \
+ cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/portlibs/wiiu/ -DBUILD_SHARED_LIBS=OFF -DBROTLI_BUILD_TOOLS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF .. && \
  cmake --build . --config Release --target install -j$(nproc) && \
  cd ../.. && \
  rm -rf brotli
 
 # Install libCURL since WUT doesn't ship with the latest version
-RUN curl -LO https://curl.se/download/curl-$CURL_VER.tar.xz && \
+RUN curl -kLO https://curl.se/download/curl-$CURL_VER.tar.xz && \
  mkdir /curl && \
  tar xJf curl-$CURL_VER.tar.xz -C /curl --strip-components=1 && \
  cd curl && \
@@ -66,6 +68,8 @@ RUN curl -LO https://curl.se/download/curl-$CURL_VER.tar.xz && \
 --prefix=$DEVKITPRO/portlibs/wiiu/ \
 --host=powerpc-eabi \
 --enable-static \
+--disable-shared \
+--without-pic \
 --disable-threaded-resolver \
 --disable-pthreads \
 --with-mbedtls=$DEVKITPRO/portlibs/wiiu/ \

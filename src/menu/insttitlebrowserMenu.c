@@ -190,7 +190,7 @@ static void drawITBMenuFrame(const size_t pos, const size_t cursor)
     startNewFrame();
     boxToFrame(0, MAX_LINES - 2);
 
-    char *toFrame = getToFrameBuffer();
+    char toFrame[512];
     strcpy(toFrame, localise("Press " BUTTON_PLUS " to launch"));
     strcat(toFrame, " || ");
     strcat(toFrame, localise(BUTTON_MINUS " to delete"));
@@ -454,7 +454,7 @@ loopEntry:
     if(AppRunning(true))
     {
         volatile INST_META *im = installedTitles + cursor + pos;
-        char *toFrame = getToFrameBuffer();
+        char toFrame[512];
         strcpy(toFrame, localise("Do you really want to uninstall"));
         strcat(toFrame, "\n");
         strcat(toFrame, (char *)im->name);

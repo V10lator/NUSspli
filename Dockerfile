@@ -1,6 +1,6 @@
-FROM devkitpro/devkitppc:20250102
-COPY --from=ghcr.io/wiiu-env/libmocha:20240603 /artifacts $DEVKITPRO
-COPY --from=ghcr.io/wiiu-env/librpxloader:20240425 /artifacts $DEVKITPRO
+FROM devkitpro/devkitppc:20260503
+COPY --from=ghcr.io/wiiu-env/libmocha:20260331 /artifacts $DEVKITPRO
+COPY --from=ghcr.io/wiiu-env/librpxloader:20260329 /artifacts $DEVKITPRO
 
 ENV DEBIAN_FRONTEND=noninteractive \
  PATH=$DEVKITPPC/bin:$DEVKITPRO/portlibs/wiiu/bin/:$PATH \
@@ -15,9 +15,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
  CPPFLAGS="-D__WIIU__ -D__WUT__ -I$DEVKITPRO/wut/include -L$DEVKITPRO/wut/lib" \
  LDFLAGS="-L$DEVKITPRO/wut/lib" \
  LIBS="-lwut -lm" \
- BROTLI_VER=1.1.0 \
- CURL_VER=8.11.1 \
- NGHTTP2_VER=1.64.0
+ BROTLI_VER=1.2.0 \
+ CURL_VER=8.15.0 \
+ NGHTTP2_VER=1.70.0
 
 WORKDIR /
 
@@ -27,7 +27,7 @@ RUN mkdir -p /usr/share/man/man1 /usr/share/man/man2 && \
  apt-get -y --no-install-recommends upgrade
 
 # Install the requirements to package the homebrew
-RUN apt-get -y install --no-install-recommends autoconf automake libtool openjdk-11-jre-headless python3-pycurl && \
+RUN apt-get -y install --no-install-recommends autoconf automake libtool openjdk-17-jre-headless python3-pycurl && \
  apt-get clean
 
 # Install nghttp2 for HTTP/2 support (WUT don't include this)
@@ -51,6 +51,7 @@ RUN curl -LO https://github.com/nghttp2/nghttp2/releases/download/v$NGHTTP2_VER/
 # Install Brotli
 RUN git clone --depth 1 --single-branch https://github.com/google/brotli.git && \
  cd brotli && \
+ sed -i 's/POSITION_INDEPENDENT_CODE TRUE/POSITION_INDEPENDENT_CODE FALSE/' CMakeLists.txt && \
  mkdir out && cd out && \
  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/portlibs/wiiu/ -DBUILD_SHARED_LIBS=OFF -DBROTLI_BUILD_TOOLS=OFF .. && \
  cmake --build . --config Release --target install -j$(nproc) && \
@@ -75,6 +76,7 @@ RUN curl -LO https://curl.se/download/curl-$CURL_VER.tar.xz && \
 --disable-ntlm-wb \
 --with-nghttp2=$DEVKITPRO/portlibs/wiiu/ \
 --with-brotli=$DEVKITPRO/portlibs/wiiu/ \
+--with-zstd=$DEVKITPRO/portlibs/wiiu/ \
 --without-libpsl \
 --disable-cookies \
 --disable-doh \

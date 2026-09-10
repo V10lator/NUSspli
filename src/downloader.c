@@ -267,7 +267,7 @@ closeAgain:
     nnres = ACClose();
     do
     {
-        cr = ACGetCloseStatus(nnres);
+        cr = ACGetCloseStatus();
         if(cr.value == -1) // FAILED
         {
             if(ovl)

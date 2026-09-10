@@ -10,8 +10,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
  AR=$DEVKITPPC/bin/powerpc-eabi-ar \
  RANLIB=$DEVKITPPC/bin/powerpc-eabi-ranlib \
  PKG_CONFIG=$DEVKITPRO/portlibs/wiiu/bin/powerpc-eabi-pkg-config \
- CFLAGS="-mcpu=750 -meabi -mhard-float -Ofast -fipa-pta -ffunction-sections -fdata-sections" \
- CXXFLAGS="-mcpu=750 -meabi -mhard-float -Ofast -fipa-pta -ffunction-sections -fdata-sections" \
+ CFLAGS="-mcpu=750 -meabi -mhard-float -O3 -pipe -mlongcall -fno-pic -fno-pie -fno-plt -ffunction-sections -fdata-sections" \
+ CXXFLAGS="-mcpu=750 -meabi -mhard-float -O3 -pipe -mlongcall -fno-pic -fno-pie -fno-plt -ffunction-sections -fdata-sections" \
  CPPFLAGS="-D__WIIU__ -D__WUT__ -I$DEVKITPRO/wut/include -L$DEVKITPRO/wut/lib" \
  LDFLAGS="-L$DEVKITPRO/wut/lib" \
  LIBS="-lwut -lm" \
@@ -42,6 +42,8 @@ RUN curl -LO https://github.com/nghttp2/nghttp2/releases/download/v$NGHTTP2_VER/
 --enable-lib-only \
 --prefix=$DEVKITPRO/portlibs/wiiu/ \
 --enable-static \
+--disable-shared \
+--without-pic \
 --disable-threads \
 --host=powerpc-eabi && \
   make -j$(nproc) install && \
@@ -52,7 +54,7 @@ RUN curl -LO https://github.com/nghttp2/nghttp2/releases/download/v$NGHTTP2_VER/
 RUN git clone --depth 1 --single-branch https://github.com/google/brotli.git && \
  cd brotli && \
  mkdir out && cd out && \
- cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/portlibs/wiiu/ -DBUILD_SHARED_LIBS=OFF -DBROTLI_BUILD_TOOLS=OFF .. && \
+ cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/portlibs/wiiu/ -DBUILD_SHARED_LIBS=OFF -DBROTLI_BUILD_TOOLS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF .. && \
  cmake --build . --config Release --target install -j$(nproc) && \
  cd ../.. && \
  rm -rf brotli
@@ -66,6 +68,8 @@ RUN curl -kLO https://curl.se/download/curl-$CURL_VER.tar.xz && \
 --prefix=$DEVKITPRO/portlibs/wiiu/ \
 --host=powerpc-eabi \
 --enable-static \
+--disable-shared \
+--without-pic \
 --disable-threaded-resolver \
 --disable-pthreads \
 --with-mbedtls=$DEVKITPRO/portlibs/wiiu/ \

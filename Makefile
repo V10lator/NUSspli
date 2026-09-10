@@ -35,16 +35,18 @@ INCLUDES	:=	include \
 #-------------------------------------------------------------------------------
 
 CFLAGS		:=	$(MACHDEP) -O3 -pipe \
-				-fno-plt -fno-pic -fno-pie \
+				-mlongcall -ffunction-sections -fdata-sections \
+				-fno-pic -fno-pie \
 				-Wall -Wextra -Wundef -Wshadow -Wpointer-arith \
 				-Wcast-align -Wno-trigraphs -Wno-empty-body \
 				-Wno-maybe-uninitialized -Wno-pointer-sign \
 				-Wno-implicit-fallthrough \
+				-Wno-unused-parameter -Wno-undef \
 				-D__WIIU__ -D__WUT__ -DIOAPI_NO_64 -D__unix__
 
 CXXFLAGS	:=	$(CFLAGS) -std=c++20 -fpermissive
 ASFLAGS		:=	-g $(ARCH)
-LDFLAGS		:=	-g $(ARCH) $(RPXSPECS) $(CFLAGS) -Wl,-Map,$(notdir $*.map)
+LDFLAGS		:=	-g $(ARCH) $(RPXSPECS) $(CFLAGS) -Wl,--gc-sections -Wl,-Map,$(notdir $*.map)
 
 LIBS		:=	-lcurl -lnghttp2 -lbrotlidec -lbrotlicommon -lmbedtls -lmbedx509 -lmbedcrypto `$(PREFIX)pkg-config --libs SDL2_mixer SDL2_ttf SDL2_image harfbuzz jansson` -lwut -lmocha -lrpxloader
 
@@ -72,9 +74,8 @@ all: debug
 
 real:
 	@git submodule update --init --recursive
-	@git -C SDL_FontCache reset --hard HEAD
 	@rm -f zlib/contrib/minizip/iowin* zlib/contrib/minizip/mini* zlib/contrib/minizip/zip.? zlib/contrib/minizip/mztools.? zlib/contrib/minizip/configure.ac zlib/contrib/minizip/Makefile zlib/contrib/minizip/Makefile.am zlib/contrib/minizip/*.com zlib/contrib/minizip/*.txt
-	@cd SDL_FontCache && for patch in $(TOPDIR)/SDL_FontCache-patches/*.patch; do echo Applying $$patch && git apply $$patch; done
+	@cd SDL_FontCache && for patch in $(TOPDIR)/SDL_FontCache-patches/*.patch; do echo Applying $$patch && git apply $$patch; done || true
 	@[ -d $(BUILD) ] || mkdir -p $(BUILD)
 	@$(MAKE) -C $(BUILD) -f $(CURDIR)/Makefile BUILD=$(BUILD) $(MAKE_CMD)
 

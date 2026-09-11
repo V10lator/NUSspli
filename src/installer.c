@@ -125,7 +125,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
 
     if(!checkFreeSpace(toUsb ? getUSB() : NUSDEV_MLC, size))
     {
-        if(tmd == NULL && tmd2 != NULL)
+        if(tmd == NULL)
             MEMFreeToDefaultHeap(tmd2);
         return !(AppRunning(true));
     }
@@ -145,7 +145,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         noIntro = transformNoIntro(path);
         if(noIntro == NULL)
         {
-            if(tmd == NULL && tmd2 != NULL)
+            if(tmd == NULL)
                 MEMFreeToDefaultHeap(tmd2);
 
             const char *err = localise("Error transforming no-image set");
@@ -183,7 +183,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
                                 revertNoIntro(noIntro);
 
                             bool ret = install(game, hasDeps, dev, path, toUsb, keepFiles, tmd2);
-                            if(tmd == NULL && tmd2 != NULL)
+                            if(tmd == NULL)
                                 MEMFreeToDefaultHeap(tmd2);
 
                             return ret;
@@ -232,7 +232,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         return false;
     }
 
-    if(tmd == NULL && tmd2 != NULL)
+    if(tmd == NULL)
         MEMFreeToDefaultHeap(tmd2);
 
     // Allright, let's set if we want to install to USB or NAND

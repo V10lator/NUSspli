@@ -73,6 +73,7 @@ static volatile INST_META *installedTitles;
 static MCPTitleListType *ititleEntries;
 static size_t *ititleOrder;
 static size_t ititleEntrySize;
+static bool ititleSorted;
 static volatile ASYNC_STATE asyncState;
 
 static volatile INST_META *getInstalledTitle(size_t index, bool block);
@@ -102,8 +103,13 @@ static int compareInstalledTitles(const void *a, const void *b)
 
 static void sortInstalledTitles(void)
 {
-    if(ititleOrder)
+    if(ititleSorted)
+    {
+        MEMFreeToDefaultHeap(ititleOrder);
+        ititleOrder = NULL;
+        ititleSorted = false;
         return;
+    }
 
     ititleOrder = (size_t *)MEMAllocFromDefaultHeap(ititleEntrySize * sizeof(size_t));
     if(!ititleOrder)
@@ -116,6 +122,7 @@ static void sortInstalledTitles(void)
         ititleOrder[i] = i;
 
     qsort(ititleOrder, ititleEntrySize, sizeof(size_t), compareInstalledTitles);
+    ititleSorted = true;
 }
 
 static volatile INST_META *getInstalledTitle(size_t index, bool block)

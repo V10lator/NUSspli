@@ -1,6 +1,6 @@
-FROM devkitpro/devkitppc:20260117
-COPY --from=ghcr.io/wiiu-env/libmocha:20260110 /artifacts $DEVKITPRO
-COPY --from=ghcr.io/wiiu-env/librpxloader:20260112 /artifacts $DEVKITPRO
+FROM devkitpro/devkitppc:20260503
+COPY --from=ghcr.io/wiiu-env/libmocha:20260331 /artifacts $DEVKITPRO
+COPY --from=ghcr.io/wiiu-env/librpxloader:20260329 /artifacts $DEVKITPRO
 
 ENV DEBIAN_FRONTEND=noninteractive \
  PATH=$DEVKITPPC/bin:$DEVKITPRO/portlibs/wiiu/bin/:$PATH \

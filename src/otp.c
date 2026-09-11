@@ -26,6 +26,7 @@
 #include <utils.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/cache.h>
 #include <coreinit/memory.h>
 #include <coreinit/time.h>
 #include <mocha/mocha.h>

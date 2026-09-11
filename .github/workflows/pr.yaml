@@ -30,13 +30,13 @@ jobs:
           docker build . -t builder
           docker run --rm -v ${PWD}:/project builder python3 build.py
       - name: Upload Aroma version
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NUSspli-Aroma-DEBUG
           path: out/Aroma-DEBUG/*
           if-no-files-found: error
       - name: Upload Channel version
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NUSspli-Channel-DEBUG
           path: out/Channel-DEBUG/*

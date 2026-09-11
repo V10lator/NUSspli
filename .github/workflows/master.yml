@@ -44,28 +44,28 @@ jobs:
         id: version
       - name: Upload Aroma version
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Aroma
           path: out/Aroma/*
           if-no-files-found: warn
       - name: Upload Aroma debug version
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Aroma-DEBUG
           path: out/Aroma-DEBUG/*
           if-no-files-found: error
       - name: Upload Channel version
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Channel
           path: out/Channel/*
           if-no-files-found: warn
       - name: Upload Channel debug version
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Channel-DEBUG
           path: out/Channel-DEBUG/*

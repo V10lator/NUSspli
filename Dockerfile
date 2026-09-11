@@ -10,8 +10,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
  AR=$DEVKITPPC/bin/powerpc-eabi-ar \
  RANLIB=$DEVKITPPC/bin/powerpc-eabi-ranlib \
  PKG_CONFIG=$DEVKITPRO/portlibs/wiiu/bin/powerpc-eabi-pkg-config \
- CFLAGS="-mcpu=750 -meabi -mhard-float -Ofast -fipa-pta -ffunction-sections -fdata-sections" \
- CXXFLAGS="-mcpu=750 -meabi -mhard-float -Ofast -fipa-pta -ffunction-sections -fdata-sections" \
+ CFLAGS="-mcpu=750 -meabi -mhard-float -O3 -ffast-math -pipe -fipa-pta -ffunction-sections -fdata-sections" \
+ CXXFLAGS="-mcpu=750 -meabi -mhard-float -O3 -ffast-math -pipe -fipa-pta -ffunction-sections -fdata-sections" \
  CPPFLAGS="-D__WIIU__ -D__WUT__ -I$DEVKITPRO/wut/include -L$DEVKITPRO/wut/lib" \
  LDFLAGS="-L$DEVKITPRO/wut/lib" \
  LIBS="-lwut -lm" \

@@ -1,4 +1,16 @@
 # Changelog
+## [2.3] — 2026-09-11
+
+### Installed-title browser
+
+- Press `-` to sort installed titles alphabetically
+- Press `Y` to add a title to the uninstall queue
+- Commands are displayed across two lines to make room for the new sort action
+
+### Build
+
+- Fixed the SDL_FontCache include and source paths in the Makefile
+
 ## [2.2] — 2026-09-03
 
 ### Queues and uninstallation

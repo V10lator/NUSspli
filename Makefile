@@ -24,11 +24,13 @@ BUILD		?=	debug
 
 SOURCES		:=	zlib/contrib/minizip \
 				src/menu \
-				src
+				src \
+				SDL_FontCache
 
 DATA		:=	
 INCLUDES	:=	include \
-				zlib/contrib/minizip
+				zlib/contrib/minizip \
+				SDL_FontCache
 
 #-------------------------------------------------------------------------------
 # options for code generation

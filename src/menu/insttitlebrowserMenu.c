@@ -21,6 +21,7 @@
 
 #include <ctype.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <file.h>
@@ -70,8 +71,52 @@ typedef enum
 
 static volatile INST_META *installedTitles;
 static MCPTitleListType *ititleEntries;
+static size_t *ititleOrder;
 static size_t ititleEntrySize;
 static volatile ASYNC_STATE asyncState;
+
+static volatile INST_META *getInstalledTitle(size_t index, bool block);
+
+static size_t getDisplayedTitleIndex(size_t index)
+{
+    return ititleOrder ? ititleOrder[index] : index;
+}
+
+static int compareInstalledTitles(const void *a, const void *b)
+{
+    const volatile INST_META *first = getInstalledTitle(*(const size_t *)a, true);
+    const volatile INST_META *second = getInstalledTitle(*(const size_t *)b, true);
+    const volatile unsigned char *firstName = (const volatile unsigned char *)first->name;
+    const volatile unsigned char *secondName = (const volatile unsigned char *)second->name;
+
+    while(*firstName && *secondName)
+    {
+        int firstChar = tolower(*firstName++);
+        int secondChar = tolower(*secondName++);
+        if(firstChar != secondChar)
+            return firstChar - secondChar;
+    }
+
+    return *firstName - *secondName;
+}
+
+static void sortInstalledTitles(void)
+{
+    if(ititleOrder)
+        return;
+
+    ititleOrder = (size_t *)MEMAllocFromDefaultHeap(ititleEntrySize * sizeof(size_t));
+    if(!ititleOrder)
+    {
+        debugPrintf("Insttitlebrowser: OUT OF MEMORY!");
+        return;
+    }
+
+    for(size_t i = 0; i < ititleEntrySize; ++i)
+        ititleOrder[i] = i;
+
+    qsort(ititleOrder, ititleEntrySize, sizeof(size_t), compareInstalledTitles);
+}
 
 static volatile INST_META *getInstalledTitle(size_t index, bool block)
 {
@@ -195,7 +240,10 @@ static void drawITBMenuFrame(const size_t pos, const size_t cursor)
     char toFrame[512];
     strcpy(toFrame, localise("Press " BUTTON_PLUS " to launch"));
     strcat(toFrame, " || ");
-    strcat(toFrame, localise(BUTTON_MINUS " to delete"));
+    strcat(toFrame, localise(BUTTON_MINUS " to sort alphabetically"));
+    textToFrame(MAX_LINES - 2, ALIGNED_CENTER, toFrame);
+
+    strcpy(toFrame, localise(BUTTON_Y " to delete"));
     strcat(toFrame, " || ");
     strcat(toFrame, localise(BUTTON_X " to open the queue"));
     strcat(toFrame, " || ");
@@ -209,7 +257,7 @@ static void drawITBMenuFrame(const size_t pos, const size_t cursor)
     volatile INST_META *im;
     for(size_t i = 0, l = 1; i < max; ++i, ++l)
     {
-        im = getInstalledTitle(pos + i, true);
+        im = getInstalledTitle(getDisplayedTitleIndex(pos + i), true);
         if(im->isDlc)
             strcpy(toFrame, "[DLC] ");
         else if(im->isUpdate)
@@ -309,13 +357,21 @@ loopEntry:
 
         if(vpad.trigger & VPAD_BUTTON_PLUS)
         {
-            launchTitle(ititleEntries + cursor + pos);
+            launchTitle(ititleEntries + getDisplayedTitleIndex(cursor + pos));
             goto instExit;
         }
 
         if(vpad.trigger & VPAD_BUTTON_MINUS)
         {
-            entry = ititleEntries + cursor + pos;
+            sortInstalledTitles();
+            cursor = pos = 0;
+            redraw = true;
+            continue;
+        }
+
+        if(vpad.trigger & VPAD_BUTTON_Y)
+        {
+            entry = ititleEntries + getDisplayedTitleIndex(cursor + pos);
             break;
         }
 
@@ -465,7 +521,7 @@ loopEntry:
 
     if(AppRunning(true))
     {
-        volatile INST_META *im = installedTitles + cursor + pos;
+        volatile INST_META *im = installedTitles + getDisplayedTitleIndex(cursor + pos);
         char toFrame[512];
         strcpy(toFrame, localise("Do you really want to add to the uninstall queue"));
         strcat(toFrame, "\n");
@@ -514,5 +570,7 @@ instExit:
     asyncState = ASYNC_STATE_EXIT;
     stopThread(bgt, NULL);
     MEMFreeToDefaultHeap(ititleEntries);
+    if(ititleOrder)
+        MEMFreeToDefaultHeap(ititleOrder);
     MEMFreeToDefaultHeap((void *)installedTitles);
 }

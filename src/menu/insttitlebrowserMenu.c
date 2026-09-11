@@ -73,7 +73,6 @@ static volatile INST_META *installedTitles;
 static MCPTitleListType *ititleEntries;
 static size_t *ititleOrder;
 static size_t ititleEntrySize;
-static bool ititleSorted;
 static volatile ASYNC_STATE asyncState;
 
 static volatile INST_META *getInstalledTitle(size_t index, bool block);
@@ -103,11 +102,10 @@ static int compareInstalledTitles(const void *a, const void *b)
 
 static void sortInstalledTitles(void)
 {
-    if(ititleSorted)
+    if(ititleOrder)
     {
         MEMFreeToDefaultHeap(ititleOrder);
         ititleOrder = NULL;
-        ititleSorted = false;
         return;
     }
 
@@ -122,7 +120,6 @@ static void sortInstalledTitles(void)
         ititleOrder[i] = i;
 
     qsort(ititleOrder, ititleEntrySize, sizeof(size_t), compareInstalledTitles);
-    ititleSorted = true;
 }
 
 static volatile INST_META *getInstalledTitle(size_t index, bool block)
@@ -247,15 +244,15 @@ static void drawITBMenuFrame(const size_t pos, const size_t cursor)
     char toFrame[512];
     strcpy(toFrame, localise("Press " BUTTON_PLUS " to launch"));
     strcat(toFrame, " || ");
-    strcat(toFrame, localise(BUTTON_MINUS " to sort alphabetically"));
-    textToFrame(MAX_LINES - 2, ALIGNED_CENTER, toFrame);
+    strcat(toFrame, localise(BUTTON_Y " to sort alphabetically"));
+    textToFrameCutOffset(MAX_LINES - 2, ALIGNED_CENTER, toFrame, SCREEN_WIDTH - (FONT_SIZE * 2), 5);
 
-    strcpy(toFrame, localise(BUTTON_Y " to delete"));
+    strcpy(toFrame, localise(BUTTON_MINUS " to delete"));
     strcat(toFrame, " || ");
     strcat(toFrame, localise(BUTTON_X " to open the queue"));
     strcat(toFrame, " || ");
     strcat(toFrame, localise(BUTTON_B " to return"));
-    textToFrame(MAX_LINES - 1, ALIGNED_CENTER, toFrame);
+    textToFrameCutOffset(MAX_LINES - 1, ALIGNED_CENTER, toFrame, SCREEN_WIDTH - (FONT_SIZE * 2), 5);
 
     size_t max = ititleEntrySize - pos;
     if(max > MAX_ITITLEBROWSER_LINES)
@@ -368,7 +365,7 @@ loopEntry:
             goto instExit;
         }
 
-        if(vpad.trigger & VPAD_BUTTON_MINUS)
+        if(vpad.trigger & VPAD_BUTTON_Y)
         {
             sortInstalledTitles();
             cursor = pos = 0;
@@ -376,7 +373,7 @@ loopEntry:
             continue;
         }
 
-        if(vpad.trigger & VPAD_BUTTON_Y)
+        if(vpad.trigger & VPAD_BUTTON_MINUS)
         {
             entry = ititleEntries + getDisplayedTitleIndex(cursor + pos);
             break;
@@ -578,6 +575,9 @@ instExit:
     stopThread(bgt, NULL);
     MEMFreeToDefaultHeap(ititleEntries);
     if(ititleOrder)
+    {
         MEMFreeToDefaultHeap(ititleOrder);
+        ititleOrder = NULL;
+    }
     MEMFreeToDefaultHeap((void *)installedTitles);
 }

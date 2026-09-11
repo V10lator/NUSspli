@@ -3,9 +3,10 @@
 
 ### Installed-title browser
 
-- Press `-` to sort installed titles alphabetically
-- Press `Y` to add a title to the uninstall queue
+- Press `Y` to sort installed titles alphabetically or restore the default order
+- Press `-` to add a title to the uninstall queue
 - Commands are displayed across two lines to make room for the new sort action
+- Toolchain updated
 
 ### Build
 

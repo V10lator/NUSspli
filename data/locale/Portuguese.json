@@ -25,10 +25,8 @@
     "Searching on": "Pesquisando em",
 
     "Press \uE045 to launch":  "Prima \uE045 para iniciar",
-    "\uE046 to sort alphabetically": "\uE046 para ordenar alfabeticamente",
-    "\uE003 to delete": "\uE003 para desinstalar",
-    "\uE002 to open the queue": "\uE002 para abrir a fila",
     "\uE046 to delete": "\uE046 para eliminar",
+    "\uE003 to sort alphabetically": "\uE003 para ordenar",
 
     "Press \uE000 to continue": "Prima \uE000 para prosseguir",
     "Press \uE001 to return": "Prima \uE001 para regressar",

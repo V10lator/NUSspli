@@ -161,6 +161,17 @@ void textToFrameCut(int line, int column, const char *str, int maxWidth)
     FC_Draw(font, renderer, column, line, str);
 }
 
+void textToFrameCutOffset(int line, int column, const char *str, int maxWidth, int yOffset)
+{
+    if(font == NULL)
+        return;
+
+    char lineBuffer[1024];
+    internalTextToFrame(lineBuffer, sizeof(lineBuffer));
+    line += yOffset;
+    FC_Draw(font, renderer, column, line, str);
+}
+
 void textToFrameColoredCut(int line, int column, const char *str, SCREEN_COLOR color, int maxWidth)
 {
     if(font == NULL)

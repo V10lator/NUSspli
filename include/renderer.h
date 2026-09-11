@@ -89,6 +89,7 @@ extern "C"
     void drawFrame();
     void drawKeyboard(bool tv);
     void textToFrameCut(int line, int column, const char *str, int maxWidth) __attribute__((__hot__));
+    void textToFrameCutOffset(int line, int column, const char *str, int maxWidth, int yOffset) __attribute__((__hot__));
     void textToFrameColoredCut(int line, int column, const char *str, SCREEN_COLOR color, int maxWidth);
     int textToFrameMultiline(int x, int y, const char *text, size_t len);
     void lineToFrame(int column, SCREEN_COLOR color);

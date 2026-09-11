@@ -25,10 +25,8 @@
     "Searching on": "Chwilio ar",
     
     "Press \uE045 to launch": "Pwyswch \uE045 i lansio",
-    "\uE046 to sort alphabetically": "Pwyswch \uE046 i ddidoli'n nhrefn yr wyddor",
-    "\uE003 to delete": "Pwyswch \uE003 i ddileu",
-    "\uE002 to open the queue": "Pwyswch \uE002 i agor y ciw",
     "\uE046 to delete": "Pwyswch \uE046 i ddileu",
+    "\uE003 to sort alphabetically": "Pwyswch \uE003 i ddidoli",
     
     "Press \uE000 to continue": "Pwyswch \uE000 i barhau",
     "Press \uE001 to return": "Pwyswch \uE001 i ddychwelyd",

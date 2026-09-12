@@ -815,7 +815,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
             case CURLE_PARTIAL_FILE:
                 sprintf(toScreen, "%s:\n\t%s\n\n%s", "Network error", te, "check the network settings and try again");
                 break;
-            case CURLE_BAD_FUNCTION_ARGUMENT: // Killed socket, see above - TODO: How to handle correctly?
+            case CURLE_BAD_FUNCTION_ARGUMENT: // Killed socket, see above - TODO: Why did it kill the socket? "see above" is not really an answer. Also how to handle correctly?
                 sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Internal WUT error"), te, "See https://github.com/V10lator/NUSspli/issues/302#issuecomment-2108134284");
                 break;
             case CURLE_PEER_FAILED_VERIFICATION:

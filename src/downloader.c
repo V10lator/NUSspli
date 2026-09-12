@@ -390,11 +390,6 @@ bool initDownloader()
     setOpt(CURLOPT_NOPROGRESS, 0L);
     setOpt(CURLOPT_FOLLOWLOCATION, 1L);
     setOpt(CURLOPT_MAXREDIRS, 8L);
-    // curl_easy_perform() runs on its own thread (see dlThreadMain()) and CafeOS has
-    // no usable signal support, so keep libCURL away from signals and alarm().
-    setOpt(CURLOPT_NOSIGNAL, 1L);
-    // Without this a dead socket makes us hang instead of reporting an error.
-    setOpt(CURLOPT_CONNECTTIMEOUT, 30L);
     setOpt(CURLOPT_SSL_CTX_FUNCTION, ssl_ctx_init);
     setOpt(CURLOPT_CAINFO_BLOB, &blob);
 

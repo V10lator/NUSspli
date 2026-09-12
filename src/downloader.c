@@ -141,7 +141,7 @@ static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
             ret = trySockopt(socket, IPPROTO_TCP, TCP_NODELAY, 1, "TCP nodelay"); // libCURL default
             if(!ret)
             {
-                ret = trySockopt(socket, SOL_SOCKET, 0x4000, 1, "Noslowstart");       // Disable slowstart
+                ret = trySockopt(socket, SOL_SOCKET, 0x4000, 1, "Noslowstart"); // Disable slowstart
                 if(!ret)
                 {
                     ret = trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default

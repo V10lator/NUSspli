@@ -115,10 +115,8 @@ static int progressCallback(void *rawData, curl_off_t dltotal, curl_off_t dlnow,
 // is never fatal. CafeOS answers with ENOPROTOOPT (92, "Non-supported option")
 // for options it doesn't know about and returning CURL_SOCKOPT_ERROR on that
 // would kill the whole transfer instead of just losing the tweak.
-static void trySockopt(curl_socket_t socket, int level, int option, int value, const char *name)
+static inline void trySockopt(curl_socket_t socket, int level, int option, int value, const char *name)
 {
-    (void)name;
-
     if(setsockopt(socket, level, option, &value, sizeof(value)) != 0)
         debugPrintf("initSocket: Error setting %s: %d", name, errno);
 }

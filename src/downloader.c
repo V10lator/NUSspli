@@ -115,10 +115,16 @@ static int progressCallback(void *rawData, curl_off_t dltotal, curl_off_t dlnow,
 // is never fatal. CafeOS answers with ENOPROTOOPT (92, "Non-supported option")
 // for options it doesn't know about and returning CURL_SOCKOPT_ERROR on that
 // would kill the whole transfer instead of just losing the tweak.
-static inline void trySockopt(curl_socket_t socket, int level, int option, int value, const char *name)
+static inline bool trySockopt(curl_socket_t socket, int level, int option, int value, const char *name)
 {
-    if(setsockopt(socket, level, option, &value, sizeof(value)) != 0)
+    int ret = setsockopt(socket, level, option, &value, sizeof(value));
+    if(ret != 0 && errno != 92)
+    {
         debugPrintf("initSocket: Error setting %s: %d", name, errno);
+        return false;
+    }
+
+    return true;
 }
 
 static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
@@ -126,15 +132,31 @@ static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
     (void)ptr;
     (void)type;
 
-    trySockopt(socket, SOL_SOCKET, SO_WINSCALE, 1, "WinScale");
-    trySockopt(socket, SOL_SOCKET, SO_TCPSACK, 1, "TCP SAck");
-    trySockopt(socket, IPPROTO_TCP, TCP_NODELAY, 1, "TCP nodelay"); // libCURL default
-    trySockopt(socket, SOL_SOCKET, 0x4000, 1, "Noslowstart");       // Disable slowstart
-    trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default
-    trySockopt(socket, SOL_SOCKET, SO_SNDBUF, IO_BUFSIZE, "send buffersize");
-    trySockopt(socket, SOL_SOCKET, SO_RCVBUF, IO_BUFSIZE, "receive buffersize");
+    bool ret = trySockopt(socket, SOL_SOCKET, SO_WINSCALE, 1, "WinScale");
+    if(!ret)
+    {
+        ret = trySockopt(socket, SOL_SOCKET, SO_TCPSACK, 1, "TCP SAck");
+        if(!ret)
+        {
+            ret = trySockopt(socket, IPPROTO_TCP, TCP_NODELAY, 1, "TCP nodelay"); // libCURL default
+            if(!ret)
+            {
+                ret = trySockopt(socket, SOL_SOCKET, 0x4000, 1, "Noslowstart");       // Disable slowstart
+                if(!ret)
+                {
+                    ret = trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default
+                    if(!ret)
+                    {
+                        ret = trySockopt(socket, SOL_SOCKET, SO_SNDBUF, IO_BUFSIZE, "send buffersize");
+                        if(!ret)
+                            ret = trySockopt(socket, SOL_SOCKET, SO_RCVBUF, IO_BUFSIZE, "receive buffersize");
+                    }
+                }
+            }
+        }
+    }
 
-    return CURL_SOCKOPT_OK;
+    return ret ? CURL_SOCKOPT_OK : CURL_SOCKOPT_ERROR;
 }
 
 static CURLcode ssl_ctx_init(CURL *cu, void *sslctx, void *parm)

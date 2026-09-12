@@ -389,7 +389,7 @@ void deleteTicket(uint64_t tid)
     if(ret != FS_ERROR_OK)
     {
         debugPrintf("Error opening %s: %s", path, translateFSErr(ret));
-        return;
+        goto exit;
     }
 
     FSADirectoryEntry entry;
@@ -515,6 +515,7 @@ void deleteTicket(uint64_t tid)
     }
 
     FSACloseDir(getFSAClient(), dir);
+exit:
     t = OSGetTime() - t;
     addEntropy(&t, sizeof(OSTime));
     destroyList(ticketList, true);

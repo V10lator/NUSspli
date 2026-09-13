@@ -10,11 +10,12 @@ ENV DEBIAN_FRONTEND=noninteractive \
  AR=$DEVKITPPC/bin/powerpc-eabi-ar \
  RANLIB=$DEVKITPPC/bin/powerpc-eabi-ranlib \
  PKG_CONFIG=$DEVKITPRO/portlibs/wiiu/bin/powerpc-eabi-pkg-config \
- CFLAGS="-mcpu=750 -meabi -mhard-float -O3 -ffast-math -pipe -fipa-pta -ffunction-sections -fdata-sections" \
- CXXFLAGS="-mcpu=750 -meabi -mhard-float -O3 -ffast-math -pipe -fipa-pta -ffunction-sections -fdata-sections" \
+ CFLAGS="-mcpu=750 -meabi -mhard-float -O3 -ffast-math -pipe -fipa-pta -ffunction-sections -fdata-sections -D__WIIU__ -D__WUT__ -DIOAPI_NO_64 -D__unix__" \
+ CXXFLAGS="-mcpu=750 -meabi -mhard-float -O3 -ffast-math -pipe -fipa-pta -ffunction-sections -fdata-sections -D__WIIU__ -D__WUT__ -DIOAPI_NO_64 -D__unix__" \
  CPPFLAGS="-D__WIIU__ -D__WUT__ -I$DEVKITPRO/wut/include -L$DEVKITPRO/wut/lib" \
  LDFLAGS="-L$DEVKITPRO/wut/lib" \
  LIBS="-lwut -lm" \
+ MBEDTLS_VER=3.6.6 \
  BROTLI_VER=1.2.0 \
  CURL_VER=8.15.0 \
  NGHTTP2_VER=1.70.0
@@ -29,6 +30,28 @@ RUN mkdir -p /usr/share/man/man1 /usr/share/man/man2 && \
 # Install the requirements to package the homebrew
 RUN apt-get -y install --no-install-recommends autoconf automake libtool openjdk-17-jre-headless python3-pycurl && \
  apt-get clean
+
+# Install mbedTLS since WUT ships an outdated version. This also makes it much faster:
+# The WUT patch reseeds libc's global rand() state via srand() on every single byte — if mbedtls_hardware_poll gets called in a tight loop, OSGetSystemTick() can return the same value across several iterations, meaning several consecutive output bytes come from the same freshly-reseeded rand() stream — correlated, weak output. It also stomps on libc's global rand() state, which is a shared resource any other code could be relying on.
+# NUSrng has none of these problems — one accumulating entropy pool, already exercised by the rest of the app, no interference with libc's RNG.
+COPY mbedtls.patch /mbedtls.patch
+RUN curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-$MBEDTLS_VER/mbedtls-$MBEDTLS_VER.tar.bz2 && \
+ mkdir mbedtls && \
+ tar xjf mbedtls-$MBEDTLS_VER.tar.bz2 -C mbedtls --strip-components=1 && \
+ cd mbedtls && \
+ patch -p1 < /mbedtls.patch && \
+ python3 scripts/config.py unset MBEDTLS_HAVE_ASM && \
+ python3 scripts/config.py set MBEDTLS_ENTROPY_HARDWARE_ALT && \
+ python3 scripts/config.py set MBEDTLS_NO_PLATFORM_ENTROPY && \
+ python3 scripts/config.py unset MBEDTLS_SELF_TEST && \
+ python3 scripts/config.py unset MBEDTLS_NET_C && \
+ mkdir out && cd out && \
+ cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/portlibs/wiiu/ \
+    -DUSE_STATIC_MBEDTLS_LIBRARY=ON -DUSE_SHARED_MBEDTLS_LIBRARY=OFF \
+    -DENABLE_TESTING=OFF -DENABLE_PROGRAMS=OFF -DMBEDTLS_FATAL_WARNINGS=OFF .. && \
+ cmake --build . --config Release --target install -j$(nproc) && \
+ cd ../.. && \
+ rm -rf mbedtls mbedtls-$MBEDTLS_VER.tar.bz2 /mbedtls.patch
 
 # Install nghttp2 for HTTP/2 support (WUT don't include this)
 RUN curl -LO https://github.com/nghttp2/nghttp2/releases/download/v$NGHTTP2_VER/nghttp2-$NGHTTP2_VER.tar.xz && \
@@ -63,7 +86,8 @@ RUN curl -LO https://curl.se/download/curl-$CURL_VER.tar.xz && \
  mkdir /curl && \
  tar xJf curl-$CURL_VER.tar.xz -C /curl --strip-components=1 && \
  cd curl && \
- autoreconf -fi && ./configure \
+ autoreconf -fi && \
+ curl_cv_mbedtls_version_ok=yes ac_cv_lib_mbedtls_mbedtls_ssl_init=yes ./configure \
 --prefix=$DEVKITPRO/portlibs/wiiu/ \
 --host=powerpc-eabi \
 --enable-static \

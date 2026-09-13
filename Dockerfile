@@ -17,7 +17,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
  LIBS="-lwut -lm" \
  MBEDTLS_VER=3.6.6 \
  BROTLI_VER=1.2.0 \
- CURL_VER=8.15.0 \
+ CURL_VER=8.22.0 \
  NGHTTP2_VER=1.70.0
 
 WORKDIR /

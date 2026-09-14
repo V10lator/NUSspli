@@ -30,6 +30,7 @@
 #include <menu/insttitlebrowser.h>
 #include <menu/logs.h>
 #include <menu/main.h>
+#include <menu/missingcontent.h>
 #include <menu/titlebrowser.h>
 #include <menu/utils.h>
 #include <renderer.h>
@@ -61,6 +62,7 @@ static void drawMainMenuFrame()
     textToFrame(line++, 4, localise("Install content"));
     textToFrame(line++, 4, localise("Generate a fake <title.tik> file"));
     textToFrame(line++, 4, localise("Browse installed titles"));
+    textToFrame(line++, 4, localise("Find missing content"));
     textToFrame(line++, 4, localise("Options"));
     textToFrame(line++, 4, localise("Logs"));
 
@@ -127,9 +129,12 @@ void mainMenu()
                     ititleBrowserMenu();
                     break;
                 case 15:
-                    configMenu();
+                    missingContentMenu();
                     break;
                 case 16:
+                    configMenu();
+                    break;
+                case 17:
                     logsMenu();
                     break;
             }
@@ -138,7 +143,7 @@ void mainMenu()
         }
         else if(vpad.trigger & VPAD_BUTTON_DOWN)
         {
-            if(++cursorPos == 17)
+            if(++cursorPos == 18)
                 cursorPos = 11;
 
             redraw = true;
@@ -146,7 +151,7 @@ void mainMenu()
         else if(vpad.trigger & VPAD_BUTTON_UP)
         {
             if(--cursorPos == 10)
-                cursorPos = 16;
+                cursorPos = 17;
 
             redraw = true;
         }

@@ -240,7 +240,7 @@ size_t getDirsize(const char *path)
 
     size_t ret = 0;
     size_t start = strlen(path);
-    if(start == 0)
+    if(start != 0)
     {
         strcpy(newPath, path);
         if(newPath[start - 1] != '/')

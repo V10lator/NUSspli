@@ -213,7 +213,7 @@ NO_INTRO_DATA *transformNoIntro(const char *path)
 
     FSACloseDir(getFSAClient(), dir);
     MEMFreeToDefaultHeap(pathTo);
-    fromP = '\0';
+    *fromP = '\0';
 
     if(!data->tmdFound || !data->ac)
     {

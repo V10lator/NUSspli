@@ -82,10 +82,12 @@ RUN git clone --depth 1 --branch v$BROTLI_VER --single-branch --recurse-submodul
  rm -rf brotli
 
 # Install libCURL since WUT doesn't ship with the latest version
+COPY curl.patch /curl.patch
 RUN curl -LO https://curl.se/download/curl-$CURL_VER.tar.xz && \
  mkdir /curl && \
  tar xJf curl-$CURL_VER.tar.xz -C /curl --strip-components=1 && \
  cd curl && \
+ patch -p1 < /curl.patch && \
  autoreconf -fi && \
  curl_cv_mbedtls_version_ok=yes ac_cv_lib_mbedtls_mbedtls_ssl_init=yes ./configure \
 --prefix=$DEVKITPRO/portlibs/wiiu/ \
@@ -129,7 +131,7 @@ RUN curl -LO https://curl.se/download/curl-$CURL_VER.tar.xz && \
  cd ../include && \
  make -j$(nproc) install && \
  cd ../.. && \
- rm -rf curl curl-$CURL_VER.tar.xz
+ rm -rf curl curl-$CURL_VER.tar.xz /curl.patch
 
 RUN git config --global --add safe.directory /project && \
   git config --global --add safe.directory /project/SDL_FontCache && \

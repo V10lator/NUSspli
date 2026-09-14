@@ -1,0 +1,14 @@
+--- a/lib/cf-socket.c
++++ b/lib/cf-socket.c
+@@ -478,11 +478,8 @@
+
+ #if defined(HAVE_FCNTL) && !defined(SOCK_CLOEXEC)
+   if(fcntl(*sockfd, F_SETFD, FD_CLOEXEC) < 0) {
+-    failf(data, "fcntl set CLOEXEC: %s",
++    infof(data, "Could not set FD_CLOEXEC: %s",
+           curlx_strerror(SOCKERRNO, errbuf, sizeof(errbuf)));
+-    sclose(*sockfd);
+-    *sockfd = CURL_SOCKET_BAD;
+-    return CURLE_COULDNT_CONNECT;
+   }
+ #endif

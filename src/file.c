@@ -242,7 +242,7 @@ size_t getDirsize(const char *path)
     size_t start = strlen(path);
     if(start != 0)
     {
-        strcpy(newPath, path);
+        OSBlockMove(newPath, path, start + 1, false);
         if(newPath[start - 1] != '/')
         {
             newPath[start++] = '/';

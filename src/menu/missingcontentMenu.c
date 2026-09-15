@@ -56,12 +56,13 @@ typedef struct
 {
     const TitleEntry *entry;
     bool isDlc; // else it's an update
+    bool toUSB; // Where the base game is installed, updates/DLC must follow
 } MISSING_ENTRY;
 
 static MISSING_ENTRY *missingEntries;
 static size_t missingEntrySize;
 
-static void addMissingCandidate(uint64_t tid, bool isDlc)
+static void addMissingCandidate(const MCPTitleListType *list, uint32_t count, uint64_t tid, bool isDlc, bool toUSB)
 {
     for(size_t i = 0; i < missingEntrySize; ++i)
         if(missingEntries[i].entry->tid == tid)
@@ -71,12 +72,13 @@ static void addMissingCandidate(uint64_t tid, bool isDlc)
     if(e == NULL || e->key == TITLE_KEY_MAGIC) // Not a real, downloadable title
         return;
 
-    MCPTitleListType tl __attribute__((__aligned__(0x40)));
-    if(MCP_GetTitleInfo(mcpHandle, tid, &tl) == 0) // Already installed
-        return;
+    for(uint32_t i = 0; i < count; ++i)
+        if(list[i].titleId == tid) // Already installed
+            return;
 
     missingEntries[missingEntrySize].entry = e;
     missingEntries[missingEntrySize].isDlc = isDlc;
+    missingEntries[missingEntrySize].toUSB = toUSB;
     ++missingEntrySize;
 }
 
@@ -120,8 +122,9 @@ static bool scanForMissingContent()
         if(!isGame(list[i].titleId))
             continue;
 
-        addMissingCandidate(BASE_TO_UPDATE(list[i].titleId), false);
-        addMissingCandidate(BASE_TO_DLC(list[i].titleId), true);
+        bool toUSB = list[i].indexedDevice[0] == 'u';
+        addMissingCandidate(list, s, BASE_TO_UPDATE(list[i].titleId), false, toUSB);
+        addMissingCandidate(list, s, BASE_TO_DLC(list[i].titleId), true, toUSB);
     }
 
     MEMFreeToDefaultHeap(list);
@@ -153,16 +156,17 @@ static void drawMCMenuFrame(const size_t pos, const size_t cursor)
             arrowToFrame(l, 1);
 
         flagToFrame(l, 4, me->entry->region);
-        strcpy(toFrame, me->isDlc ? "[DLC] " : "[UPD] ");
-        strcat(toFrame, me->entry->name);
+        OSBlockMove(toFrame, me->isDlc ? "[DLC] " : "[UPD] ", sizeof("[DLC] "), false);
+        OSBlockMove(toFrame + sizeof("[DLC] ") - 1, me->entry->name, strlen(me->entry->name) + 1, false);
         textToFrameCut(l, 7, toFrame, (SCREEN_WIDTH - (FONT_SIZE << 1)) - (getSpaceWidth() * 8));
     }
 
     drawFrame();
 }
 
-static bool addOneToQueue(const TitleEntry *entry)
+static bool addOneToQueue(const MISSING_ENTRY *me)
 {
+    const TitleEntry *entry = me->entry;
     RAMBUF *rambuf = allocRamBuf();
     if(rambuf == NULL)
         return false;
@@ -199,12 +203,6 @@ static bool addOneToQueue(const TitleEntry *entry)
         return false;
     }
 
-    // DLC/updates must land on the same device as their base game, or the console won't see them.
-    MCPTitleListType baseInfo __attribute__((__aligned__(0x40)));
-    bool toUSB = MCP_GetTitleInfo(mcpHandle, TID_TO_BASE(entry->tid), &baseInfo) == 0
-        ? baseInfo.indexedDevice[0] == 'u'
-        : usbMounted != NUSDEV_NONE;
-
     titleInfo->tmd = tmd;
     titleInfo->tmdSize = rambuf->size;
     titleInfo->rambuf = rambuf;
@@ -213,7 +211,7 @@ static bool addOneToQueue(const TitleEntry *entry)
     titleInfo->folderName[0] = '\0';
     titleInfo->operation = OPERATION_DOWNLOAD_INSTALL;
     titleInfo->dlDev = usbMounted && dlToUSBenabled() ? usbMounted : NUSDEV_SD;
-    titleInfo->toUSB = toUSB;
+    titleInfo->toUSB = me->toUSB;
     titleInfo->keepFiles = true;
 
     int ret = addToQueue(titleInfo);
@@ -246,7 +244,7 @@ static void queueAllMissing()
         drawFrame();
         showFrame();
 
-        if(addOneToQueue(missingEntries[i].entry))
+        if(addOneToQueue(missingEntries + i))
             ++queued;
         else
             ++skipped;

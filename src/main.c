@@ -133,6 +133,7 @@ static void innerMain()
                                     drawLoadingScreen("Downloader initialized!", "Loading I/O thread...");
                                     if(initIOThread())
                                     {
+                                        initFSSpace();
                                         drawLoadingScreen("I/O thread initialized!", "Loading config...");
                                         initConfig();
                                         drawLoadingScreen("Config loaded!", "Loading SWKBD...");
@@ -144,7 +145,6 @@ static void innerMain()
                                                 checkStacks("main()");
                                                 if(!updateCheck())
                                                 {
-                                                    initFSSpace();
                                                     checkStacks("main");
                                                     mainMenu(); // main loop
                                                     drawByeFrame();

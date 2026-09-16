@@ -112,19 +112,18 @@ static int progressCallback(void *rawData, curl_off_t dltotal, curl_off_t dlnow,
 }
 
 // All the socket options we set below are pure performance tweaks, so a failure
-// is never fatal. CafeOS answers with ENOPROTOOPT (92, "Non-supported option")
-// for options it doesn't know about and returning CURL_SOCKOPT_ERROR on that
-// would kill the whole transfer instead of just losing the tweak.
-static inline bool trySockopt(curl_socket_t socket, int level, int option, int value, const char *name)
-{
-    int ret = setsockopt(socket, level, option, &value, sizeof(value));
-    if(ret != 0 && errno != 92)
-    {
-        debugPrintf("initSocket: Error setting %s: %d", name, errno);
-        return false;
-    }
+// is never fatal: returning CURL_SOCKOPT_ERROR over one would trade the whole
+// transfer for a lost tweak.
+//
+// "Option not supported" needs both values. CafeOS is observed to answer 92, but
+// newlib - which is what we compile against - numbers ENOPROTOOPT 109 and gives
+// 92 to ELOOP, so neither constant alone covers the case.
+#define CAFE_ENOPROTOOPT 92
 
-    return true;
+static inline void trySockopt(curl_socket_t socket, int level, int option, int value, const char *name)
+{
+    if(setsockopt(socket, level, option, &value, sizeof(value)) != 0 && errno != CAFE_ENOPROTOOPT && errno != ENOPROTOOPT)
+        debugPrintf("initSocket: Error setting %s: %d", name, errno);
 }
 
 static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
@@ -132,31 +131,15 @@ static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
     (void)ptr;
     (void)type;
 
-    bool ret = trySockopt(socket, SOL_SOCKET, SO_WINSCALE, 1, "WinScale");
-    if(!ret)
-    {
-        ret = trySockopt(socket, SOL_SOCKET, SO_TCPSACK, 1, "TCP SAck");
-        if(!ret)
-        {
-            ret = trySockopt(socket, IPPROTO_TCP, TCP_NODELAY, 1, "TCP nodelay"); // libCURL default
-            if(!ret)
-            {
-                ret = trySockopt(socket, SOL_SOCKET, 0x4000, 1, "Noslowstart"); // Disable slowstart
-                if(!ret)
-                {
-                    ret = trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default
-                    if(!ret)
-                    {
-                        ret = trySockopt(socket, SOL_SOCKET, SO_SNDBUF, IO_BUFSIZE, "send buffersize");
-                        if(!ret)
-                            ret = trySockopt(socket, SOL_SOCKET, SO_RCVBUF, IO_BUFSIZE, "receive buffersize");
-                    }
-                }
-            }
-        }
-    }
+    trySockopt(socket, SOL_SOCKET, SO_WINSCALE, 1, "WinScale");
+    trySockopt(socket, SOL_SOCKET, SO_TCPSACK, 1, "TCP SAck");
+    trySockopt(socket, IPPROTO_TCP, TCP_NODELAY, 1, "TCP nodelay"); // libCURL default
+    trySockopt(socket, SOL_SOCKET, SO_NOSLOWSTART, 1, "Noslowstart");
+    trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default
+    trySockopt(socket, SOL_SOCKET, SO_SNDBUF, IO_BUFSIZE, "send buffersize");
+    trySockopt(socket, SOL_SOCKET, SO_RCVBUF, IO_BUFSIZE, "receive buffersize");
 
-    return ret ? CURL_SOCKOPT_OK : CURL_SOCKOPT_ERROR;
+    return CURL_SOCKOPT_OK;
 }
 
 static CURLcode ssl_ctx_init(CURL *cu, void *sslctx, void *parm)

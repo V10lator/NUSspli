@@ -61,7 +61,7 @@ checkAndDeleteFile("src/gtitles.c")
 cDownload("https://napi.v10lator.de/db?t=c", "src/gtitles.c")
 
 checkAndDeleteFile("data/ca-certs.pem");
-cDownload("https://ccadb.my.salesforce-sites.com/mozilla/IncludedRootsPEMTxt?TrustBitsInclude=Websites", "data/ca-certs.pem");
+cDownload("https://curl.se/ca/cacert.pem", "data/ca-certs.pem");
 
 checkAndDeleteDir("NUStmp")
 checkAndDeleteDir("out")

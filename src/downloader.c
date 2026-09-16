@@ -452,8 +452,19 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
         float tmp = currentSize;
         tmp /= totalSize;
         barToFrame(line, 0, 29, tmp);
-        if(totalSize)
-            *eta = (totalSize - currentSize) / bps;
+        // Dividing by a zero speed yields infinity, and converting that to the
+        // uint32_t behind *eta is undefined - it reached the screen as a nonsense
+        // figure rather than an obviously missing one. Keeping the last estimate
+        // is both safe and closer to the truth than anything we could invent.
+        //
+        // Nor is zero the only bad case: a stalled transfer leaves bps a small
+        // fraction, and with gigabytes left the quotient overflows a uint32_t,
+        // where the conversion is undefined in exactly the same way.
+        if(totalSize && bps > 0.0f && currentSize < totalSize)
+        {
+            float secs = (totalSize - currentSize) / bps;
+            *eta = secs >= 4294967294.0f ? 4294967294u : (uint32_t)secs;
+        }
     }
     else
         barToFrame(line, 0, 29, 0.0D);
@@ -466,7 +477,15 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
     humanize(totalSize, ptr);
     textToFrame(line, 30, toScreen);
 
-    secsToTime(*eta, toScreen);
+    // -1 is the "no estimate yet" marker the callers start from. It is also
+    // 136 years in seconds, which secsToTime() clamped to its ceiling - so a
+    // queue racing through small files reported "99 days" for the whole title
+    // simply because the once-a-second sampler never got a chance to run.
+    if(*eta == (uint32_t)-1)
+        strcpy(toScreen, "--");
+    else
+        secsToTime(*eta, toScreen);
+
     textToFrame(line, ALIGNED_RIGHT, toScreen);
 }
 
@@ -616,6 +635,10 @@ retry:
     size_t dlnow;
     size_t downloaded = 0;
     size_t tmp;
+    // tmp doubles as a scratch for the sample duration, so the per-file estimate
+    // needs storage of its own - otherwise a line that keeps its last estimate
+    // would print a millisecond count as a time. -1 means "nothing yet".
+    uint32_t fileEta = (uint32_t)-1;
     float bps;
     float oldBps = 0.0D;
     int frames = 1;
@@ -705,7 +728,7 @@ retry:
                 getSpeedString(bps, toScreen);
                 textToFrame(line, ALIGNED_RIGHT, toScreen);
 
-                drawStatLine(++line, dltotal, dlnow, bps, &tmp);
+                drawStatLine(++line, dltotal, dlnow, bps, &fileEta);
             }
             else
             {

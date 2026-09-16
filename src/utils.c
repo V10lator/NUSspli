@@ -225,12 +225,27 @@ void showMcpProgress(McpData *data, const char *game, bool inst)
                 if(progress.sizeProgress != 0)
                 {
                     now = OSGetSystemTime();
-                    if(OSTicksToMilliseconds(now - lastSpeedCalc) > 333)
+                    if(lastSpeedCalc == 0)
                     {
-                        getSpeedString(progress.sizeProgress - lsp, speedBuf);
+                        // First sample: we have a byte count but nothing to measure
+                        // it against yet, so just start the clock.
                         lsp = progress.sizeProgress;
                         lastSpeedCalc = now;
                     }
+                    else
+                    {
+                        uint32_t ms = OSTicksToMilliseconds(now - lastSpeedCalc);
+                        if(ms > 333)
+                        {
+                            // getSpeedString() wants bytes per second. Handing it a
+                            // raw delta over a third of a second understated the
+                            // figure roughly threefold.
+                            getSpeedString((float)(progress.sizeProgress - lsp) * 1000.0f / (float)ms, speedBuf);
+                            lsp = progress.sizeProgress;
+                            lastSpeedCalc = now;
+                        }
+                    }
+
                     textToFrame(1, ALIGNED_RIGHT, speedBuf);
                 }
 

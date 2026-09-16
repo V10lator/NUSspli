@@ -133,22 +133,22 @@ static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
     (void)type;
 
     bool ret = trySockopt(socket, SOL_SOCKET, SO_WINSCALE, 1, "WinScale");
-    if(!ret)
+    if(ret)
     {
         ret = trySockopt(socket, SOL_SOCKET, SO_TCPSACK, 1, "TCP SAck");
-        if(!ret)
+        if(ret)
         {
             ret = trySockopt(socket, IPPROTO_TCP, TCP_NODELAY, 1, "TCP nodelay"); // libCURL default
-            if(!ret)
+            if(ret)
             {
                 ret = trySockopt(socket, SOL_SOCKET, 0x4000, 1, "Noslowstart"); // Disable slowstart
-                if(!ret)
+                if(ret)
                 {
                     ret = trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default
-                    if(!ret)
+                    if(ret)
                     {
                         ret = trySockopt(socket, SOL_SOCKET, SO_SNDBUF, IO_BUFSIZE, "send buffersize");
-                        if(!ret)
+                        if(ret)
                             ret = trySockopt(socket, SOL_SOCKET, SO_RCVBUF, IO_BUFSIZE, "receive buffersize");
                     }
                 }

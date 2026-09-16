@@ -242,7 +242,7 @@ static inline void drawQFrame()
     showFrame();
 }
 
-static void queueAllMissing()
+static bool queueAllMissing()
 {
     clearScreenLog();
     drawQFrame();
@@ -259,7 +259,7 @@ static void queueAllMissing()
             ++skipped;
         }
         else
-            return;
+            return true;
     }
 
     char toFrame[256];
@@ -267,20 +267,25 @@ static void queueAllMissing()
 
     void *ovl = addErrorOverlay(toFrame);
     if(ovl == NULL)
-        return;
+        return true;
 
     while(AppRunning(true))
     {
         showFrame();
 
-        if(vpad.trigger & (VPAD_BUTTON_A | VPAD_BUTTON_B))
+        if(vpad.trigger)
             break;
     }
 
     removeErrorOverlay(ovl);
 
-    if(AppRunning(true) && queued != 0)
-        queueMenu();
+    if(!AppRunning(true))
+        return true;
+
+    if(queued != 0)
+        return queueMenu();
+
+    return false;
 }
 
 static void drawNMCscreen()
@@ -311,6 +316,8 @@ static inline void showNMCscreen()
 
 void missingContentMenu()
 {
+    bool firstRun = true;
+entry:
     startNewFrame();
     textToFrame(0, ALIGNED_CENTER, localise("Searching for missing content..."));
     drawFrame();
@@ -325,7 +332,9 @@ void missingContentMenu()
     if(missingEntrySize == 0)
     {
         MEMFreeToDefaultHeap(missingEntries);
-        showNMCscreen();
+        if(firstRun)
+            showNMCscreen();
+
         return;
     }
 
@@ -354,14 +363,26 @@ void missingContentMenu()
 
         if(vpad.trigger & VPAD_BUTTON_A)
         {
-            if(predownloadMenu(missingEntries[cursor + pos].entry, missingEntries[cursor + pos].toUSB ? NUSDEV_USB : NUSDEV_MLC))
-                redraw = true;
+            if(!predownloadMenu(missingEntries[cursor + pos].entry, missingEntries[cursor + pos].toUSB ? NUSDEV_USB : NUSDEV_MLC))
+            {
+                firstRun = false;
+                goto entry;
+            }
+
+            redraw = true;
+            continue;
         }
 
         if(vpad.trigger & VPAD_BUTTON_PLUS)
         {
-            queueAllMissing();
+            if(queueAllMissing()) // Trigger rescan in case the user removed items from the queue
+            {
+                firstRun = false;
+                goto entry;
+            }
+
             redraw = true;
+            continue;
         }
 
         if(vpad.trigger & VPAD_BUTTON_B)

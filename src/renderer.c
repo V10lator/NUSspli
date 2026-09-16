@@ -816,7 +816,6 @@ bool initRenderer()
                                     if(backgroundMusic != NULL)
                                     {
                                         Mix_VolumeMusic(SDL_MIX_MAXVOLUME * 0.15);
-                                        Mix_PlayMusic(backgroundMusic, -1);
                                         if(Mix_PlayMusic(backgroundMusic, -1) == 0)
                                             goto audioRunning;
 

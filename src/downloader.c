@@ -492,6 +492,14 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     // Results: 0 = OK | 1 = Error | 2 = No ticket aviable | 3 = Exit
     // Types: 0 = .app | 1 = .h3 | 2 = title.tmd | 3 = tilte.tik
 
+    // Every retry below used to be a `return downloadFile(...)` tail call. On a long,
+    // flaky download that can recurse dozens or hundreds of times (e.g. the WUT bug
+    // from issue #302 repeating every few minutes), and since this function runs on
+    // the caller's thread rather than a dedicated one, each "retry" left a stack frame
+    // behind permanently, slowly eating that thread's stack until it overflowed -
+    // silently corrupting whatever memory sat past it instead of failing cleanly.
+    // Jumping back here instead reuses the same frame, so retrying never grows the stack.
+retry:
     debugPrintf("Download URL: %s", url);
     debugPrintf("Download PATH: %s", rambuf ? "<RAM>" : file);
 
@@ -534,7 +542,10 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
                         return 0;
                     }
                     if(fileSize > data->cs)
-                        return downloadFile(url, file, data, type, false, queueData, rambuf);
+                    {
+                        resume = false;
+                        goto retry;
+                    }
                 }
 
                 fp = (void *)openFile(file, "a", 0);
@@ -805,7 +816,8 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
                     rambuf->buf = NULL;
                     rambuf->size = 0;
                 }
-                return downloadFile(url, file, data, type, false, queueData, rambuf);
+                resume = false;
+                goto retry;
             case CURLE_COULDNT_RESOLVE_HOST:
             case CURLE_COULDNT_CONNECT:
             case CURLE_OPERATION_TIMEDOUT:
@@ -834,7 +846,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
         {
             resetNetwork();
             flushIOQueue(); // We flush here so the last file is completely on disc and closed before we retry.
-            return downloadFile(url, file, data, type, resume, queueData, rambuf);
+            goto retry;
         }
 
         resetNetwork();
@@ -882,7 +894,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
                         rambuf->buf = NULL;
                         rambuf->size = 0;
                     }
-                    return downloadFile(url, file, data, type, resume, queueData, rambuf);
+                    goto retry;
                 }
             }
             return 1;
@@ -914,7 +926,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
                 if(vpad.trigger & VPAD_BUTTON_B)
                     break;
                 if(vpad.trigger & VPAD_BUTTON_Y)
-                    return downloadFile(url, file, data, type, resume, queueData, rambuf);
+                    goto retry;
             }
             return 1;
         }

@@ -429,7 +429,7 @@ loop:
         return;
     }
 
-    if(predownloadMenu(entry)) // entry is initialised
+    if(predownloadMenu(entry, NUSDEV_NONE)) // entry is initialised
         goto loop;
 
     MEMFreeToDefaultHeap(filteredTitleEntries);

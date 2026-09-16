@@ -21,6 +21,7 @@
 
 #include <wut-fixups.h>
 
+#include <file.h>
 #include <titles.h>
 
 #ifdef __cplusplus
@@ -28,7 +29,7 @@ extern "C"
 {
 #endif
 
-    bool predownloadMenu(const TitleEntry *entry);
+    bool predownloadMenu(const TitleEntry *entry, NUSDEV forcedInstDev);
 
 #ifdef __cplusplus
 }

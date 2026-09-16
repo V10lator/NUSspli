@@ -64,7 +64,7 @@ static inline bool isInstalled(const TitleEntry *entry, MCPTitleListType *out)
     return MCP_GetTitleInfo(mcpHandle, entry->tid, out) == 0;
 }
 
-static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint64_t size, bool installed, const char *folderName)
+static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint64_t size, bool installed, const char *folderName, bool forcedInstDev)
 {
     startNewFrame();
 
@@ -183,7 +183,10 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
             strcat(toFrame, localise("Install"));
             break;
     }
-    textToFrame(--line, 4, toFrame);
+    if(!forcedInstDev)
+        textToFrame(--line, 4, toFrame);
+    else
+        textToFrameColored(--line, 4, toFrame, SCREEN_COLOR_WHITE_TRANSP);
 
     strcpy(toFrame, localise("Install to:"));
     strcat(toFrame, " ");
@@ -200,7 +203,7 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
 
     getFreeSpaceString(instDev, toFrame + strlen(toFrame));
 
-    if(operation == OPERATION_DOWNLOAD_INSTALL)
+    if(!forcedInstDev && operation == OPERATION_DOWNLOAD_INSTALL)
         textToFrame(--line, 4, toFrame);
     else
         textToFrameColored(--line, 4, toFrame, SCREEN_COLOR_WHITE_TRANSP);
@@ -370,7 +373,7 @@ static bool addToOpQueue(RAMBUF *rambuf, const TitleEntry *entry, const char *ti
     return ret;
 }
 
-bool predownloadMenu(const TitleEntry *entry)
+bool predownloadMenu(const TitleEntry *entry, NUSDEV forcedInstDev)
 {
     RAMBUF *rambuf = NULL;
     MCPTitleListType titleList __attribute__((__aligned__(0x40)));
@@ -389,8 +392,13 @@ bool predownloadMenu(const TitleEntry *entry)
     NUSDEV usbMounted = getUSB();
     if(dlDev == NUSDEV_NONE)
         dlDev = usbMounted && dlToUSBenabled() ? usbMounted : NUSDEV_SD;
-    if(instDev == NUSDEV_NONE)
-        instDev = usbMounted ? usbMounted : NUSDEV_MLC;
+    if(forcedInstDev == NUSDEV_NONE)
+    {
+        if(instDev == NUSDEV_NONE)
+            instDev = usbMounted ? usbMounted : NUSDEV_MLC;
+    }
+    else
+        instDev = forcedInstDev;
 
 downloadTMD:
     if(rambuf != NULL)
@@ -454,7 +462,7 @@ naNedNa:
 
             if(redraw)
             {
-                drawPDMenuFrame(entry, titleVer, dls, installed, folderName);
+                drawPDMenuFrame(entry, titleVer, dls, installed, folderName, forcedInstDev != NUSDEV_NONE);
                 redraw = false;
             }
             showFrame();
@@ -471,11 +479,12 @@ naNedNa:
                 switch(cursorPos)
                 {
                     case 15: // TODO: Change hardcoded numbers to something prettier
-                        if(operation == OPERATION_DOWNLOAD_INSTALL)
+                        if(operation == OPERATION_DOWNLOAD_INSTALL && forcedInstDev == NUSDEV_NONE)
                             switchInstallDevice();
                         break;
                     case 16:
-                        switchOperation();
+                        if(forcedInstDev == NUSDEV_NONE)
+                            switchOperation();
                         break;
                     case 17:
                         switchDownloadDevice();
@@ -608,7 +617,7 @@ naNedNa:
                     goto exitPDM;
             }
         }
-        else if(isDLC(entry->tid) || isUpdate(entry->tid))
+        else if(!forcedInstDev && (isDLC(entry->tid) || isUpdate(entry->tid)))
         {
             MCPTitleListType tl __attribute__((__aligned__(0x40)));
             uint64_t t = entry->tid & 0xFFFFFFF0FFFFFFFF;

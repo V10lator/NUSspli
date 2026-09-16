@@ -53,6 +53,7 @@
 #include <coreinit/time.h>
 #include <curl/curl.h>
 #include <nn/ac/ac_c.h>
+#include <nn/nets2/somemopt.h>
 #include <nn/result.h>
 #include <nsysnet/_socket.h>
 #include <nsysnet/misc.h>
@@ -62,10 +63,23 @@
 #define USERAGENT        "NUSspli/" NUSSPLI_VERSION
 #define SMOOTHING_FACTOR 0.2f
 
+// A TCP stream can never go faster than its receive window divided by the round
+// trip time, and the CDN is far enough away that 128 KB of window is worth only
+// about 1.4 MB/s no matter how fat the line is.
+#define SOCKET_BUFSIZE   (512 * 1024)
+
+// CafeOS hands every socket its buffers out of one global pool that
+// socket_lib_init() leaves at a small default size, which is what quietly clamps
+// the window above. somemopt() lets a title donate its own memory to that pool.
+#define SOCKET_POOL_SIZE 0x300000 // 3 MB - the maximum somemopt() accepts
+
 static bool initialised = false;
 static CURL *curl;
 static char curlError[CURL_ERROR_SIZE];
 static bool curlReuseConnection = true;
+static void *socketPool = NULL;
+static OSThread *socketPoolThread = NULL;
+static bool socketPoolDonated = false;
 
 static void *cancelOverlay = NULL;
 
@@ -111,6 +125,62 @@ static int progressCallback(void *rawData, curl_off_t dltotal, curl_off_t dlnow,
     return 0;
 }
 
+// somemopt(SOMEMOPT_REQUEST_INIT) hands our memory to the network stack and only
+// returns once nsysnet shuts down, so it needs a thread to sit in for the rest of
+// the app's life. That also means we never free the pool while it is live - the
+// stack is still holding pointers into it.
+static int socketPoolThreadMain(int argc, const char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    // BIG_BUFFERS splits the donation 50-50 between small and big buffers instead
+    // of 80-20. Receive buffers are what we are here for, so the big half is the
+    // half that matters.
+    return somemopt(SOMEMOPT_REQUEST_INIT, socketPool, SOCKET_POOL_SIZE, SOMEMOPT_FLAGS_BIG_BUFFERS);
+}
+
+// A second INIT fails while the first donation is still live, so a plain
+// reconnect must not try again. A network reset is different: it runs
+// socket_lib_finish(), which ends the blocking request and hands the pool back,
+// and then the donation does have to be made anew - a terminated thread is how
+// we tell the two apart.
+static void initSocketPool()
+{
+    if(socketPoolThread != NULL)
+    {
+        if(!OSIsThreadTerminated(socketPoolThread))
+            return;
+
+        stopThread(socketPoolThread, NULL); // Already finished, so this just reaps it.
+        socketPoolThread = NULL;
+        socketPoolDonated = false;
+    }
+
+    if(socketPool == NULL)
+    {
+        socketPool = MEMAllocFromDefaultHeapEx(SOCKET_POOL_SIZE, 0x40);
+        if(socketPool == NULL)
+        {
+            debugPrintf("initSocketPool: Out of memory");
+            return;
+        }
+    }
+
+    socketPoolThread = startThread("NUSspli socket pool", THREAD_PRIORITY_LOW, STACKSIZE_SMALL, socketPoolThreadMain, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_CPU2);
+    if(socketPoolThread == NULL)
+    {
+        debugPrintf("initSocketPool: Couldn't start thread");
+        return;
+    }
+
+    // Donating is asynchronous, and a socket created before it lands would still
+    // get a default-sized buffer, so wait it out. Returns the bytes now in use.
+    int used = somemopt(SOMEMOPT_REQUEST_WAIT_FOR_INIT, NULL, 0, SOMEMOPT_FLAGS_NONE);
+    socketPoolDonated = used > 0;
+    debugPrintf("initSocketPool: %d bytes donated", used);
+}
+
 // All the socket options we set below are pure performance tweaks, so a failure
 // is never fatal: returning CURL_SOCKOPT_ERROR over one would trade the whole
 // transfer for a lost tweak.
@@ -136,8 +206,29 @@ static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
     trySockopt(socket, IPPROTO_TCP, TCP_NODELAY, 1, "TCP nodelay"); // libCURL default
     trySockopt(socket, SOL_SOCKET, SO_NOSLOWSTART, 1, "Noslowstart");
     trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default
-    trySockopt(socket, SOL_SOCKET, SO_SNDBUF, IO_BUFSIZE, "send buffersize");
-    trySockopt(socket, SOL_SOCKET, SO_RCVBUF, IO_BUFSIZE, "receive buffersize");
+    // Send buffers are NOT backed by the donation, so they still come out of the
+    // small default pool - the same one every other socket on the console draws
+    // from. A downloader sends nothing but request headers, so reserving 128 KB
+    // of a scarce resource for it was pure waste.
+    trySockopt(socket, SOL_SOCKET, SO_SNDBUF, 16 * 1024, "send buffersize");
+
+    // Order matters: the stack only draws from the donation for sockets that
+    // asked for it, and only for buffers sized after the fact.
+    if(socketPoolDonated)
+        trySockopt(socket, SOL_SOCKET, SO_RUSRBUF, 1, "user receive buffers");
+
+    trySockopt(socket, SOL_SOCKET, SO_RCVBUF, SOCKET_BUFSIZE, "receive buffersize");
+
+#ifdef NUSSPLI_DEBUG
+    // What we asked for and what the stack settled on are two different things,
+    // and the difference is the whole ballgame for throughput.
+    int got = 0;
+    socklen_t gotLen = sizeof(got);
+    if(getsockopt(socket, SOL_SOCKET, SO_RCVBUF, &got, &gotLen) == 0)
+        debugPrintf("initSocket: SO_RCVBUF requested %d, got %d", SOCKET_BUFSIZE, got);
+    else
+        debugPrintf("initSocket: SO_RCVBUF readback failed: %d", errno);
+#endif
 
     return CURL_SOCKOPT_OK;
 }
@@ -280,6 +371,7 @@ exitApp:
 bool initDownloader()
 {
     initNetwork();
+    initSocketPool();
 
     struct curl_blob blob = { .data = NULL, .flags = CURL_BLOB_COPY };
     blob.len = readFile(ROMFS_PATH "ca-certs.pem", &blob.data);

@@ -35,7 +35,7 @@ INCLUDES	:=	include \
 #-------------------------------------------------------------------------------
 
 CFLAGS		:=	$(MACHDEP) -O3 -pipe \
-				-mlongcall -ffunction-sections -fdata-sections \
+				-ffunction-sections -fdata-sections \
 				-fno-pic -fno-pie \
 				-Wall -Wextra -Wundef -Wshadow -Wpointer-arith \
 				-Wcast-align -Wno-trigraphs -Wno-empty-body \

@@ -16,7 +16,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
  LDFLAGS="-L$DEVKITPRO/wut/lib" \
  LIBS="-lwut -lm" \
  MBEDTLS_VER=3.6.7 \
- BROTLI_VER=1.2.0 \
  CURL_VER=8.22.0 \
  NGHTTP2_VER=1.70.0
 
@@ -71,16 +70,6 @@ RUN curl -LO https://github.com/nghttp2/nghttp2/releases/download/v$NGHTTP2_VER/
   cd .. && \
   rm -rf nghttp2 nghttp2-$NGHTTP2_VER.tar.xz
 
-# Install Brotli
-RUN git clone --depth 1 --branch v$BROTLI_VER --single-branch --recurse-submodules -j$(nproc) https://github.com/google/brotli.git && \
- cd brotli && \
- sed -i 's/POSITION_INDEPENDENT_CODE TRUE/POSITION_INDEPENDENT_CODE FALSE/' CMakeLists.txt && \
- mkdir out && cd out && \
- cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/portlibs/wiiu/ -DBUILD_SHARED_LIBS=OFF -DBROTLI_BUILD_TOOLS=OFF .. && \
- cmake --build . --config Release --target install -j$(nproc) && \
- cd ../.. && \
- rm -rf brotli
-
 # Install libCURL since WUT doesn't ship with the latest version
 COPY curl.patch /curl.patch
 RUN curl -LO https://curl.se/download/curl-$CURL_VER.tar.xz && \
@@ -101,8 +90,8 @@ RUN curl -LO https://curl.se/download/curl-$CURL_VER.tar.xz && \
 --disable-socketpair \
 --disable-ntlm-wb \
 --with-nghttp2=$DEVKITPRO/portlibs/wiiu/ \
---with-brotli=$DEVKITPRO/portlibs/wiiu/ \
---with-zstd=$DEVKITPRO/portlibs/wiiu/ \
+--without-brotli \
+--without-zstd \
 --without-libpsl \
 --disable-cookies \
 --disable-doh \

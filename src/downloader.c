@@ -63,15 +63,35 @@
 #define USERAGENT        "NUSspli/" NUSSPLI_VERSION
 #define SMOOTHING_FACTOR 0.2f
 
-// A TCP stream can never go faster than its receive window divided by the round
-// trip time, and the CDN is far enough away that 128 KB of window is worth only
-// about 1.4 MB/s no matter how fat the line is.
-#define SOCKET_BUFSIZE   (512 * 1024)
+// A TCP stream cannot exceed its receive window divided by the round trip time,
+// and CafeOS backs socket buffers from a small built-in pool that cannot grant a
+// window this size - hence the donation below. 0x40000 is what RetroArch asks
+// for on this console; at the ~10 ms round trip of a local CDN edge it is already
+// far more than the hardware can fill, and it leaves room for DL_STREAMS of them
+// inside the donation.
+#define SOCKET_BUFSIZE 0x40000
 
 // CafeOS hands every socket its buffers out of one global pool that
 // socket_lib_init() leaves at a small default size, which is what quietly clamps
 // the window above. somemopt() lets a title donate its own memory to that pool.
 #define SOCKET_POOL_SIZE 0x300000 // 3 MB - the maximum somemopt() accepts
+
+// Even with the window fixed, one stream to a CDN that far away spends most of
+// its life waiting on acknowledgements. Splitting a content file across a couple
+// of streams sidesteps that: each one is slow, together they fill the link. Two
+// is enough - the console tops out long before the streams do, and every extra
+// stream costs another slice of a socket pool that ftpiiu also feeds from.
+#define DL_STREAMS   2
+#define DL_CHUNKSIZE (1024 * 1024)
+// Twice as many buffers as streams. A finished chunk has to wait for the chunks
+// before it to be written out, and with one buffer per stream that wait idles
+// the stream too - which showed up as a sawtooth in the reported speed. Spare
+// buffers let a stream start its next range while an earlier chunk is still
+// queued for the disk.
+#define DL_SLOTS (DL_STREAMS * 2)
+// Below this the extra connections cost more than they win, and the .h3, ticket
+// and TMD files are tiny to begin with.
+#define DL_MIN_PARALLEL (2 * DL_CHUNKSIZE)
 
 static bool initialised = false;
 static CURL *curl;
@@ -80,6 +100,36 @@ static bool curlReuseConnection = true;
 static void *socketPool = NULL;
 static OSThread *socketPoolThread = NULL;
 static bool socketPoolDonated = false;
+
+typedef struct
+{
+    CURL *handle; // the stream carrying this chunk, NULL when it isn't in flight
+    uint8_t *buf;
+    curl_off_t start; // this chunk's offset in the file
+    size_t size; // how many bytes this chunk covers
+    size_t filled; // how many have arrived
+    bool full; // finished, waiting its turn to be written out
+} dlChunk;
+
+typedef struct
+{
+    const char *url;
+    FSAFileHandle fp;
+    curl_off_t start; // first byte we still need
+    curl_off_t end; // one past the last byte of the file
+    volatile void *cdata;
+} dlJob;
+
+static dlChunk dlSlots[DL_SLOTS];
+// One handle per buffer, so a free slot is always ready to be issued. How many
+// of them libCURL actually connects at once is its own business - see the
+// CURLMOPT_MAX_TOTAL_CONNECTIONS below.
+static CURL *dlHandles[DL_SLOTS];
+static bool parallelReady = false;
+
+static size_t chunkWrite(const void *ptr, size_t size, size_t n, void *userdata);
+static void initParallel(void);
+static void deinitParallel(void);
 
 static void *cancelOverlay = NULL;
 
@@ -99,6 +149,25 @@ typedef struct
         cancelOverlay = NULL;              \
     }
 
+// Both download paths report through this. The byte count and the timestamp have
+// to be published together: the screen samples them on its own clock and divides
+// one by the other, so a fresh count beside a stale tick reads as a speed that
+// never happened.
+static void publishProgress(volatile curlProgressData *data, curl_off_t dltotal, curl_off_t dlnow)
+{
+    OSTick t = OSGetTick();
+    if(spinTryLock(data->lock))
+    {
+        data->ts = t;
+        data->dltotal = dltotal;
+        data->dlnow = dlnow;
+        spinReleaseLock(data->lock);
+    }
+
+    addEntropy(&dlnow, sizeof(curl_off_t));
+    addEntropy(&t, sizeof(OSTick));
+}
+
 static int progressCallback(void *rawData, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow)
 {
     (void)ultotal;
@@ -111,17 +180,7 @@ static int progressCallback(void *rawData, curl_off_t dltotal, curl_off_t dlnow,
     if(data->error != CURLE_OK)
         return 1;
 
-    OSTick t = OSGetTick();
-    if(spinTryLock(data->lock))
-    {
-        data->ts = t;
-        data->dltotal = dltotal;
-        data->dlnow = dlnow;
-        spinReleaseLock(data->lock);
-    }
-
-    addEntropy(&dlnow, sizeof(curl_off_t));
-    addEntropy(&t, sizeof(OSTick));
+    publishProgress((volatile curlProgressData *)data, dltotal, dlnow);
     return 0;
 }
 
@@ -420,7 +479,6 @@ exitApp:
 bool initDownloader()
 {
     initNetwork();
-    initSocketPool();
 
     struct curl_blob blob = { .data = NULL, .flags = CURL_BLOB_COPY };
     blob.len = readFile(ROMFS_PATH "ca-certs.pem", &blob.data);
@@ -530,6 +588,9 @@ bool initDownloader()
     setOpt(CURLOPT_PROXY, pUrl2);
 #undef setOpt
 
+    initSocketPool();
+    initParallel();
+
     initialised = true;
     return true;
 }
@@ -538,6 +599,8 @@ void deinitDownloader()
 {
     if(!initialised)
         return;
+
+    deinitParallel();
 
     if(curl != NULL)
     {
@@ -554,6 +617,287 @@ static int dlThreadMain(int argc, const char **argv)
     argc = curl_easy_perform(curl);
     ((curlProgressData *)argv[0])->running = false;
     return argc;
+}
+
+static void deinitParallel(void)
+{
+    parallelReady = false;
+    for(int i = 0; i < DL_SLOTS; ++i)
+        if(dlHandles[i] != NULL)
+        {
+            curl_easy_cleanup(dlHandles[i]);
+            dlHandles[i] = NULL;
+        }
+
+    for(int i = 0; i < DL_SLOTS; ++i)
+        if(dlSlots[i].buf != NULL)
+        {
+            MEMFreeToDefaultHeap(dlSlots[i].buf);
+            dlSlots[i].buf = NULL;
+        }
+}
+
+static size_t chunkWrite(const void *ptr, size_t size, size_t n, void *userdata)
+{
+    dlChunk *chunk = (dlChunk *)userdata;
+    size *= n;
+
+    // A server that ignored our Range header and started sending the whole file
+    // would silently corrupt the chunk after this one, so refuse the overflow
+    // instead and let libCURL fail the transfer.
+    if(chunk->filled + size > chunk->size)
+        return 0;
+
+    OSBlockMove(chunk->buf + chunk->filled, ptr, size, false);
+    chunk->filled += size;
+    return size;
+}
+
+// Duplicating the configured handle keeps every stream on the same certificates,
+// user agent, socket options and timeouts without repeating the setup.
+static void initParallel(void)
+{
+    if(parallelReady)
+        return;
+
+    for(int i = 0; i < DL_SLOTS; ++i)
+    {
+        dlSlots[i].buf = MEMAllocFromDefaultHeapEx(DL_CHUNKSIZE, 0x40);
+        if(dlSlots[i].buf == NULL)
+        {
+            debugPrintf("initParallel: Out of memory, falling back to a single connection");
+            deinitParallel();
+            return;
+        }
+    }
+
+    for(int i = 0; i < DL_SLOTS; ++i)
+    {
+        dlHandles[i] = curl_easy_duphandle(curl);
+        if(dlHandles[i] == NULL)
+        {
+            debugPrintf("initParallel: Setup of stream %d failed, falling back to a single connection", i);
+            deinitParallel();
+            return;
+        }
+
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+        CURLcode wf = curl_easy_setopt(dlHandles[i], CURLOPT_WRITEFUNCTION, (size_t(*)(const void *, size_t, size_t, FILE *))chunkWrite);
+#pragma GCC diagnostic pop
+
+        if(wf != CURLE_OK
+            // Each stream keeps its own connection alive across chunks - a fresh
+            // handshake per chunk would hand the round trip time right back.
+            || curl_easy_setopt(dlHandles[i], CURLOPT_FRESH_CONNECT, 0L) != CURLE_OK
+            || curl_easy_setopt(dlHandles[i], CURLOPT_NOPROGRESS, 1L) != CURLE_OK
+            // A compressed range response would not match the byte count we sized
+            // the chunk for, and content is already compressed anyway.
+            || curl_easy_setopt(dlHandles[i], CURLOPT_ACCEPT_ENCODING, NULL) != CURLE_OK)
+        {
+            debugPrintf("initParallel: Setup of stream %d failed, falling back to a single connection", i);
+            deinitParallel();
+            return;
+        }
+    }
+
+    parallelReady = true;
+}
+
+// A 206 carrying a different range than we asked for would be exactly the right
+// length and land at the wrong offset - silent corruption that only surfaces as a
+// failed hash hours later, at install time, with no clue which file is bad.
+static bool rangeMatches(CURL *handle, const dlChunk *chunk)
+{
+    struct curl_header *h;
+    if(curl_easy_header(handle, "Content-Range", 0, CURLH_HEADER, -1, &h) != CURLHE_OK)
+        return false;
+
+    long long from, to;
+    if(sscanf(h->value, "bytes %lld-%lld", &from, &to) != 2)
+        return false;
+
+    return from == (long long)chunk->start && to == (long long)(chunk->start + (curl_off_t)chunk->size - 1);
+}
+
+// Committed bytes plus whatever is still in flight.
+static curl_off_t chunkedProgress(curl_off_t written, curl_off_t start)
+{
+    curl_off_t p = written - start;
+    for(int i = 0; i < DL_SLOTS; ++i)
+        p += dlSlots[i].filled;
+
+    return p;
+}
+
+// Slots are handed out and drained in the same cyclic order, so the chunk that
+// has to be written next is always the one at nextWrite - no search, no
+// reordering buffer, and the file on disk is always a valid prefix of itself,
+// which is exactly what resume needs after a cancel or a failure.
+static int mdlThreadMain(int argc, const char **argv)
+{
+    (void)argc;
+    debugPrintf("Parallel download thread spawned!");
+
+    dlJob *job = (dlJob *)argv[0];
+    volatile curlProgressData *cdata = (volatile curlProgressData *)job->cdata;
+
+    CURLM *multi = curl_multi_init();
+    if(multi == NULL)
+    {
+        cdata->running = false;
+        return CURLE_OUT_OF_MEMORY;
+    }
+
+    // MAXCONNECTS only sizes the connection cache; MAX_TOTAL_CONNECTIONS is what
+    // caps concurrency, queueing the rest internally. Between them libCURL does
+    // the bookkeeping that would otherwise be a busy array and a search.
+    curl_multi_setopt(multi, CURLMOPT_MAX_TOTAL_CONNECTIONS, (long)DL_STREAMS);
+    curl_multi_setopt(multi, CURLMOPT_MAXCONNECTS, (long)DL_STREAMS);
+
+    CURLcode ret = CURLE_OK;
+    curl_off_t issue = job->start; // next byte to hand to a stream
+    curl_off_t written = job->start; // next byte to hand to the I/O queue
+    int nextIssue = 0;
+    int nextWrite = 0;
+    char range[48];
+
+    for(int i = 0; i < DL_SLOTS; ++i)
+    {
+        dlSlots[i].size = dlSlots[i].filled = 0;
+        dlSlots[i].handle = NULL;
+        dlSlots[i].full = false;
+    }
+
+    // Published on either side of the blocking write below: while a commit waits
+    // on the disk nothing else refreshes the figure, and the screen would pair
+    // its next byte count with a stale tick.
+#define updateProgress() publishProgress(cdata, job->end - job->start, chunkedProgress(written, job->start))
+
+    while(true)
+    {
+        while(issue < job->end && dlSlots[nextIssue].handle == NULL && !dlSlots[nextIssue].full)
+        {
+            dlChunk *chunk = dlSlots + nextIssue;
+            curl_off_t len = job->end - issue;
+            if(len > DL_CHUNKSIZE)
+                len = DL_CHUNKSIZE;
+
+            sprintf(range, "%lld-%lld", (long long)issue, (long long)(issue + len - 1));
+            chunk->start = issue;
+            chunk->size = (size_t)len;
+            chunk->filled = 0;
+
+            if(curl_easy_setopt(dlHandles[nextIssue], CURLOPT_URL, job->url) != CURLE_OK || curl_easy_setopt(dlHandles[nextIssue], CURLOPT_RANGE, range) != CURLE_OK || curl_easy_setopt(dlHandles[nextIssue], CURLOPT_WRITEDATA, chunk) != CURLE_OK || curl_multi_add_handle(multi, dlHandles[nextIssue]) != CURLM_OK)
+            {
+                ret = CURLE_FAILED_INIT;
+                break;
+            }
+
+            chunk->handle = dlHandles[nextIssue];
+            issue += len;
+            if(++nextIssue == DL_SLOTS)
+                nextIssue = 0;
+        }
+
+        if(ret != CURLE_OK)
+            break;
+
+        int running = 0;
+        if(curl_multi_perform(multi, &running) != CURLM_OK)
+        {
+            ret = CURLE_RECV_ERROR;
+            break;
+        }
+
+        CURLMsg *msg;
+        int left;
+        while((msg = curl_multi_info_read(multi, &left)) != NULL)
+        {
+            if(msg->msg != CURLMSG_DONE)
+                continue;
+
+            for(int i = 0; i < DL_SLOTS; ++i)
+            {
+                if(dlSlots[i].handle != msg->easy_handle)
+                    continue;
+
+                // The status decides first, and deliberately so. A server that
+                // ignored Range answers 200 with the whole file, which overflows
+                // the chunk buffer and ends the transfer as CURLE_WRITE_ERROR.
+                // Reading the result first would hide "no Range support" behind a
+                // generic write failure, and the fallback to a single stream -
+                // the entire point of noticing - would never fire.
+                long code = 0;
+                if(curl_easy_getinfo(msg->easy_handle, CURLINFO_RESPONSE_CODE, &code) == CURLE_OK && code != 0 && code != 206)
+                {
+                    debugPrintf("Range request answered with %ld, expected 206", code);
+                    ret = CURLE_RANGE_ERROR;
+                }
+                else if(msg->data.result != CURLE_OK)
+                    ret = msg->data.result;
+                else if(dlSlots[i].filled != dlSlots[i].size)
+                    ret = CURLE_PARTIAL_FILE; // Short range - treat it like a truncated transfer.
+                else if(!rangeMatches(msg->easy_handle, dlSlots + i))
+                {
+                    debugPrintf("Range response did not cover %lld-%lld", (long long)dlSlots[i].start, (long long)(dlSlots[i].start + dlSlots[i].size - 1));
+                    ret = CURLE_RANGE_ERROR;
+                }
+
+                curl_multi_remove_handle(multi, msg->easy_handle);
+                dlSlots[i].handle = NULL;
+                dlSlots[i].full = true;
+                break;
+            }
+        }
+
+        if(ret != CURLE_OK)
+            break;
+
+        updateProgress();
+
+        while(dlSlots[nextWrite].full)
+        {
+            dlChunk *chunk = dlSlots + nextWrite;
+            if(addToIOQueue(chunk->buf, 1, chunk->size, job->fp) != chunk->size)
+            {
+                ret = CURLE_WRITE_ERROR;
+                break;
+            }
+
+            written += chunk->size;
+            chunk->size = chunk->filled = 0;
+            chunk->full = false;
+            if(++nextWrite == DL_SLOTS)
+                nextWrite = 0;
+        }
+
+        if(ret != CURLE_OK || written >= job->end)
+            break;
+
+        updateProgress();
+
+        if(!AppRunning(false) || cdata->error != CURLE_OK)
+        {
+            ret = CURLE_ABORTED_BY_CALLBACK;
+            break;
+        }
+
+        if(running)
+            curl_multi_poll(multi, NULL, 0, 50, NULL);
+    }
+
+#undef updateProgress
+
+    for(int i = 0; i < DL_SLOTS; ++i)
+        if(dlSlots[i].handle != NULL)
+        {
+            curl_multi_remove_handle(multi, dlSlots[i].handle);
+            dlSlots[i].handle = NULL;
+        }
+
+    curl_multi_cleanup(multi);
+    cdata->running = false;
+    return ret;
 }
 
 static const char *translateCurlError(CURLcode err, const char *error)
@@ -641,6 +985,13 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     // behind permanently, slowly eating that thread's stack until it overflowed -
     // silently corrupting whatever memory sat past it instead of failing cleanly.
     // Jumping back here instead reuses the same frame, so retrying never grows the stack.
+    // A server that ignores Range gets one more chance as a single stream. This
+    // has to live outside the retry label: `resume` used to double as "no Range
+    // header", but the parallel path issues ranges of its own, so reusing it
+    // would reissue the exact same requests and loop forever, truncating the
+    // file on every pass.
+    bool allowParallel = true;
+
 retry:
     debugPrintf("Download URL: %s", url);
     debugPrintf("Download PATH: %s", rambuf ? "<RAM>" : file);
@@ -714,9 +1065,16 @@ retry:
     };
     spinCreateLock((cdata.lock), SPINLOCK_FREE);
 
+    // Only content files are worth splitting: they are the big ones, their size is
+    // known up front from the TMD, and they land straight on disk rather than in
+    // a RAM buffer.
+    const bool parallel = allowParallel && parallelReady && !rambuf && data != NULL && data->cs != 0 && (curl_off_t)(data->cs - fileSize) >= DL_MIN_PARALLEL;
+
     CURLoption opt = CURLOPT_URL;
-    CURLcode ret = curl_easy_setopt(curl, opt, url);
-    if(ret == CURLE_OK)
+    CURLcode ret = CURLE_OK;
+    if(!parallel)
+        ret = curl_easy_setopt(curl, opt, url);
+    if(!parallel && ret == CURLE_OK)
     {
         opt = CURLOPT_FRESH_CONNECT;
         if(curlReuseConnection)
@@ -761,11 +1119,29 @@ retry:
         return 1;
     }
 
-    debugPrintf("Calling curl_easy_perform()");
     OSTime t = OSGetSystemTime();
 
-    char *argv[1] = { (char *)&cdata };
-    OSThread *dlThread = startThread("NUSspli downloader", THREAD_PRIORITY_HIGH, STACKSIZE_BIG, dlThreadMain, 1, (char *)argv, OS_THREAD_ATTRIB_AFFINITY_CPU0);
+    dlJob job;
+    char *argv[1];
+    OSThread *dlThread;
+    if(parallel)
+    {
+        debugPrintf("Downloading %u bytes over %d streams", (unsigned int)(data->cs - fileSize), DL_STREAMS);
+        job.url = url;
+        job.fp = (FSAFileHandle)fp;
+        job.start = fileSize;
+        job.end = data->cs;
+        job.cdata = &cdata;
+        argv[0] = (char *)&job;
+        dlThread = startThread("NUSspli downloader", THREAD_PRIORITY_HIGH, STACKSIZE_BIG, mdlThreadMain, 1, (char *)argv, OS_THREAD_ATTRIB_AFFINITY_CPU0);
+    }
+    else
+    {
+        debugPrintf("Calling curl_easy_perform()");
+        argv[0] = (char *)&cdata;
+        dlThread = startThread("NUSspli downloader", THREAD_PRIORITY_HIGH, STACKSIZE_BIG, dlThreadMain, 1, (char *)argv, OS_THREAD_ATTRIB_AFFINITY_CPU0);
+    }
+
     if(dlThread == NULL)
     {
         if(rambuf)
@@ -967,7 +1343,20 @@ retry:
                     rambuf->buf = NULL;
                     rambuf->size = 0;
                 }
-                resume = false;
+
+                if(parallel)
+                    // The ranges were ours, not a resume offset, so the server's
+                    // answer says nothing about whether it can resume. Chunks are
+                    // written in order, so what is on disk is a valid prefix -
+                    // throwing gigabytes away over one chunk's transient 503 would
+                    // be far worse than retrying on a single stream.
+                    allowParallel = false;
+                else
+                    resume = false; // Sequential path failed too: no Range support.
+
+                // The close command is queued, not done: retrying before it lands
+                // would size the file short and resume from the wrong offset.
+                flushIOQueue();
                 goto retry;
             case CURLE_COULDNT_RESOLVE_HOST:
             case CURLE_COULDNT_CONNECT:
@@ -1005,10 +1394,17 @@ retry:
     }
     debugPrintf("curl_easy_perform executed successfully");
 
-    long resp;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &resp);
-    if(resp == 206) // Resumed download OK
-        resp = 200;
+    // The parallel path never touches the shared handle, so asking it for a
+    // response code returns whatever the last sequential transfer left behind -
+    // or 0 on a freshly created handle, which would read as failure and delete a
+    // perfectly good file. Its chunks are already validated as 206 individually.
+    long resp = 200;
+    if(!parallel)
+    {
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &resp);
+        if(resp == 206) // Resumed download OK
+            resp = 200;
+    }
 
     debugPrintf("The download returned: %u", resp);
     if(resp != 200)
@@ -1086,9 +1482,17 @@ retry:
     if(data != NULL)
     {
         curl_off_t dld;
-        ret = curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD_T, &dld);
-        if(ret != CURLE_OK)
-            dld = 0;
+        if(parallel)
+            // Same reason as the response code above: the shared handle knows
+            // nothing about this transfer. We asked for exactly this many bytes
+            // and checked every chunk arrived, so this is what landed.
+            dld = (curl_off_t)(data->cs - fileSize);
+        else
+        {
+            ret = curl_easy_getinfo(curl, CURLINFO_SIZE_DOWNLOAD_T, &dld);
+            if(ret != CURLE_OK)
+                dld = 0;
+        }
 
         if(fileSize)
             dld += fileSize;

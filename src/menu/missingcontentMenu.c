@@ -62,8 +62,10 @@ typedef struct
 static MISSING_ENTRY *missingEntries;
 static size_t missingEntrySize;
 
-static void addMissingCandidate(const MCPTitleListType *list, uint32_t count, uint64_t tid, bool isDlc, bool toUSB)
+static void addMissingCandidate(const MCPTitleListType *list, uint32_t count, uint32_t index, bool isDlc)
 {
+    uint64_t tid = isDlc ? BASE_TO_DLC(list[index].titleId) : BASE_TO_UPDATE(list[index].titleId);
+
     for(size_t i = 0; i < missingEntrySize; ++i)
         if(missingEntries[i].entry->tid == tid)
             return; // Already found (e.g. installed on both USB and NAND)
@@ -78,7 +80,7 @@ static void addMissingCandidate(const MCPTitleListType *list, uint32_t count, ui
 
     missingEntries[missingEntrySize].entry = e;
     missingEntries[missingEntrySize].isDlc = isDlc;
-    missingEntries[missingEntrySize].toUSB = toUSB;
+    missingEntries[missingEntrySize].toUSB = list[index].indexedDevice[0] == 'u';
     ++missingEntrySize;
 }
 
@@ -122,9 +124,8 @@ static bool scanForMissingContent()
         if(!isGame(list[i].titleId))
             continue;
 
-        bool toUSB = list[i].indexedDevice[0] == 'u';
-        addMissingCandidate(list, s, BASE_TO_UPDATE(list[i].titleId), false, toUSB);
-        addMissingCandidate(list, s, BASE_TO_DLC(list[i].titleId), true, toUSB);
+        addMissingCandidate(list, s, i, false);
+        addMissingCandidate(list, s, i, true);
     }
 
     MEMFreeToDefaultHeap(list);
@@ -218,54 +219,51 @@ static bool addOneToQueue(const MISSING_ENTRY *me)
     if(ret == 1)
         return true;
 
-    // 0 = out of memory, 2 = already queued for install, 3 = already queued for download
-    if(ret == 2 || ret == 3)
-        addToScreenLog("\"%s\" is already queued", entry->name);
-    else
-        addToScreenLog("Failed queueing \"%s\"", entry->name);
-
     MEMFreeToDefaultHeap(titleInfo);
     freeRamBuf(rambuf);
-    return ret == 2 || ret == 3;
+
+    // 0 = out of memory, 2 = already queued for install, 3 = already queued for download
+    if(ret == 2 || ret == 3)
+    {
+        addToScreenLog("\"%s\" is already queued", entry->name);
+        return true;
+    }
+
+    addToScreenLog("Failed queueing \"%s\"", entry->name);
+    return false;
+}
+
+static inline void drawQFrame()
+{
+    startNewFrame();
+    textToFrame(0, 0, localise("Queueing missing content..."));
+    writeScreenLog(1);
+    drawFrame();
+    showFrame();
 }
 
 static void queueAllMissing()
 {
     clearScreenLog();
+    drawQFrame();
 
     size_t queued = 0;
     size_t skipped = 0;
-    for(size_t i = 0; i < missingEntrySize && AppRunning(true); ++i)
+    for(size_t i = 0; i < missingEntrySize; ++i)
     {
-        startNewFrame();
-        textToFrame(0, 0, localise("Queueing missing content..."));
-        textToFrame(1, 3, missingEntries[i].entry->name);
-        writeScreenLog(2);
-        drawFrame();
-        showFrame();
-
         if(addOneToQueue(missingEntries + i))
             ++queued;
-        else
+        else if(AppRunning(true))
+        {
+            drawQFrame();
             ++skipped;
+        }
+        else
+            return;
     }
 
-    if(!AppRunning(true))
-        return;
-
-    char qbuf[12];
-    char sbuf[12];
-    snprintf(qbuf, sizeof(qbuf), "%zu", queued);
-    snprintf(sbuf, sizeof(sbuf), "%zu", skipped);
-
     char toFrame[256];
-    strcpy(toFrame, localise("Queued"));
-    strcat(toFrame, ": ");
-    strcat(toFrame, qbuf);
-    strcat(toFrame, ", ");
-    strcat(toFrame, localise("Skipped"));
-    strcat(toFrame, ": ");
-    strcat(toFrame, sbuf);
+    snprintf(toFrame, sizeof(toFrame), "%s: %zu, %s: %zu", localise("Queued"), queued, localise("Skipped"), skipped);
 
     void *ovl = addErrorOverlay(toFrame);
     if(ovl == NULL)
@@ -472,5 +470,4 @@ void missingContentMenu()
     }
 
     MEMFreeToDefaultHeap(missingEntries);
-    missingEntries = NULL;
 }

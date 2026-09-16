@@ -24,8 +24,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <staticMem.h>
-
 #include <SDL2/SDL.h>
 
 #pragma GCC diagnostic ignored "-Wundef"

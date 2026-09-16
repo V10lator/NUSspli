@@ -213,7 +213,7 @@ NO_INTRO_DATA *transformNoIntro(const char *path)
 
     FSACloseDir(getFSAClient(), dir);
     MEMFreeToDefaultHeap(pathTo);
-    fromP = '\0';
+    *fromP = '\0';
 
     if(!data->tmdFound || !data->ac)
     {
@@ -248,6 +248,7 @@ NO_INTRO_DATA *transformNoIntro(const char *path)
 
     MEMFreeToDefaultHeap(tmd);
     *fromP = '\0';
+    MEMFreeToDefaultHeap(tmd);
     return data;
 
 transformError1:

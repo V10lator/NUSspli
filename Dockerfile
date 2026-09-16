@@ -1,6 +1,6 @@
-FROM devkitpro/devkitppc:20260117
-COPY --from=ghcr.io/wiiu-env/libmocha:20260110 /artifacts $DEVKITPRO
-COPY --from=ghcr.io/wiiu-env/librpxloader:20260112 /artifacts $DEVKITPRO
+FROM devkitpro/devkitppc:20260503
+COPY --from=ghcr.io/wiiu-env/libmocha:20260331 /artifacts $DEVKITPRO
+COPY --from=ghcr.io/wiiu-env/librpxloader:20260329 /artifacts $DEVKITPRO
 
 ENV DEBIAN_FRONTEND=noninteractive \
  PATH=$DEVKITPPC/bin:$DEVKITPRO/portlibs/wiiu/bin/:$PATH \
@@ -10,14 +10,15 @@ ENV DEBIAN_FRONTEND=noninteractive \
  AR=$DEVKITPPC/bin/powerpc-eabi-ar \
  RANLIB=$DEVKITPPC/bin/powerpc-eabi-ranlib \
  PKG_CONFIG=$DEVKITPRO/portlibs/wiiu/bin/powerpc-eabi-pkg-config \
- CFLAGS="-mcpu=750 -meabi -mhard-float -O3 -pipe -mlongcall -fno-pic -fno-pie -fno-plt -ffunction-sections -fdata-sections" \
- CXXFLAGS="-mcpu=750 -meabi -mhard-float -O3 -pipe -mlongcall -fno-pic -fno-pie -fno-plt -ffunction-sections -fdata-sections" \
+ CFLAGS="-mcpu=750 -meabi -mhard-float -O3 -ffast-math -pipe -fipa-pta -ffunction-sections -fdata-sections -D__WIIU__ -D__WUT__ -DIOAPI_NO_64 -D__unix__" \
+ CXXFLAGS="-mcpu=750 -meabi -mhard-float -O3 -ffast-math -pipe -fipa-pta -ffunction-sections -fdata-sections -D__WIIU__ -D__WUT__ -DIOAPI_NO_64 -D__unix__" \
  CPPFLAGS="-D__WIIU__ -D__WUT__ -I$DEVKITPRO/wut/include -L$DEVKITPRO/wut/lib" \
  LDFLAGS="-L$DEVKITPRO/wut/lib" \
  LIBS="-lwut -lm" \
- BROTLI_VER=1.1.0 \
- CURL_VER=8.11.1 \
- NGHTTP2_VER=1.64.0
+ MBEDTLS_VER=3.6.6 \
+ BROTLI_VER=1.2.0 \
+ CURL_VER=8.22.0 \
+ NGHTTP2_VER=1.70.0
 
 WORKDIR /
 
@@ -29,6 +30,28 @@ RUN mkdir -p /usr/share/man/man1 /usr/share/man/man2 && \
 # Install the requirements to package the homebrew
 RUN apt-get -y install --no-install-recommends autoconf automake libtool openjdk-17-jre-headless python3-pycurl && \
  apt-get clean
+
+# Install mbedTLS since WUT ships an outdated version. This also makes it much faster:
+# The WUT patch reseeds libc's global rand() state via srand() on every single byte — if mbedtls_hardware_poll gets called in a tight loop, OSGetSystemTick() can return the same value across several iterations, meaning several consecutive output bytes come from the same freshly-reseeded rand() stream — correlated, weak output. It also stomps on libc's global rand() state, which is a shared resource any other code could be relying on.
+# NUSrng has none of these problems — one accumulating entropy pool, already exercised by the rest of the app, no interference with libc's RNG.
+COPY mbedtls.patch /mbedtls.patch
+RUN curl -LO https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-$MBEDTLS_VER/mbedtls-$MBEDTLS_VER.tar.bz2 && \
+ mkdir mbedtls && \
+ tar xjf mbedtls-$MBEDTLS_VER.tar.bz2 -C mbedtls --strip-components=1 && \
+ cd mbedtls && \
+ patch -p1 < /mbedtls.patch && \
+ python3 scripts/config.py unset MBEDTLS_HAVE_ASM && \
+ python3 scripts/config.py set MBEDTLS_ENTROPY_HARDWARE_ALT && \
+ python3 scripts/config.py set MBEDTLS_NO_PLATFORM_ENTROPY && \
+ python3 scripts/config.py unset MBEDTLS_SELF_TEST && \
+ python3 scripts/config.py unset MBEDTLS_NET_C && \
+ mkdir out && cd out && \
+ cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/portlibs/wiiu/ \
+    -DUSE_STATIC_MBEDTLS_LIBRARY=ON -DUSE_SHARED_MBEDTLS_LIBRARY=OFF \
+    -DENABLE_TESTING=OFF -DENABLE_PROGRAMS=OFF -DMBEDTLS_FATAL_WARNINGS=OFF .. && \
+ cmake --build . --config Release --target install -j$(nproc) && \
+ cd ../.. && \
+ rm -rf mbedtls mbedtls-$MBEDTLS_VER.tar.bz2 /mbedtls.patch
 
 # Install nghttp2 for HTTP/2 support (WUT don't include this)
 RUN curl -LO https://github.com/nghttp2/nghttp2/releases/download/v$NGHTTP2_VER/nghttp2-$NGHTTP2_VER.tar.xz && \
@@ -51,8 +74,9 @@ RUN curl -LO https://github.com/nghttp2/nghttp2/releases/download/v$NGHTTP2_VER/
   rm -rf nghttp2 nghttp2-$NGHTTP2_VER.tar.xz
 
 # Install Brotli
-RUN git clone --depth 1 --single-branch https://github.com/google/brotli.git && \
+RUN git clone --depth 1 --branch v$BROTLI_VER --single-branch --recurse-submodules -j$(nproc) https://github.com/google/brotli.git && \
  cd brotli && \
+ sed -i 's/POSITION_INDEPENDENT_CODE TRUE/POSITION_INDEPENDENT_CODE FALSE/' CMakeLists.txt && \
  mkdir out && cd out && \
  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$DEVKITPRO/portlibs/wiiu/ -DBUILD_SHARED_LIBS=OFF -DBROTLI_BUILD_TOOLS=OFF -DCMAKE_POSITION_INDEPENDENT_CODE=OFF .. && \
  cmake --build . --config Release --target install -j$(nproc) && \
@@ -60,11 +84,14 @@ RUN git clone --depth 1 --single-branch https://github.com/google/brotli.git && 
  rm -rf brotli
 
 # Install libCURL since WUT doesn't ship with the latest version
+COPY curl.patch /curl.patch
 RUN curl -kLO https://curl.se/download/curl-$CURL_VER.tar.xz && \
  mkdir /curl && \
  tar xJf curl-$CURL_VER.tar.xz -C /curl --strip-components=1 && \
  cd curl && \
- autoreconf -fi && ./configure \
+ patch -p1 < /curl.patch && \
+ autoreconf -fi && \
+ curl_cv_mbedtls_version_ok=yes ac_cv_lib_mbedtls_mbedtls_ssl_init=yes ./configure \
 --prefix=$DEVKITPRO/portlibs/wiiu/ \
 --host=powerpc-eabi \
 --enable-static \
@@ -79,6 +106,7 @@ RUN curl -kLO https://curl.se/download/curl-$CURL_VER.tar.xz && \
 --disable-ntlm-wb \
 --with-nghttp2=$DEVKITPRO/portlibs/wiiu/ \
 --with-brotli=$DEVKITPRO/portlibs/wiiu/ \
+--with-zstd=$DEVKITPRO/portlibs/wiiu/ \
 --without-libpsl \
 --disable-cookies \
 --disable-doh \
@@ -107,7 +135,7 @@ RUN curl -kLO https://curl.se/download/curl-$CURL_VER.tar.xz && \
  cd ../include && \
  make -j$(nproc) install && \
  cd ../.. && \
- rm -rf curl curl-$CURL_VER.tar.xz
+ rm -rf curl curl-$CURL_VER.tar.xz /curl.patch
 
 RUN git config --global --add safe.directory /project && \
   git config --global --add safe.directory /project/SDL_FontCache && \

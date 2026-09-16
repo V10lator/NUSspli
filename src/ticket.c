@@ -375,6 +375,10 @@ gftEntry:
 
 void deleteTicket(uint64_t tid)
 {
+    LIST *ticketList = createList();
+    if(ticketList == NULL)
+        return;
+
     char path[FS_MAX_PATH];
     OSBlockMove(path, TICKET_BUCKET, sizeof(TICKET_BUCKET), false);
 
@@ -385,14 +389,7 @@ void deleteTicket(uint64_t tid)
     if(ret != FS_ERROR_OK)
     {
         debugPrintf("Error opening %s: %s", path, translateFSErr(ret));
-        return;
-    }
-
-    LIST *ticketList = createList();
-    if(ticketList == NULL)
-    {
-        FSACloseDir(getFSAClient(), dir);
-        return;
+        goto exit;
     }
 
     FSADirectoryEntry entry;
@@ -518,6 +515,7 @@ void deleteTicket(uint64_t tid)
     }
 
     FSACloseDir(getFSAClient(), dir);
+exit:
     t = OSGetTime() - t;
     addEntropy(&t, sizeof(OSTime));
     destroyList(ticketList, true);

@@ -31,7 +31,6 @@
 #include <osdefs.h>
 #include <renderer.h>
 #include <romfs.h>
-#include <staticMem.h>
 #include <swkbd_wrapper.h>
 #include <thread.h>
 #include <utils.h>
@@ -85,14 +84,15 @@ static SDL_Rect byeRect;
 
 static SDL_Rect rectPool[SDL_RECTS];
 static uint32_t rectPoolIndex = 0;
+
 static LIST *errorOverlayList;
 
 static inline SDL_Rect *createRect()
 {
-    if(rectPoolIndex >= SDL_RECTS)
-        return NULL;
+    if(rectPoolIndex < SDL_RECTS)
+        return &rectPool[rectPoolIndex++];
 
-    return &rectPool[rectPoolIndex++];
+    return NULL;
 }
 
 #define internalTextToFrame(lineBuffer, bufSize)         \

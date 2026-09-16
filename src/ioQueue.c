@@ -138,7 +138,7 @@ bool initIOThread()
                 return true;
 
             ioRunning = false;
-            MEMFreeToDefaultHeap(buf);
+            MEMFreeToDefaultHeap((void *)queueEntries[0].buf);
         }
 
         MEMFreeToDefaultHeap(queueEntries);

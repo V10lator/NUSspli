@@ -29,7 +29,6 @@
 #include <menu/utils.h>
 #include <renderer.h>
 #include <romfs.h>
-#include <staticMem.h>
 #include <utils.h>
 
 #include <jansson.h>

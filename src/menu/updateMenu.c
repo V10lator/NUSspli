@@ -25,7 +25,6 @@
 #include <menu/utils.h>
 #include <renderer.h>
 #include <state.h>
-#include <staticMem.h>
 #include <updater.h>
 #include <utils.h>
 

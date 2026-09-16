@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 1
       - name: clang-format
@@ -23,11 +23,11 @@ jobs:
     needs: clang-format
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Docker caching
-        uses: ScribeMD/docker-cache@0.5.0
+        uses: AndreKurait/docker-cache@0.7.0
         id: cache
         continue-on-error: true
         with:
@@ -44,28 +44,28 @@ jobs:
         id: version
       - name: Upload Aroma version
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Aroma
           path: out/Aroma/*
           if-no-files-found: warn
       - name: Upload Aroma debug version
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Aroma-DEBUG
           path: out/Aroma-DEBUG/*
           if-no-files-found: error
       - name: Upload Channel version
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Channel
           path: out/Channel/*
           if-no-files-found: warn
       - name: Upload Channel debug version
         if: ${{ startsWith(github.event.head_commit.message, 'v') && contains(github.event.head_commit.message, '.') && !endsWith(github.event.head_commit.message, '.') && (contains(github.event.head_commit.message, '-ALPHA') || contains(github.event.head_commit.message, '-BETA')) }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Channel-DEBUG
           path: out/Channel-DEBUG/*

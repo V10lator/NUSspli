@@ -30,7 +30,6 @@
 #include <ioQueue.h>
 #include <menu/utils.h>
 #include <renderer.h>
-#include <staticMem.h>
 #include <tmd.h>
 #include <utils.h>
 
@@ -241,9 +240,9 @@ size_t getDirsize(const char *path)
 
     size_t ret = 0;
     size_t start = strlen(path);
-    if(start == 0)
+    if(start != 0)
     {
-        strcpy(newPath, path);
+        OSBlockMove(newPath, path, start + 1, false);
         if(newPath[start - 1] != '/')
         {
             newPath[start++] = '/';

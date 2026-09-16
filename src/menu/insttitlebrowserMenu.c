@@ -32,7 +32,6 @@
 #include <osdefs.h>
 #include <renderer.h>
 #include <state.h>
-#include <staticMem.h>
 #include <thread.h>
 #include <titles.h>
 #include <utils.h>

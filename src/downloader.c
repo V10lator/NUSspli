@@ -20,6 +20,7 @@
 #include <wut-fixups.h>
 
 #include <dirent.h>
+#include <errno.h>
 #include <netinet/tcp.h>
 
 #include <config.h>
@@ -36,7 +37,6 @@
 #include <renderer.h>
 #include <romfs.h>
 #include <state.h>
-#include <staticMem.h>
 #include <thread.h>
 #include <ticket.h>
 #include <titles.h>
@@ -111,72 +111,52 @@ static int progressCallback(void *rawData, curl_off_t dltotal, curl_off_t dlnow,
     return 0;
 }
 
+// All the socket options we set below are pure performance tweaks, so a failure
+// is never fatal. CafeOS answers with ENOPROTOOPT (92, "Non-supported option")
+// for options it doesn't know about and returning CURL_SOCKOPT_ERROR on that
+// would kill the whole transfer instead of just losing the tweak.
+static inline bool trySockopt(curl_socket_t socket, int level, int option, int value, const char *name)
+{
+    int ret = setsockopt(socket, level, option, &value, sizeof(value));
+    if(ret != 0 && errno != 92)
+    {
+        debugPrintf("initSocket: Error setting %s: %d", name, errno);
+        return false;
+    }
+
+    return true;
+}
+
 static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
 {
     (void)ptr;
     (void)type;
 
-    int o = 1;
-
-    // Activate WinScale
-    int r = setsockopt(socket, SOL_SOCKET, SO_WINSCALE, &o, sizeof(o));
-    if(r != 0)
+    bool ret = trySockopt(socket, SOL_SOCKET, SO_WINSCALE, 1, "WinScale");
+    if(!ret)
     {
-        debugPrintf("initSocket: Error settings WinScale: %d", r);
-        return CURL_SOCKOPT_ERROR;
+        ret = trySockopt(socket, SOL_SOCKET, SO_TCPSACK, 1, "TCP SAck");
+        if(!ret)
+        {
+            ret = trySockopt(socket, IPPROTO_TCP, TCP_NODELAY, 1, "TCP nodelay"); // libCURL default
+            if(!ret)
+            {
+                ret = trySockopt(socket, SOL_SOCKET, 0x4000, 1, "Noslowstart"); // Disable slowstart
+                if(!ret)
+                {
+                    ret = trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default
+                    if(!ret)
+                    {
+                        ret = trySockopt(socket, SOL_SOCKET, SO_SNDBUF, IO_BUFSIZE, "send buffersize");
+                        if(!ret)
+                            ret = trySockopt(socket, SOL_SOCKET, SO_RCVBUF, IO_BUFSIZE, "receive buffersize");
+                    }
+                }
+            }
+        }
     }
 
-    // Activate TCP SAck
-    r = setsockopt(socket, SOL_SOCKET, SO_TCPSACK, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings TCP SAck: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    // Activate TCP nodelay - libCURL default
-    r = setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings TCP nodelay: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    // Disable slowstart. Should be more important fo a server but doesn't hurt a client, too
-    r = setsockopt(socket, SOL_SOCKET, 0x4000, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings Noslowstart: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    o = 0;
-    // Disable TCP keepalive - libCURL default
-    r = setsockopt(socket, SOL_SOCKET, SO_KEEPALIVE, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings TCP nodelay: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    o = IO_BUFSIZE;
-    // Set send buffersize
-    r = setsockopt(socket, SOL_SOCKET, SO_SNDBUF, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings SBS: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    // Set receive buffersize
-    r = setsockopt(socket, SOL_SOCKET, SO_RCVBUF, &o, sizeof(o));
-    if(r != 0)
-    {
-        debugPrintf("initSocket: Error settings RBS: %d", r);
-        return CURL_SOCKOPT_ERROR;
-    }
-
-    return CURL_SOCKOPT_OK;
+    return ret ? CURL_SOCKOPT_OK : CURL_SOCKOPT_ERROR;
 }
 
 static CURLcode ssl_ctx_init(CURL *cu, void *sslctx, void *parm)
@@ -372,97 +352,59 @@ bool initDownloader()
         debugPrintf("Netconf error!");
 
     CURLcode ret = curl_global_init(CURL_GLOBAL_DEFAULT & ~(CURL_GLOBAL_SSL));
-    if(ret == CURLE_OK)
+    if(ret != CURLE_OK)
     {
-        curl = curl_easy_init();
-        if(curl != NULL)
-        {
-            CURLoption opt;
-#ifdef NUSSPLI_DEBUG
-            curlError[0] = '\0';
-            opt = CURLOPT_ERRORBUFFER;
-            ret = curl_easy_setopt(curl, opt, curlError);
-            if(ret == CURLE_OK)
-            {
-#endif
-                opt = CURLOPT_SOCKOPTFUNCTION;
-                ret = curl_easy_setopt(curl, opt, initSocket);
-                if(ret == CURLE_OK)
-                {
-                    opt = CURLOPT_USERAGENT;
-                    ret = curl_easy_setopt(curl, opt, USERAGENT);
-                    if(ret == CURLE_OK)
-                    {
-                        opt = CURLOPT_XFERINFOFUNCTION;
-                        ret = curl_easy_setopt(curl, opt, progressCallback);
-                        if(ret == CURLE_OK)
-                        {
-                            opt = CURLOPT_NOPROGRESS;
-                            ret = curl_easy_setopt(curl, opt, 0L);
-                            if(ret == CURLE_OK)
-                            {
-                                opt = CURLOPT_FOLLOWLOCATION;
-                                ret = curl_easy_setopt(curl, opt, 1L);
-                                if(ret == CURLE_OK)
-                                {
-                                    opt = CURLOPT_SSL_CTX_FUNCTION;
-                                    ret = curl_easy_setopt(curl, opt, ssl_ctx_init);
-                                    if(ret == CURLE_OK)
-                                    {
-                                        opt = CURLOPT_CAINFO_BLOB;
-                                        ret = curl_easy_setopt(curl, opt, blob);
-                                        if(ret == CURLE_OK)
-                                        {
-                                            MEMFreeToDefaultHeap(blob.data);
-                                            opt = CURLOPT_LOW_SPEED_LIMIT;
-                                            ret = curl_easy_setopt(curl, opt, 1L);
-                                            if(ret == CURLE_OK)
-                                            {
-                                                opt = CURLOPT_LOW_SPEED_TIME;
-                                                ret = curl_easy_setopt(curl, opt, 60L);
-                                                if(ret == CURLE_OK)
-                                                {
-                                                    opt = CURLOPT_ACCEPT_ENCODING;
-                                                    ret = curl_easy_setopt(curl, opt, "");
-                                                    if(ret == CURLE_OK)
-                                                    {
-                                                        opt = CURLOPT_PROXY;
-                                                        ret = curl_easy_setopt(curl, opt, pUrl2);
-                                                        if(ret == CURLE_OK)
-                                                        {
-                                                            initialised = true;
-                                                            return true;
-                                                        }
-                                                    }
-                                                }
-                                            }
-
-                                            blob.data = NULL;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-#ifdef NUSSPLI_DEBUG
-            }
-            debugPrintf("curl_easy_setopt() failed: %s (%u / %d)", curlError, opt, ret);
-#endif
-            curl_easy_cleanup(curl);
-            curl = NULL;
-        }
-#ifdef NUSSPLI_DEBUG
-        else
-            debugPrintf("curl_easy_init() failed!");
-#endif
-        curl_global_cleanup();
+        MEMFreeToDefaultHeap(blob.data);
+        return false;
     }
 
-    if(blob.data != NULL)
+    curl = curl_easy_init();
+    if(curl == NULL)
+    {
+        debugPrintf("curl_easy_init() failed!");
+        curl_global_cleanup();
         MEMFreeToDefaultHeap(blob.data);
+        return false;
+    }
 
-    return false;
+#define setOpt(opt, v)                                                               \
+    ret = curl_easy_setopt(curl, opt, (v));                                          \
+    if(ret != CURLE_OK)                                                              \
+    {                                                                                \
+        debugPrintf("curl_easy_setopt() failed: %s (%u / %d)", curlError, opt, ret); \
+        curl_easy_cleanup(curl);                                                     \
+        curl = NULL;                                                                 \
+        curl_global_cleanup();                                                       \
+        if(blob.data != NULL)                                                        \
+            MEMFreeToDefaultHeap(blob.data);                                         \
+        return false;                                                                \
+    }
+
+#ifdef NUSSPLI_DEBUG
+    curlError[0] = '\0';
+    setOpt(CURLOPT_ERRORBUFFER, curlError);
+#endif
+    setOpt(CURLOPT_SOCKOPTFUNCTION, initSocket);
+    setOpt(CURLOPT_USERAGENT, USERAGENT);
+    setOpt(CURLOPT_XFERINFOFUNCTION, progressCallback);
+    setOpt(CURLOPT_NOPROGRESS, 0L);
+    setOpt(CURLOPT_FOLLOWLOCATION, 1L);
+    setOpt(CURLOPT_MAXREDIRS, 8L);
+    setOpt(CURLOPT_SSL_CTX_FUNCTION, ssl_ctx_init);
+    setOpt(CURLOPT_CAINFO_BLOB, &blob);
+
+    // libCURL copied the certificates (CURL_BLOB_COPY), so we're done with our copy.
+    MEMFreeToDefaultHeap(blob.data);
+    blob.data = NULL;
+
+    setOpt(CURLOPT_LOW_SPEED_LIMIT, 1L);
+    setOpt(CURLOPT_LOW_SPEED_TIME, 60L);
+    setOpt(CURLOPT_ACCEPT_ENCODING, "");
+    setOpt(CURLOPT_PROXY, pUrl2);
+#undef setOpt
+
+    initialised = true;
+    return true;
 }
 
 void deinitDownloader()
@@ -511,8 +453,10 @@ static const char *translateCurlError(CURLcode err, const char *error)
         case CURLE_READ_ERROR:
         case CURLE_OUT_OF_MEMORY:
             return "Internal error";
-        case CURLE_BAD_FUNCTION_ARGUMENT: // TODO: WUT bug
-            return "Internal WUT error";
+        // libCURL is right here: CafeOS answered ENOPROTOOPT (92) to a WUT socket
+        // call, so libCURL got an invalid argument. See issue #302.
+        case CURLE_BAD_FUNCTION_ARGUMENT:
+            return "Internal WUT error"; // TODO: How to handle correctly?
         default:
             return error[0] == '\0' ? curl_easy_strerror(err) : error;
     }
@@ -548,6 +492,14 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     // Results: 0 = OK | 1 = Error | 2 = No ticket aviable | 3 = Exit
     // Types: 0 = .app | 1 = .h3 | 2 = title.tmd | 3 = tilte.tik
 
+    // Every retry below used to be a `return downloadFile(...)` tail call. On a long,
+    // flaky download that can recurse dozens or hundreds of times (e.g. the WUT bug
+    // from issue #302 repeating every few minutes), and since this function runs on
+    // the caller's thread rather than a dedicated one, each "retry" left a stack frame
+    // behind permanently, slowly eating that thread's stack until it overflowed -
+    // silently corrupting whatever memory sat past it instead of failing cleanly.
+    // Jumping back here instead reuses the same frame, so retrying never grows the stack.
+retry:
     debugPrintf("Download URL: %s", url);
     debugPrintf("Download PATH: %s", rambuf ? "<RAM>" : file);
 
@@ -590,7 +542,10 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
                         return 0;
                     }
                     if(fileSize > data->cs)
-                        return downloadFile(url, file, data, type, false, queueData, rambuf);
+                    {
+                        resume = false;
+                        goto retry;
+                    }
                 }
 
                 fp = (void *)openFile(file, "a", 0);
@@ -843,6 +798,14 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
             }
         }
 
+        // Whatever went wrong, the connection libCURL has cached is not trustworthy
+        // anymore. This matters most for CURLE_BAD_FUNCTION_ARGUMENT: CafeOS kills
+        // the socket behind libCURLs back ("Received request to kill all sockets"),
+        // select() then fails with ENOPROTOOPT and libCURL reports an unrecoverable
+        // poll. Retrying on that very same socket just reproduces the error, so make
+        // sure the next attempt does a fresh connect.
+        curlReuseConnection = false;
+
         const char *te = translateCurlError(ret, curlError);
         switch(ret)
         {
@@ -853,9 +816,8 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
                     rambuf->buf = NULL;
                     rambuf->size = 0;
                 }
-                int r = downloadFile(url, file, data, type, false, queueData, rambuf);
-                curlReuseConnection = false;
-                return r;
+                resume = false;
+                goto retry;
             case CURLE_COULDNT_RESOLVE_HOST:
             case CURLE_COULDNT_CONNECT:
             case CURLE_OPERATION_TIMEDOUT:
@@ -863,8 +825,10 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
             case CURLE_SEND_ERROR:
             case CURLE_RECV_ERROR:
             case CURLE_PARTIAL_FILE:
-            case CURLE_BAD_FUNCTION_ARGUMENT: // TODO: WUT bug
-                sprintf(toScreen, "%s:\n\t%s\n\n%s", "Network error", te, ret != CURLE_BAD_FUNCTION_ARGUMENT ? "check the network settings and try again" : "See https://github.com/V10lator/NUSspli/issues/302#issuecomment-2108134284");
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", "Network error", te, "check the network settings and try again");
+                break;
+            case CURLE_BAD_FUNCTION_ARGUMENT: // Killed socket, see above - TODO: Why did it kill the socket? "see above" is not really an answer. Also how to handle correctly?
+                sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Internal WUT error"), te, "See https://github.com/V10lator/NUSspli/issues/302#issuecomment-2108134284");
                 break;
             case CURLE_PEER_FAILED_VERIFICATION:
             case CURLE_SSL_CONNECT_ERROR:
@@ -882,7 +846,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
         {
             resetNetwork();
             flushIOQueue(); // We flush here so the last file is completely on disc and closed before we retry.
-            return downloadFile(url, file, data, type, resume, queueData, rambuf);
+            goto retry;
         }
 
         resetNetwork();
@@ -930,7 +894,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
                         rambuf->buf = NULL;
                         rambuf->size = 0;
                     }
-                    return downloadFile(url, file, data, type, resume, queueData, rambuf);
+                    goto retry;
                 }
             }
             return 1;
@@ -962,7 +926,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
                 if(vpad.trigger & VPAD_BUTTON_B)
                     break;
                 if(vpad.trigger & VPAD_BUTTON_Y)
-                    return downloadFile(url, file, data, type, resume, queueData, rambuf);
+                    goto retry;
             }
             return 1;
         }

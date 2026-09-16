@@ -1,6 +1,6 @@
-diff '--color=auto' -Nru mbedtls-3.6.6.old/library/common.h mbedtls-3.6.6/library/common.h
---- mbedtls-3.6.6.old/library/common.h	2026-03-27 18:00:27.561397600 +0100
-+++ mbedtls-3.6.6/library/common.h	2026-09-13 12:17:56.275528120 +0200
+diff '--color=auto' -Nru mbedtls-3.6.7.old/library/common.h mbedtls-3.6.7/library/common.h
+--- mbedtls-3.6.7.old/library/common.h	2026-03-27 18:00:27.561397600 +0100
++++ mbedtls-3.6.7/library/common.h	2026-09-13 12:17:56.275528120 +0200
 @@ -40,6 +40,7 @@
      (defined(__APPLE__) && defined(__MACH__)) ||                  \
      defined(__HAIKU__) ||                                         \
@@ -9,9 +9,9 @@ diff '--color=auto' -Nru mbedtls-3.6.6.old/library/common.h mbedtls-3.6.6/librar
      /* Add other Unix-like platform indicators here ^^^^ */ 0
  /* defined(MBEDTLS_PLATFORM_IS_UNIXLIKE) ==> we can include <unistd.h> */
  #define MBEDTLS_PLATFORM_IS_UNIXLIKE
-diff '--color=auto' -Nru mbedtls-3.6.6.old/library/entropy.c mbedtls-3.6.6/library/entropy.c
---- mbedtls-3.6.6.old/library/entropy.c	2026-03-27 18:00:27.566456000 +0100
-+++ mbedtls-3.6.6/library/entropy.c	2026-09-13 12:22:07.028822000 +0200
+diff '--color=auto' -Nru mbedtls-3.6.7.old/library/entropy.c mbedtls-3.6.7/library/entropy.c
+--- mbedtls-3.6.7.old/library/entropy.c	2026-03-27 18:00:27.566456000 +0100
++++ mbedtls-3.6.7/library/entropy.c	2026-09-13 12:22:07.028822000 +0200
 @@ -22,6 +22,20 @@
  
  #include "mbedtls/platform.h"
@@ -33,9 +33,9 @@ diff '--color=auto' -Nru mbedtls-3.6.6.old/library/entropy.c mbedtls-3.6.6/libra
  #define ENTROPY_MAX_LOOP    256     /**< Maximum amount to loop before error */
  
  void mbedtls_entropy_init(mbedtls_entropy_context *ctx)
-diff '--color=auto' -Nru mbedtls-3.6.6.old/library/platform_util.c mbedtls-3.6.6/library/platform_util.c
---- mbedtls-3.6.6.old/library/platform_util.c	2026-03-27 18:00:27.574441200 +0100
-+++ mbedtls-3.6.6/library/platform_util.c	2026-09-13 12:22:09.695968819 +0200
+diff '--color=auto' -Nru mbedtls-3.6.7.old/library/platform_util.c mbedtls-3.6.7/library/platform_util.c
+--- mbedtls-3.6.7.old/library/platform_util.c	2026-03-27 18:00:27.574441200 +0100
++++ mbedtls-3.6.7/library/platform_util.c	2026-09-13 12:22:09.695968819 +0200
 @@ -219,7 +219,7 @@
  #include <unistd.h>
  #endif

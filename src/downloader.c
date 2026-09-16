@@ -469,8 +469,13 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
         float tmp = currentSize;
         tmp /= totalSize;
         barToFrame(line, 0, 29, tmp);
-        if(totalSize)
-            *eta = (totalSize - currentSize) / bps;
+        // A speed at or near zero makes the quotient infinite or larger than
+        // *eta can hold, and converting such a float to uint32_t is undefined.
+        if(totalSize && bps > 0.0f)
+        {
+            float secs = (totalSize - currentSize) / bps;
+            *eta = secs >= (float)UINT32_MAX ? UINT32_MAX : (uint32_t)secs;
+        }
     }
     else
         barToFrame(line, 0, 29, 0.0D);
@@ -483,8 +488,13 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
     humanize(totalSize, ptr);
     textToFrame(line, 30, toScreen);
 
-    secsToTime(*eta, toScreen);
-    textToFrame(line, ALIGNED_RIGHT, toScreen);
+    // UINT32_MAX means there is no usable estimate: either none has been taken
+    // yet, or the transfer is too slow to put a bound on.
+    if(*eta != UINT32_MAX)
+    {
+        secsToTime(*eta, toScreen);
+        textToFrame(line, ALIGNED_RIGHT, toScreen);
+    }
 }
 
 int downloadFile(const char *url, char *file, downloadData *data, FileType type, bool resume, QUEUE_DATA *queueData, RAMBUF *rambuf)
@@ -633,6 +643,7 @@ retry:
     size_t dlnow;
     size_t downloaded = 0;
     size_t tmp;
+    uint32_t fileEta = UINT32_MAX;
     float bps;
     float oldBps = 0.0D;
     int frames = 1;
@@ -722,7 +733,7 @@ retry:
                 getSpeedString(bps, toScreen);
                 textToFrame(line, ALIGNED_RIGHT, toScreen);
 
-                drawStatLine(++line, dltotal, dlnow, bps, &tmp);
+                drawStatLine(++line, dltotal, dlnow, bps, &fileEta);
             }
             else
             {

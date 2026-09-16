@@ -53,7 +53,7 @@ bool downloadMenu()
         const TitleEntry *entry = getTitleEntryByTid(tid);
         if(entry != NULL)
         {
-            predownloadMenu(entry);
+            predownloadMenu(entry, NUSDEV_NONE);
             return true;
         }
     }

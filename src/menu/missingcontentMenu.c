@@ -354,7 +354,7 @@ void missingContentMenu()
 
         if(vpad.trigger & VPAD_BUTTON_A)
         {
-            if(predownloadMenu(missingEntries[cursor + pos].entry))
+            if(predownloadMenu(missingEntries[cursor + pos].entry, missingEntries[cursor + pos].toUSB ? NUSDEV_USB : NUSDEV_MLC))
                 redraw = true;
         }
 

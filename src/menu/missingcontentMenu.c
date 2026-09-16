@@ -283,6 +283,32 @@ static void queueAllMissing()
         queueMenu();
 }
 
+static void drawNMCscreen()
+{
+    colorStartNewFrame(SCREEN_COLOR_D_GREEN);
+    textToFrame(0, 0, localise("No missing content found"));
+    textToFrame(2, 0, localise("Press " BUTTON_B " to return"));
+    drawFrame();
+}
+
+static inline void showNMCscreen()
+{
+    drawNMCscreen();
+
+    while(AppRunning(true))
+    {
+        if(app == APP_STATE_BACKGROUND)
+            continue;
+        if(app == APP_STATE_RETURNING)
+            drawNMCscreen();
+
+        showFrame();
+
+        if(vpad.trigger & VPAD_BUTTON_B)
+            break;
+    }
+}
+
 void missingContentMenu()
 {
     startNewFrame();
@@ -299,8 +325,7 @@ void missingContentMenu()
     if(missingEntrySize == 0)
     {
         MEMFreeToDefaultHeap(missingEntries);
-        missingEntries = NULL;
-        showErrorFrame(localise("No missing content found"));
+        showNMCscreen();
         return;
     }
 

@@ -1004,3 +1004,12 @@ uint32_t getSpaceWidth()
 {
     return spaceWidth;
 }
+
+// In spaces, which is the unit the rest of the renderer counts columns in.
+// Rounded up to the next whole space, never down: a caller padding one column
+// out to reach the next one needs to know what the text covers, not what it
+// leaves uncovered.
+uint32_t getTextWidth(const char *text)
+{
+    return font == NULL ? 0 : ((uint32_t)FC_GetWidth(font, text) + spaceWidth) / spaceWidth;
+}

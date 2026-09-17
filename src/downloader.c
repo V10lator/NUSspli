@@ -48,6 +48,7 @@
 #include <mbedtls/x509_crt.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
+#include <coreinit/bsp.h>
 #include <coreinit/filesystem_fsa.h>
 #include <coreinit/memory.h>
 #include <coreinit/time.h>
@@ -89,6 +90,15 @@
 // buffers let a stream start its next range while an earlier chunk is still
 // queued for the disk.
 #define DL_SLOTS (DL_STREAMS * 2)
+
+// The benchmark varies the stream count at run time, so the arrays are sized for
+// the largest it asks for. In a release build these collapse back to DL_*.
+#ifdef NUSSPLI_DEBUG
+#define DL_MAX_STREAMS 3
+#else
+#define DL_MAX_STREAMS DL_STREAMS
+#endif
+#define DL_MAX_SLOTS (DL_MAX_STREAMS * 2)
 // Below this the extra connections cost more than they win, and the .h3, ticket
 // and TMD files are tiny to begin with.
 #define DL_MIN_PARALLEL (2 * DL_CHUNKSIZE)
@@ -99,6 +109,13 @@ static char curlError[CURL_ERROR_SIZE];
 static bool curlReuseConnection = true;
 static void *socketPool = NULL;
 static bool socketPoolDonated = false;
+#ifdef NUSSPLI_DEBUG
+// Set by the speed test so one run can compare configurations back to back,
+// under the same network conditions, instead of across rebuilds.
+static bool speedTestOverride = false;
+static bool speedTestRusrbuf = false;
+static int speedTestRcvbuf = IO_BUFSIZE;
+#endif
 
 typedef struct
 {
@@ -119,11 +136,13 @@ typedef struct
     volatile void *cdata;
 } dlJob;
 
-static dlChunk dlSlots[DL_SLOTS];
+static dlChunk dlSlots[DL_MAX_SLOTS];
+static int dlStreams = DL_STREAMS;
+static int dlSlotCount = DL_SLOTS;
 // One handle per buffer, so a free slot is always ready to be issued. How many
 // of them libCURL actually connects at once is its own business - see the
 // CURLMOPT_MAX_TOTAL_CONNECTIONS below.
-static CURL *dlHandles[DL_SLOTS];
+static CURL *dlHandles[DL_MAX_SLOTS];
 static bool parallelReady = false;
 
 static size_t chunkWrite(const void *ptr, size_t size, size_t n, void *userdata);
@@ -210,6 +229,7 @@ static void freeSocketPoolThread(OSThread *thread, void *stack)
 
     MEMFreeToDefaultHeap(thread);
 }
+
 static void initSocketPool()
 {
     // A live donation is the one thing that must not be repeated, and the API
@@ -298,13 +318,22 @@ static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
                         {
                             // A socket draws from the donated pool only once it asks to,
                             // and only for buffers sized after the fact.
+                            bool rusrbuf = socketPoolDonated;
+                            int rcvbuf = SOCKET_BUFSIZE;
+#ifdef NUSSPLI_DEBUG
+                            if(speedTestOverride)
+                            {
+                                rusrbuf = speedTestRusrbuf && socketPoolDonated;
+                                rcvbuf = speedTestRcvbuf;
+                            }
+#endif
                             // Not part of the chain: a stack that turns this one
                             // down still gives a working socket, just a smaller
                             // receive buffer.
-                            if(socketPoolDonated)
-                                trySockopt(socket, SOL_SOCKET, SO_RUSRBUF, 1, "user receive buffers");
+                            if(rusrbuf && !trySockopt(socket, SOL_SOCKET, SO_RUSRBUF, 1, "user receive buffers"))
+                                rcvbuf = SOCKET_BUFSIZE;
 
-                            ret = trySockopt(socket, SOL_SOCKET, SO_RCVBUF, SOCKET_BUFSIZE, "receive buffersize");
+                            ret = trySockopt(socket, SOL_SOCKET, SO_RCVBUF, rcvbuf, "receive buffersize");
                         }
                     }
                 }
@@ -317,7 +346,7 @@ static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
     int got = 0;
     socklen_t gotLen = sizeof(got);
     if(getsockopt(socket, SOL_SOCKET, SO_RCVBUF, &got, &gotLen) == 0)
-        debugPrintf("initSocket: SO_RCVBUF requested %d, got %d", SOCKET_BUFSIZE, got);
+        debugPrintf("initSocket: SO_RCVBUF requested %d, got %d", speedTestOverride ? speedTestRcvbuf : SOCKET_BUFSIZE, got);
 #endif
 
     return ret ? CURL_SOCKOPT_OK : CURL_SOCKOPT_ERROR;
@@ -586,6 +615,7 @@ static void releaseSocketPool(void)
         socketPoolDonated = false;
     }
 }
+
 void deinitDownloader()
 {
     if(!initialised)
@@ -619,14 +649,14 @@ static int dlThreadMain(int argc, const char **argv)
 static void deinitParallel(void)
 {
     parallelReady = false;
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < DL_MAX_SLOTS; ++i)
         if(dlHandles[i] != NULL)
         {
             curl_easy_cleanup(dlHandles[i]);
             dlHandles[i] = NULL;
         }
 
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < DL_MAX_SLOTS; ++i)
         if(dlSlots[i].buf != NULL)
         {
             MEMFreeToDefaultHeap(dlSlots[i].buf);
@@ -657,7 +687,7 @@ static void initParallel(void)
     if(parallelReady)
         return;
 
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < DL_MAX_SLOTS; ++i)
     {
         dlSlots[i].buf = MEMAllocFromDefaultHeapEx(DL_CHUNKSIZE, 0x40);
         if(dlSlots[i].buf == NULL)
@@ -668,7 +698,7 @@ static void initParallel(void)
         }
     }
 
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < DL_MAX_SLOTS; ++i)
     {
         dlHandles[i] = curl_easy_duphandle(curl);
         if(dlHandles[i] == NULL)
@@ -720,7 +750,7 @@ static bool rangeMatches(CURL *handle, const dlChunk *chunk)
 static curl_off_t chunkedProgress(curl_off_t written, curl_off_t start)
 {
     curl_off_t p = written - start;
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < dlSlotCount; ++i)
         p += dlSlots[i].filled;
 
     return p;
@@ -748,8 +778,8 @@ static int mdlThreadMain(int argc, const char **argv)
     // MAXCONNECTS only sizes the connection cache; MAX_TOTAL_CONNECTIONS is what
     // caps concurrency, queueing the rest internally. Between them libCURL does
     // the bookkeeping that would otherwise be a busy array and a search.
-    curl_multi_setopt(multi, CURLMOPT_MAX_TOTAL_CONNECTIONS, (long)DL_STREAMS);
-    curl_multi_setopt(multi, CURLMOPT_MAXCONNECTS, (long)DL_STREAMS);
+    curl_multi_setopt(multi, CURLMOPT_MAX_TOTAL_CONNECTIONS, (long)dlStreams);
+    curl_multi_setopt(multi, CURLMOPT_MAXCONNECTS, (long)dlStreams);
 
     CURLcode ret = CURLE_OK;
     curl_off_t issue = job->start; // next byte to hand to a stream
@@ -758,7 +788,7 @@ static int mdlThreadMain(int argc, const char **argv)
     int nextWrite = 0;
     char range[48];
 
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < dlSlotCount; ++i)
     {
         dlSlots[i].size = dlSlots[i].filled = 0;
         dlSlots[i].handle = NULL;
@@ -792,7 +822,7 @@ static int mdlThreadMain(int argc, const char **argv)
 
             chunk->handle = dlHandles[nextIssue];
             issue += len;
-            if(++nextIssue == DL_SLOTS)
+            if(++nextIssue == dlSlotCount)
                 nextIssue = 0;
         }
 
@@ -813,7 +843,7 @@ static int mdlThreadMain(int argc, const char **argv)
             if(msg->msg != CURLMSG_DONE)
                 continue;
 
-            for(int i = 0; i < DL_SLOTS; ++i)
+            for(int i = 0; i < dlSlotCount; ++i)
             {
                 if(dlSlots[i].handle != msg->easy_handle)
                     continue;
@@ -855,7 +885,14 @@ static int mdlThreadMain(int argc, const char **argv)
         while(dlSlots[nextWrite].full)
         {
             dlChunk *chunk = dlSlots + nextWrite;
-            if(addToIOQueue(chunk->buf, 1, chunk->size, job->fp) != chunk->size)
+#ifdef NUSSPLI_DEBUG
+            // The benchmark drives this same path with nowhere to write to, so
+            // what it measures is the network and not the disk behind it.
+            const bool stored = job->fp == 0 || addToIOQueue(chunk->buf, 1, chunk->size, job->fp) == chunk->size;
+#else
+            const bool stored = addToIOQueue(chunk->buf, 1, chunk->size, job->fp) == chunk->size;
+#endif
+            if(!stored)
             {
                 ret = CURLE_WRITE_ERROR;
                 break;
@@ -864,7 +901,7 @@ static int mdlThreadMain(int argc, const char **argv)
             written += chunk->size;
             chunk->size = chunk->filled = 0;
             chunk->full = false;
-            if(++nextWrite == DL_SLOTS)
+            if(++nextWrite == dlSlotCount)
                 nextWrite = 0;
         }
 
@@ -885,7 +922,7 @@ static int mdlThreadMain(int argc, const char **argv)
 
 #undef updateProgress
 
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < dlSlotCount; ++i)
         if(dlSlots[i].handle != NULL)
         {
             curl_multi_remove_handle(multi, dlSlots[i].handle);
@@ -896,6 +933,633 @@ static int mdlThreadMain(int argc, const char **argv)
     cdata->running = false;
     return ret;
 }
+
+#ifdef NUSSPLI_DEBUG
+static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize, float bps, uint32_t *eta);
+static const char *translateCurlError(CURLcode err, const char *error);
+
+// The network stack runs on the Starbucks, the ARM coprocessor, and the argument
+// against large socket buffers is that they saturate it. Reading it here puts that number next to the
+// throughput it is supposed to explain, rather than leaving it to an overlay and
+// the naked eye. Reported by the OS as tenths of a percent.
+static float starbucksLoad(void) // CPU utilisation, percent
+{
+    uint32_t val = 0;
+    return bspRead("Sys", 0, "cpuUtil", sizeof(val), &val) == BSP_ERROR_OK ? val / 10.0f : -1.0f;
+}
+
+// Two hosts at deliberately different distances, because the question is whether
+// the receive window or the console itself is the limit: one sits about as far
+// away as the CDN, the other is next door. Both are plain HTTP and both are far
+// faster than the console, so neither can be the bottleneck. What arrives is
+// thrown away - no disk, no decryption, nothing but recv().
+//
+// Each run is capped by bytes and by time so a full sweep stays minutes rather
+// than hours, and the sweep is repeated in passes so every configuration is
+// spread across the measurement window instead of owning one end of it.
+#define SPEEDTEST_BYTES  (32 * 1024 * 1024)
+#define SPEEDTEST_MAX_MS 15000
+#define SPEEDTEST_PASSES 3
+#define SPEEDTEST_PAUSE  3
+// Below this the two hosts are not telling us anything different.
+#define SPEEDTEST_MIN_SPREAD 30
+// Past this the far run stops measuring the console and starts measuring the
+// mirror: a link that long carries somebody else's congestion too, and a single
+// retransmit costs more than the whole difference we came to look for.
+#define SPEEDTEST_FAR_RTT 150
+// And the near host only says what the console does when latency is not the
+// limit if it is genuinely close. The lowest one found wins, so anything better
+// than this is taken automatically.
+#define SPEEDTEST_NEAR_RTT 20
+// Spaces kept between two columns of the results table.
+#define SPEEDTEST_GAP 3
+
+// Hosts spread across continents, so that wherever this runs there is a wide
+// spread of round trip times to choose from. Which two get used is decided by
+// measurement, not by assumption: a host that is far from one line is near to
+// another, and the whole point is to see how throughput moves with latency.
+static const char *speedTestHosts[] = {
+    "http://ipv4.download.thinkbroadband.com/200MB.zip",
+    "http://mirror.yandex.ru/debian-cd/current/amd64/iso-cd/debian-13.7.0-amd64-netinst.iso",
+    "http://mirrors.edge.kernel.org/ubuntu-releases/24.04/ubuntu-24.04.3-live-server-amd64.iso",
+    "http://mirror.math.princeton.edu/pub/ubuntu-iso/24.04/ubuntu-24.04.3-live-server-amd64.iso",
+    "http://ftp.riken.jp/Linux/ubuntu-releases/24.04/ubuntu-24.04.3-live-server-amd64.iso",
+    "http://mirror.aarnet.edu.au/pub/ubuntu/releases/24.04/ubuntu-24.04.3-live-server-amd64.iso",
+};
+
+#define SPEEDTEST_HOSTS (sizeof(speedTestHosts) / sizeof(speedTestHosts[0]))
+
+// Filled in by the probe below: the closest and the most distant host that
+// answered, named after the latency actually measured to them.
+static struct
+{
+    const char *name; // "far" and "near" relative to each other, not absolutes
+    unsigned int rtt;
+    char host[64];
+    const char *url;
+} speedTestTargets[2];
+
+// Just the host part, so the screen can say which mirrors were picked.
+static void speedTestHostName(const char *url, char *out, size_t len)
+{
+    const char *a = strstr(url, "://");
+    a = a ? a + 3 : url;
+    const char *b = strchr(a, '/');
+    size_t n = (b ? (size_t)(b - a) : strlen(a));
+    if(n >= len)
+        n = len - 1;
+
+    memcpy(out, a, n);
+    out[n] = '\0';
+}
+
+static const struct
+{
+    const char *name;
+    bool rusrbuf;
+    int rcvbuf;
+    int streams; // 1 drives the ordinary single-connection path
+    bool disk; // land the bytes on the SD card instead of dropping them
+} speedTestConfigs[] = {
+    { "stock", false, IO_BUFSIZE, 1, false },
+    { "user256", true, 0x40000, 1, false },
+    { "user512", true, 0x80000, 1, false },
+    { "parallel 2", true, 0x40000, 2, false },
+    { "parallel 3", true, 0x40000, 3, false },
+    { "stock+disk", false, IO_BUFSIZE, 1, true },
+    { "user256+disk", true, 0x40000, 1, true },
+    { "parallel 3+disk", true, 0x40000, 3, true },
+};
+
+#define SPEEDTEST_TARGETS (sizeof(speedTestTargets) / sizeof(speedTestTargets[0]))
+#define SPEEDTEST_CONFIGS (sizeof(speedTestConfigs) / sizeof(speedTestConfigs[0]))
+
+// Somewhere to put the bytes of a run that measures the card as well as the
+// link. The directory goes away with the results.
+#define SPEEDTEST_DIR  NUSDIR_SD "speedtest/"
+#define SPEEDTEST_FILE SPEEDTEST_DIR "data.tmp"
+
+static FSAFileHandle speedTestFile;
+
+// One column of the log, appended to line and padded to width spaces - a width
+// of 0 just appends. Counting characters would not line anything up: the font is
+// proportional, so "far" and "near" padded to the same length still end at
+// different places, which is why the padding is measured. FC_Draw() takes its
+// text as a printf format, so a literal percent sign is doubled on the way in.
+
+static uint32_t colRun;
+static uint32_t colTarget;
+static uint32_t colConfig;
+static uint32_t colRate;
+static uint32_t colLoad;
+
+// Column widths are measured from the widest value each one can ever hold,
+// because a guess in spaces does not survive a proportional font.
+static void measureColumns(void)
+{
+    // Digits are not all the same width either. A run of ten tells them apart
+    // even though getTextWidth() answers in whole spaces.
+    char run[11];
+    char digit = '0';
+    uint32_t widest = 0;
+    run[sizeof(run) - 1] = '\0';
+    for(int d = 0; d < 10; ++d)
+    {
+        memset(run, '0' + d, sizeof(run) - 1);
+        uint32_t w = getTextWidth(run);
+        if(w > widest)
+        {
+            widest = w;
+            digit = '0' + d;
+        }
+    }
+
+    char sample[16];
+    sprintf(sample, "[%c/%c]", digit, digit);
+    colRun = getTextWidth(sample) + SPEEDTEST_GAP;
+    sprintf(sample, "%c%c%c.%c", digit, digit, digit, digit);
+    colRate = getTextWidth(sample) + SPEEDTEST_GAP;
+    sprintf(sample, "%c%c%c%%", digit, digit, digit);
+    colLoad = getTextWidth(sample) + SPEEDTEST_GAP;
+
+    colTarget = colConfig = 0;
+    for(size_t i = 0; i < SPEEDTEST_TARGETS; ++i)
+    {
+        uint32_t w = getTextWidth(speedTestTargets[i].name);
+        if(w > colTarget)
+            colTarget = w;
+    }
+
+    for(size_t i = 0; i < SPEEDTEST_CONFIGS; ++i)
+    {
+        uint32_t w = getTextWidth(speedTestConfigs[i].name);
+        if(w > colConfig)
+            colConfig = w;
+    }
+
+    colTarget += SPEEDTEST_GAP;
+    colConfig += SPEEDTEST_GAP;
+}
+
+static char *addColumn(char *line, const char *field, uint32_t width, bool right)
+{
+    // Never less than one space, so a column that outgrows its width pushes the
+    // next one along instead of running into it.
+    uint32_t w = getTextWidth(field);
+    uint32_t pad = w < width ? width - w : 1;
+
+    if(right)
+    {
+        memset(line, ' ', pad);
+        line += pad;
+        pad = 0;
+    }
+
+    while(*field != '\0')
+    {
+        if(*field == '%')
+            *line++ = '%';
+
+        *line++ = *field++;
+    }
+
+    memset(line, ' ', pad);
+    line += pad;
+    *line = '\0';
+    return line;
+}
+
+static volatile curl_off_t speedTestReceived;
+static bool speedTestAborted;
+
+static size_t discardWrite(const void *ptr, size_t size, size_t n, void *userdata)
+{
+    (void)userdata;
+    size *= n;
+
+    // Refusing the write is what ends a run: both targets are far bigger files
+    // than a single sample needs.
+    if(speedTestReceived >= SPEEDTEST_BYTES)
+        return 0;
+
+    speedTestReceived += (curl_off_t)size;
+
+    // No file open means this run is only after the network.
+    return speedTestFile == 0 ? size : addToIOQueue(ptr, 1, size, speedTestFile);
+}
+
+static int speedTestThreadMain(int argc, const char **argv)
+{
+    (void)argc;
+    argc = curl_easy_perform(curl);
+    ((curlProgressData *)argv[0])->running = false;
+    return argc;
+}
+
+static void speedTestRun(size_t pass, size_t target, size_t config, size_t runIndex)
+{
+    const char *tn = speedTestTargets[target].name;
+    const char *cn = speedTestConfigs[config].name;
+
+    const int streams = speedTestConfigs[config].streams;
+    speedTestFile = 0;
+    if(speedTestConfigs[config].disk)
+    {
+        speedTestFile = openFile(SPEEDTEST_FILE, "w", SPEEDTEST_BYTES);
+        if(speedTestFile == 0)
+        {
+            debugPrintf("Speedtest[%u/%s/%s]: couldn't open " SPEEDTEST_FILE, (unsigned int)pass, tn, cn);
+            addErrorToScreenLog("couldn't open " SPEEDTEST_FILE);
+            return;
+        }
+    }
+
+    speedTestRusrbuf = speedTestConfigs[config].rusrbuf;
+    speedTestRcvbuf = speedTestConfigs[config].rcvbuf;
+    speedTestReceived = 0;
+    dlStreams = streams;
+    dlSlotCount = streams * 2;
+
+    volatile curlProgressData cdata = {
+        .running = true,
+        .error = CURLE_OK,
+        .dlnow = 0,
+        .dltotal = 0,
+    };
+    spinCreateLock((cdata.lock), SPINLOCK_FREE);
+
+    curlError[0] = '\0';
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+    CURLcode co = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, (size_t(*)(const void *, size_t, size_t, FILE *))discardWrite);
+#pragma GCC diagnostic pop
+    if(co != CURLE_OK || curl_easy_setopt(curl, CURLOPT_URL, speedTestTargets[target].url) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, 1L) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_RANGE, NULL) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, (curl_off_t)0) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &cdata) != CURLE_OK)
+    {
+        debugPrintf("Speedtest[%u/%s/%s]: setup failed", (unsigned int)pass, tn, cn);
+        return;
+    }
+
+    debugPrintf("Speedtest[%u/%s/%s]: START rusrbuf=%s rcvbuf=%d streams=%d donated=%s", (unsigned int)pass, tn, cn, speedTestConfigs[config].rusrbuf ? "yes" : "no", speedTestConfigs[config].rcvbuf, streams, socketPoolDonated ? "yes" : "no");
+
+    curlReuseConnection = false;
+    OSTime start = OSGetSystemTime();
+
+    // The parallel path is exercised as it actually ships - same chunking, same
+    // ordering, same validation - writing through the same I/O queue when the
+    // run is meant to include the card.
+    dlJob job = {
+        .url = speedTestTargets[target].url,
+        .fp = speedTestFile,
+        .start = 0,
+        .end = SPEEDTEST_BYTES,
+        .cdata = &cdata,
+    };
+
+    char *argv[1] = { streams > 1 ? (char *)&job : (char *)&cdata };
+    OSThread *thread = startThread("NUSspli speedtest", THREAD_PRIORITY_HIGH, STACKSIZE_BIG, streams > 1 ? mdlThreadMain : speedTestThreadMain, 1, (char *)argv, OS_THREAD_ATTRIB_AFFINITY_CPU0);
+    if(thread == NULL)
+    {
+        debugPrintf("Speedtest[%u/%s/%s]: no thread", (unsigned int)pass, tn, cn);
+        return;
+    }
+
+    char toScreen[192];
+    curl_off_t last = 0;
+    OSTime lastTick = start;
+    float armSum = 0.0f;
+    int armSamples = 0;
+    int frames = 1;
+    while(cdata.running && AppRunning(true))
+    {
+        if(--frames == 0)
+        {
+            frames = 30;
+            OSTime now = OSGetSystemTime();
+            curl_off_t got = streams > 1 ? cdata.dlnow : speedTestReceived;
+            uint32_t elapsed = (uint32_t)OSTicksToMilliseconds(now - start);
+            uint32_t ms = (uint32_t)OSTicksToMilliseconds(now - lastTick);
+            float bps = ms ? ((float)(got - last) * 1000.0f) / (float)ms : 0.0f;
+            last = got;
+            lastTick = now;
+
+            // A time series, not just an average: a link held back by its window
+            // and one that is simply saturated end up alike but do not get there
+            // the same way.
+            float arm = starbucksLoad();
+            if(arm >= 0.0f)
+            {
+                armSum += arm;
+                ++armSamples;
+            }
+
+            debugPrintf("Speedtest[%u/%s/%s]: t=%ums bytes=%lld inst=%.0fB/s starbucks=%.1f%%", (unsigned int)pass, tn, cn, elapsed, (long long)got, bps, arm);
+
+            startNewFrame();
+            sprintf(toScreen, "Speed test [%u/%u] - run %u/%u - %s", (unsigned int)pass, SPEEDTEST_PASSES, (unsigned int)runIndex, (unsigned int)(SPEEDTEST_PASSES * SPEEDTEST_TARGETS * SPEEDTEST_CONFIGS), tn);
+            textToFrame(0, ALIGNED_CENTER, toScreen);
+            lineToFrame(1, SCREEN_COLOR_WHITE);
+
+            sprintf(toScreen, "%-28s %4u ms", speedTestTargets[target].host, speedTestTargets[target].rtt);
+            textToFrame(2, 0, toScreen);
+            textToFrame(3, 0, cn);
+
+            uint32_t eta = UINT32_MAX;
+            drawStatLine(4, SPEEDTEST_BYTES, got, bps, &eta);
+
+            strcpy(toScreen, "Now: ");
+            getSpeedString(bps, toScreen + strlen(toScreen));
+            textToFrame(6, 0, toScreen);
+
+            strcpy(toScreen, "Average: ");
+            getSpeedString(elapsed ? ((float)got * 1000.0f) / (float)elapsed : 0.0f, toScreen + strlen(toScreen));
+            textToFrame(7, 0, toScreen);
+
+            // Left column with the rest of the stats: the right edge is measured
+            // in space widths and a proportional font clips whatever overruns it.
+            if(arm >= 0.0f)
+                sprintf(toScreen, "Starbucks (net stack CPU): %.1f%%%%", arm);
+            else
+                strcpy(toScreen, "Starbucks (net stack CPU): n/a");
+
+            textToFrame(8, 0, toScreen);
+
+            writeScreenLogCut(9, MAX_LINES - 3);
+            lineToFrame(MAX_LINES - 2, SCREEN_COLOR_WHITE);
+            textToFrame(MAX_LINES - 1, ALIGNED_CENTER, localise("Press " BUTTON_B " to abort"));
+
+            drawFrame();
+
+            if(elapsed >= SPEEDTEST_MAX_MS)
+                cdata.error = CURLE_ABORTED_BY_CALLBACK;
+        }
+
+        showFrame();
+        if(vpad.trigger & VPAD_BUTTON_B)
+        {
+            // Ends the sweep, not just this run - the outer loops read this.
+            speedTestAborted = true;
+            cdata.error = CURLE_ABORTED_BY_CALLBACK;
+            break;
+        }
+    }
+
+    int ret;
+    stopThread(thread, &ret);
+
+    if(speedTestFile != 0)
+    {
+        // The queue is asynchronous, so the clock cannot stop before the last
+        // block is actually on the card - that wait is the point of the run.
+        addToIOQueue(NULL, 0, 0, speedTestFile);
+        flushIOQueue();
+        speedTestFile = 0;
+    }
+
+    uint32_t ms = (uint32_t)OSTicksToMilliseconds(OSGetSystemTime() - start);
+    const curl_off_t total = streams > 1 ? cdata.dlnow : speedTestReceived;
+    float avg = ms ? ((float)total * 1000.0f) / (float)ms : 0.0f;
+
+    // Straight from libCURL, so nothing rests on a measurement taken on the far
+    // side of the network. Connect time is the round trip that decides whether
+    // the receive window can be the limit at all.
+    curl_off_t connectUs = 0;
+    curl_off_t curlSpeed = 0;
+    long code = 0;
+    if(streams == 1)
+    {
+        curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME_T, &connectUs);
+        curl_easy_getinfo(curl, CURLINFO_SPEED_DOWNLOAD_T, &curlSpeed);
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+    }
+
+    const float armAvg = armSamples ? armSum / (float)armSamples : -1.0f;
+    debugPrintf("Speedtest[%u/%s/%s]: RESULT bytes=%lld ms=%u avg=%.0fB/s curl=%lldB/s rtt=%ums starbucks=%.1f%% http=%ld rc=%d", (unsigned int)pass, tn, cn, (long long)total, ms, avg, (long long)curlSpeed, (unsigned int)(connectUs / 1000), armAvg, code, ret);
+
+    // Fixed columns so the runs line up under each other and can be compared by
+    // eye. getSpeedString() picks its own unit, which would make the numbers
+    // ragged, so the rate is printed here in Mbit/s throughout.
+    char logLine[MAX_CHARS];
+    char field[32];
+
+    sprintf(field, "[%u/%u]", (unsigned int)pass, SPEEDTEST_PASSES);
+    char *l = addColumn(logLine, field, colRun, false);
+    l = addColumn(l, tn, colTarget, false);
+    l = addColumn(l, cn, colConfig, false);
+
+    sprintf(field, "%.1f", avg * 8.0f / 1000000.0f);
+    l = addColumn(l, field, colRate, true);
+    l = addColumn(l, "Mbit/s   Starbucks", 0, false);
+
+    if(armAvg >= 0.0f)
+        sprintf(field, "%.0f%%", armAvg);
+    else
+        strcpy(field, "n/a");
+
+    addColumn(l, field, colLoad, true);
+    // Running out of budget or hitting the byte limit is how a run ends normally,
+    // so neither counts as a failure.
+    if(ret == CURLE_OK || ret == CURLE_WRITE_ERROR || ret == CURLE_ABORTED_BY_CALLBACK)
+        addToScreenLog("%s", logLine);
+    else
+    {
+        debugPrintf("Speedtest[%u/%s/%s]: curl error: %s (%d) %s", (unsigned int)pass, tn, cn, translateCurlError(ret, curlError), ret, curlError);
+        addErrorToScreenLog("%s", logLine);
+
+        // The message is somebody else's text, as long as CURL_ERROR_SIZE and
+        // able to double in length when addColumn() escapes its percent signs,
+        // so it gets a buffer of its own rather than the line's.
+        char errLine[(CURL_ERROR_SIZE * 2) + 16];
+        addColumn(addColumn(errLine, "", colRun, false), translateCurlError(ret, curlError), 0, false);
+        addErrorToScreenLog("%s", errLine);
+    }
+
+    curlReuseConnection = false;
+}
+
+// One byte from each candidate, purely to time the connect. Whoever runs this
+// gets their own spread of latencies rather than mine.
+static bool speedTestPickTargets(void)
+{
+    unsigned int rtt[SPEEDTEST_HOSTS];
+    size_t lo = SPEEDTEST_HOSTS;
+    size_t hi = SPEEDTEST_HOSTS;
+
+    for(size_t i = 0; i < SPEEDTEST_HOSTS && AppRunning(true); ++i)
+    {
+        char probeHost[64];
+        speedTestHostName(speedTestHosts[i], probeHost, sizeof(probeHost));
+
+        char probeLine[128];
+        sprintf(probeLine, "Speed test - measuring latency %u/%u - %s", (unsigned int)(i + 1), (unsigned int)SPEEDTEST_HOSTS, probeHost);
+
+        startNewFrame();
+        textToFrame(0, ALIGNED_CENTER, probeLine);
+        writeScreenLogCut(1, MAX_LINES - 3);
+        drawFrame();
+        showFrame();
+
+        rtt[i] = 0;
+        speedTestReceived = 0;
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+        CURLcode co = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, (size_t(*)(const void *, size_t, size_t, FILE *))discardWrite);
+#pragma GCC diagnostic pop
+        // Redirects are not followed on purpose. A mirror that bounces us to
+        // HTTPS would put a TLS handshake and a stream cipher into a measurement
+        // that is supposed to contain neither, so such a host is dropped here
+        // instead of quietly skewing the numbers.
+        // The progress callback is registered on this handle for real downloads
+        // and dereferences whatever XFERINFODATA points at. There is no transfer
+        // state here for it to read, so it has to be switched off rather than
+        // left aimed at a stack frame that no longer exists.
+        curlError[0] = '\0';
+        if(co != CURLE_OK || curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_URL, speedTestHosts[i]) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, 1L) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_RANGE, "0-0") != CURLE_OK || curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL) != CURLE_OK)
+            continue;
+
+        CURLcode pr = curl_easy_perform(curl);
+        if(pr != CURLE_OK)
+        {
+            debugPrintf("Speedtest: probe %s FAILED: %s (%d) %s", speedTestHosts[i], translateCurlError(pr, curlError), pr, curlError);
+            addToScreenLog("    -- ms   %s   unreachable", probeHost);
+            continue;
+        }
+
+        long code = 0;
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
+        if(code != 206)
+        {
+            debugPrintf("Speedtest: probe %s answered %ld, not a plain HTTP range - skipped", speedTestHosts[i], code);
+            addToScreenLog("    -- ms   %s   HTTP %ld, skipped", probeHost, code);
+            continue;
+        }
+
+        // Both timers count from the start of the request, so the lookup has to
+        // come off to leave the TCP handshake alone - one round trip, which is
+        // what speedtest tools report as latency.
+        curl_off_t connectUs = 0;
+        curl_off_t lookupUs = 0;
+        curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME_T, &connectUs);
+        curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME_T, &lookupUs);
+        rtt[i] = (unsigned int)((connectUs - lookupUs) / 1000);
+        debugPrintf("Speedtest: probe %s -> %u ms", speedTestHosts[i], rtt[i]);
+        char probeLog[MAX_CHARS];
+        char ms[16];
+        sprintf(ms, "%u", rtt[i]);
+        addColumn(addColumn(addColumn(probeLog, ms, 6, true), "ms  ", 0, false), probeHost, 0, false);
+        addToScreenLog("%s", probeLog);
+
+        if(rtt[i] == 0)
+            continue;
+
+        if(lo == SPEEDTEST_HOSTS || rtt[i] < rtt[lo])
+            lo = i;
+        if(rtt[i] > SPEEDTEST_FAR_RTT)
+            continue;
+
+        if(hi == SPEEDTEST_HOSTS || rtt[i] > rtt[hi])
+            hi = i;
+    }
+
+    curl_easy_setopt(curl, CURLOPT_RANGE, NULL);
+    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+
+    if(lo == SPEEDTEST_HOSTS || hi == SPEEDTEST_HOSTS || lo == hi)
+    {
+        debugPrintf("Speedtest: fewer than two usable hosts");
+        addToScreenLog("no pair under %u ms to measure with", SPEEDTEST_FAR_RTT);
+        return false;
+    }
+
+    if(rtt[lo] > SPEEDTEST_NEAR_RTT)
+    {
+        debugPrintf("Speedtest: closest host is %u ms, too far to stand in for a near one", rtt[lo]);
+        addToScreenLog("closest host is %u ms, needs to be under %u ms", rtt[lo], SPEEDTEST_NEAR_RTT);
+        return false;
+    }
+
+    // Two hosts a few milliseconds apart would say nothing about how throughput
+    // moves with latency, which is the only reason there are two of them.
+    if(rtt[hi] < rtt[lo] + SPEEDTEST_MIN_SPREAD)
+    {
+        debugPrintf("Speedtest: closest %u ms and furthest %u ms are too alike", rtt[lo], rtt[hi]);
+        addToScreenLog("spread too small: %u ms vs %u ms", rtt[lo], rtt[hi]);
+        return false;
+    }
+
+    speedTestTargets[0].name = "far";
+    speedTestTargets[0].rtt = rtt[hi];
+    speedTestTargets[0].url = speedTestHosts[hi];
+    speedTestHostName(speedTestHosts[hi], speedTestTargets[0].host, sizeof(speedTestTargets[0].host));
+    speedTestTargets[1].name = "near";
+    speedTestTargets[1].rtt = rtt[lo];
+    speedTestTargets[1].url = speedTestHosts[lo];
+    speedTestHostName(speedTestHosts[lo], speedTestTargets[1].host, sizeof(speedTestTargets[1].host));
+    debugPrintf("Speedtest: far=%s (%u ms), near=%s (%u ms)", speedTestHosts[hi], rtt[hi], speedTestHosts[lo], rtt[lo]);
+    return true;
+}
+
+void speedTest(void)
+{
+    // writeScreenLog() shows the tail of a full list, so priming it keeps the
+    // first few results from sitting alone at the top of the screen.
+    clearScreenLog();
+    for(int i = 0; i < MAX_LINES; ++i)
+        addToScreenLog(" ");
+    if(!speedTestPickTargets())
+    {
+        showErrorFrame("Speed test\n\nCouldn't reach two hosts to measure against.");
+        return;
+    }
+
+    debugPrintf("Speedtest: %u passes over %u targets x %u configs, %d bytes or %d ms per run", SPEEDTEST_PASSES, (unsigned int)SPEEDTEST_TARGETS, (unsigned int)SPEEDTEST_CONFIGS, SPEEDTEST_BYTES, SPEEDTEST_MAX_MS);
+    // The targets are known now, so their names can be measured along with the
+    // rest of the columns.
+    measureColumns();
+    createDirRecursive(SPEEDTEST_DIR);
+
+    // The latencies have done their job picking the targets, and both chosen
+    // hosts are on the run screen anyway, so the results start from a clean log.
+    clearScreenLog();
+    for(int i = 0; i < MAX_LINES; ++i)
+        addToScreenLog(" ");
+
+    speedTestAborted = false;
+    speedTestOverride = true;
+    size_t done = 0;
+    for(size_t pass = 1; pass <= SPEEDTEST_PASSES && !speedTestAborted && AppRunning(true); ++pass)
+        for(size_t t = 0; t < SPEEDTEST_TARGETS && !speedTestAborted && AppRunning(true); ++t)
+            for(size_t c = 0; c < SPEEDTEST_CONFIGS && !speedTestAborted && AppRunning(true); ++c)
+            {
+                speedTestRun(pass, t, c, ++done);
+
+                // Let the stack settle so one run does not colour the next.
+                for(int i = 0; i < SPEEDTEST_PAUSE * 60 && !speedTestAborted && AppRunning(true); ++i)
+                    showFrame();
+            }
+
+    speedTestOverride = false;
+    dlStreams = DL_STREAMS;
+    dlSlotCount = DL_SLOTS;
+    removeDirectory(SPEEDTEST_DIR);
+    debugPrintf("Speedtest: %s", speedTestAborted ? "aborted" : "done");
+    if(speedTestAborted)
+        return;
+
+    // The results are the point of the screen, so they stay up until dismissed.
+    colorStartNewFrame(SCREEN_COLOR_D_GREEN);
+    textToFrame(0, ALIGNED_CENTER, "Speed test finished");
+    writeScreenLogCut(1, MAX_LINES - 3);
+    lineToFrame(MAX_LINES - 2, SCREEN_COLOR_WHITE);
+    textToFrame(MAX_LINES - 1, ALIGNED_CENTER, localise("Press " BUTTON_A " to return"));
+    drawFrame();
+
+    while(AppRunning(true))
+    {
+        showFrame();
+        if(vpad.trigger & (VPAD_BUTTON_A | VPAD_BUTTON_B))
+            break;
+    }
+}
+#endif
 
 static const char *translateCurlError(CURLcode err, const char *error)
 {
@@ -1118,7 +1782,7 @@ retry:
     OSThread *dlThread;
     if(parallel)
     {
-        debugPrintf("Downloading %u bytes over %d streams", (unsigned int)(data->cs - fileSize), DL_STREAMS);
+        debugPrintf("Downloading %u bytes over %d streams", (unsigned int)(data->cs - fileSize), dlStreams);
         job.url = url;
         job.fp = (FSAFileHandle)fp;
         job.start = fileSize;

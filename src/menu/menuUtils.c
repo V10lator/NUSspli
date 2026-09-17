@@ -48,7 +48,10 @@
 
 static LIST *logList = NULL;
 
-void addToScreenLog(const char *str, ...)
+// An entry carries the colour to draw it in - one byte in front of the text.
+#define SCREEN_LOG_ENTRY (MAX_CHARS + 3)
+
+static void addToScreenLogVa(bool error, const char *str, va_list va)
 {
     if(logList == NULL)
     {
@@ -62,7 +65,7 @@ void addToScreenLog(const char *str, ...)
         line = wrapFirstEntry(logList);
     else
     {
-        line = MEMAllocFromDefaultHeap(MAX_CHARS + 2);
+        line = MEMAllocFromDefaultHeap(SCREEN_LOG_ENTRY);
         if(line == NULL)
             return;
 
@@ -73,12 +76,25 @@ void addToScreenLog(const char *str, ...)
         }
     }
 
+    line[0] = error;
+    vsnprintf(line + 1, SCREEN_LOG_ENTRY - 1, str, va);
+    debugPrintf(line + 1);
+}
+
+void addToScreenLog(const char *str, ...)
+{
     va_list va;
     va_start(va, str);
-    vsnprintf(line, MAX_CHARS + 2, str, va);
+    addToScreenLogVa(false, str, va);
     va_end(va);
+}
 
-    debugPrintf(line);
+void addErrorToScreenLog(const char *str, ...)
+{
+    va_list va;
+    va_start(va, str);
+    addToScreenLogVa(true, str, va);
+    va_end(va);
 }
 
 void clearScreenLog()
@@ -90,27 +106,26 @@ void clearScreenLog()
     logList = NULL;
 }
 
-void writeScreenLog(int line)
+void writeScreenLogCut(int line, int lastLine)
 {
-    int i;
     if(line != -1)
-    {
         lineToFrame(line, SCREEN_COLOR_WHITE);
-        i = line + 2;
-    }
-    else
-        i = 1;
 
     if(logList == NULL)
         return;
 
+    // The tail of the list is what matters, so drop as many leading entries as
+    // there are too many for the lines left.
+    int skip = getListSize(logList) - (lastLine - line);
     const char *text;
     forEachListEntry(logList, text)
     {
-        if(i == 1)
-            textToFrame(++line, 0, text);
+        if(skip > 0)
+            --skip;
+        else if(*text)
+            textToFrameColored(++line, 0, text + 1, SCREEN_COLOR_RED);
         else
-            --i;
+            textToFrame(++line, 0, text + 1);
     }
 }
 

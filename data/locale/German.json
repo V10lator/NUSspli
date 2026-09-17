@@ -145,6 +145,7 @@
     "Error opening internal memory": "Fehler beim öffnen des NAND",
     "Error starting async installation of": "Fehler beim starten der Installation von",
     "Installation failed!": "Installation fehlgeschlagen!",
+    "Deinstallation failed": "Deinstallation fehlgeschlagen",
     "Install the main game to the same storage medium first": "Installiere zuerst das Hauptspiel auf demselben Speichergerät",
     "Also make sure there is no error with the USB drive": "Vergewissere dich auch, dass kein Fehler mit dem USB-Speichergerät vorliegt",
     "Possible USB error": "Möglicherweise ein USB Fehler",

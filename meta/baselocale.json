@@ -154,6 +154,7 @@
     "Error opening internal memory": "Error opening internal memory",
     "Error starting async installation of": "Error starting async installation of",
     "Installation failed!": "Installation failed!",
+    "Deinstallation failed": "Deinstallation failed",
     "Install the main game to the same storage medium first": "Install the main game to the same storage medium first",
     "Also make sure there is no error with the USB drive": "Also make sure there is no error with the USB drive",
     "Possible USB error": "Possible USB error",

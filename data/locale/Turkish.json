@@ -148,6 +148,7 @@
     "Error opening internal memory": "Dahili bellek açılamadı",
     "Error starting async installation of": "Asenkron yükleme başlatılamadı:",
     "Installation failed!": "Yükleme başarısız oldu!",
+    "Deinstallation failed": "Kaldırma başarısız oldu",
     "Install the main game to the same storage medium first": "Önce ana oyunu aynı depolama birimine yükleyin",
     "Also make sure there is no error with the USB drive": "USB sürücüsünde hata olmadığından emin olun",
     "Possible USB error": "Olası USB hatası",

@@ -365,6 +365,7 @@ entry:
         {
             if(!predownloadMenu(missingEntries[cursor + pos].entry, missingEntries[cursor + pos].toUSB ? NUSDEV_USB : NUSDEV_MLC))
             {
+                MEMFreeToDefaultHeap(missingEntries);
                 firstRun = false;
                 goto entry;
             }
@@ -377,6 +378,7 @@ entry:
         {
             if(queueAllMissing()) // Trigger rescan in case the user removed items from the queue
             {
+                MEMFreeToDefaultHeap(missingEntries);
                 firstRun = false;
                 goto entry;
             }

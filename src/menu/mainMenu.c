@@ -22,6 +22,7 @@
 
 #include <string.h>
 
+#include <downloader.h>
 #include <input.h>
 #include <installer.h>
 #include <localisation.h>
@@ -41,6 +42,12 @@
 #pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memdefaultheap.h>
 #pragma GCC diagnostic pop
+
+#ifdef NUSSPLI_DEBUG
+#define LAST_MENU_ENTRY 18
+#else
+#define LAST_MENU_ENTRY 17
+#endif
 
 static int cursorPos = 11;
 
@@ -65,6 +72,9 @@ static void drawMainMenuFrame()
     textToFrame(line++, 4, localise("Find missing content"));
     textToFrame(line++, 4, localise("Options"));
     textToFrame(line++, 4, localise("Logs"));
+#ifdef NUSSPLI_DEBUG
+    textToFrame(line++, 4, "Network speed test");
+#endif
 
     textToFrame(7, MAX_CHARS - 27, localise("Developers:"));
     textToFrame(8, MAX_CHARS - 26, "• DaThinkingChair");
@@ -137,13 +147,18 @@ void mainMenu()
                 case 17:
                     logsMenu();
                     break;
+#ifdef NUSSPLI_DEBUG
+                case 18:
+                    speedTest();
+                    break;
+#endif
             }
 
             redraw = true;
         }
         else if(vpad.trigger & VPAD_BUTTON_DOWN)
         {
-            if(++cursorPos == 18)
+            if(++cursorPos == LAST_MENU_ENTRY + 1)
                 cursorPos = 11;
 
             redraw = true;
@@ -151,7 +166,7 @@ void mainMenu()
         else if(vpad.trigger & VPAD_BUTTON_UP)
         {
             if(--cursorPos == 10)
-                cursorPos = 17;
+                cursorPos = LAST_MENU_ENTRY;
 
             redraw = true;
         }

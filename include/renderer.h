@@ -100,6 +100,7 @@ extern "C"
     void *addErrorOverlay(const char *err);
     void removeErrorOverlay(void *overlay);
     uint32_t getSpaceWidth();
+    uint32_t getTextWidth(const char *text);
     void drawByeFrame();
 
 #ifdef __cplusplus

@@ -24,6 +24,7 @@
 #include <stdbool.h>
 
 #include <file.h>
+#include <renderer.h>
 #include <titles.h>
 
 #include <coreinit/mcp.h>
@@ -50,8 +51,9 @@ extern "C"
     } FINISHING_OPERATION;
 
     void addToScreenLog(const char *str, ...);
+    void addErrorToScreenLog(const char *str, ...);
     void clearScreenLog();
-    void writeScreenLog(int line);
+    void writeScreenLogCut(int line, int lastLine);
     void drawErrorFrame(const char *text, ErrorOptions option);
     void showErrorFrame(const char *text);
     bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall);
@@ -68,3 +70,5 @@ extern "C"
 #ifdef __cplusplus
 }
 #endif
+
+#define writeScreenLog(line) writeScreenLogCut(line, MAX_LINES - 1)

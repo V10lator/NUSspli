@@ -286,7 +286,6 @@ reconnect:
         nnres = ACConnectAsync();
         if(nnres.value == 0)
         {
-            BOOL con;
             for(uint32_t i = 10 * 1000 / 10; i && AppRunning(true); --i)
             {
                 nnres = ACIsApplicationConnected(&con);

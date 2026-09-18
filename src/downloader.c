@@ -985,6 +985,7 @@ static const char *speedTestHosts[] = {
     "http://mirror.math.princeton.edu/pub/ubuntu-iso/24.04/ubuntu-24.04.3-live-server-amd64.iso",
     "http://ftp.riken.jp/Linux/ubuntu-releases/24.04/ubuntu-24.04.3-live-server-amd64.iso",
     "http://mirror.aarnet.edu.au/pub/ubuntu/releases/24.04/ubuntu-24.04.3-live-server-amd64.iso",
+    "http://ftp.fau.de/ubuntu-releases/24.04/ubuntu-24.04.3-live-server-amd64.iso",
 };
 
 #define SPEEDTEST_HOSTS (sizeof(speedTestHosts) / sizeof(speedTestHosts[0]))

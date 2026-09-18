@@ -150,6 +150,7 @@ static void initParallel(void);
 static void deinitParallel(void);
 
 static void *cancelOverlay = NULL;
+static CURLM *multi = NULL;
 
 typedef struct
 {
@@ -214,7 +215,14 @@ static int socketPoolThreadMain(int argc, const char **argv)
     // BIG_BUFFERS splits the donation 50-50 between small and big buffers instead
     // of 80-20. Receive buffers are what we are here for, so the big half is the
     // half that matters.
-    return somemopt(SOMEMOPT_REQUEST_INIT, socketPool, SOCKET_POOL_SIZE, SOMEMOPT_FLAGS_BIG_BUFFERS);
+    int ret = somemopt(SOMEMOPT_REQUEST_INIT, socketPool, SOCKET_POOL_SIZE, SOMEMOPT_FLAGS_BIG_BUFFERS);
+
+    // A request that never took never signals either, and initDownloader() is
+    // sitting in WAIT_FOR_INIT on the thread that draws the screen.
+    if(ret < 0)
+        somemopt(SOMEMOPT_REQUEST_CANCEL_WAIT, NULL, 0, SOMEMOPT_FLAGS_NONE);
+
+    return ret;
 }
 
 // A second INIT fails while the first donation is still live, so a plain
@@ -232,17 +240,13 @@ static void freeSocketPoolThread(OSThread *thread, void *stack)
 
 static void initSocketPool()
 {
-    // A live donation is the one thing that must not be repeated, and the API
-    // answers that directly - no need to reason about the state of a thread we
-    // are not allowed to touch once it is detached.
-    int used = somemopt(SOMEMOPT_REQUEST_GET_BYTES_USED, NULL, 0, SOMEMOPT_FLAGS_NONE);
-    if(used > 0)
-    {
-        socketPoolDonated = true;
+    // Ours is the only donation that must not be repeated, and the only one we
+    // may ever end, so that is what the flag tracks. The pool's own accounting
+    // would count everybody's - nsysnet's defaults, another title's donation -
+    // and hand us a buffer we do not own.
+    if(socketPoolDonated)
         return;
-    }
 
-    socketPoolDonated = false;
     if(socketPool == NULL)
     {
         socketPool = MEMAllocFromDefaultHeapEx(SOCKET_POOL_SIZE, 0x40);
@@ -270,10 +274,13 @@ static void initSocketPool()
     OSSetThreadDeallocator(thread, freeSocketPoolThread);
     OSResumeThread(thread);
 
+    // From here the thread is parked inside somemopt() until the socket library
+    // ends, so the pool counts as ours whatever the donation turned out to be.
+    socketPoolDonated = true;
+
     // Donating is asynchronous, and a socket created before it lands would get a
     // default-sized buffer anyway, so wait it out. Returns the bytes now in use.
-    used = somemopt(SOMEMOPT_REQUEST_WAIT_FOR_INIT, NULL, 0, SOMEMOPT_FLAGS_NONE);
-    socketPoolDonated = used > 0;
+    int used = somemopt(SOMEMOPT_REQUEST_WAIT_FOR_INIT, NULL, 0, SOMEMOPT_FLAGS_NONE);
     debugPrintf("initSocketPool: %d bytes donated", used);
 }
 
@@ -622,6 +629,7 @@ void deinitDownloader()
         return;
 
     deinitParallel();
+    debugPrintf("Parallel streams closed");
 
     if(curl != NULL)
     {
@@ -629,12 +637,12 @@ void deinitDownloader()
         curl = NULL;
     }
     curl_global_cleanup();
+    debugPrintf("curl closed");
 
     // Last, as it takes the socket library with it: every handle above still had
-    // a keep-alive connection to close, and nothing after this point has a
-    // network - the UDP log included, which is why it is stopped first.
-    restartUdpLog1();
+    // a keep-alive connection to close.
     releaseSocketPool();
+    debugPrintf("Socket pool released");
     initialised = false;
 }
 
@@ -649,6 +657,12 @@ static int dlThreadMain(int argc, const char **argv)
 static void deinitParallel(void)
 {
     parallelReady = false;
+    if(multi != NULL)
+    {
+        curl_multi_cleanup(multi);
+        multi = NULL;
+    }
+
     for(int i = 0; i < DL_MAX_SLOTS; ++i)
         if(dlHandles[i] != NULL)
         {
@@ -686,6 +700,20 @@ static void initParallel(void)
 {
     if(parallelReady)
         return;
+
+    // One multi handle for the whole session: the connection cache lives in it,
+    // so building a fresh one per file would hand back a handshake per stream on
+    // every single content.
+    multi = curl_multi_init();
+    if(multi == NULL)
+    {
+        debugPrintf("initParallel: Out of memory, falling back to a single connection");
+        return;
+    }
+
+    // MAXCONNECTS only sizes that cache, so it is sized once for the largest the
+    // session can ask for. How many of them may run at a time is per job.
+    curl_multi_setopt(multi, CURLMOPT_MAXCONNECTS, (long)DL_MAX_STREAMS);
 
     for(int i = 0; i < DL_MAX_SLOTS; ++i)
     {
@@ -768,18 +796,10 @@ static int mdlThreadMain(int argc, const char **argv)
     dlJob *job = (dlJob *)argv[0];
     volatile curlProgressData *cdata = (volatile curlProgressData *)job->cdata;
 
-    CURLM *multi = curl_multi_init();
-    if(multi == NULL)
-    {
-        cdata->running = false;
-        return CURLE_OUT_OF_MEMORY;
-    }
-
-    // MAXCONNECTS only sizes the connection cache; MAX_TOTAL_CONNECTIONS is what
-    // caps concurrency, queueing the rest internally. Between them libCURL does
-    // the bookkeeping that would otherwise be a busy array and a search.
+    // MAX_TOTAL_CONNECTIONS is what caps concurrency, queueing the rest
+    // internally. Between it and the cache libCURL does the bookkeeping that
+    // would otherwise be a busy array and a search.
     curl_multi_setopt(multi, CURLMOPT_MAX_TOTAL_CONNECTIONS, (long)dlStreams);
-    curl_multi_setopt(multi, CURLMOPT_MAXCONNECTS, (long)dlStreams);
 
     CURLcode ret = CURLE_OK;
     curl_off_t issue = job->start; // next byte to hand to a stream
@@ -929,7 +949,6 @@ static int mdlThreadMain(int argc, const char **argv)
             dlSlots[i].handle = NULL;
         }
 
-    curl_multi_cleanup(multi);
     cdata->running = false;
     return ret;
 }

@@ -230,54 +230,84 @@ static bool showNetworkError(const char *err)
 // We're not using WUTs NNResult_IsSuccess() / NNResult_IsFailure() here as it's wrong
 static void resetNetwork()
 {
-    BOOL con;
-    NNResult nnres = ACIsApplicationConnected(&con);
-    if(nnres.value != 0 || con)
-        return;
-
     void *ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
 
     // Disconnect from network
     deinitDownloader();
     restartUdpLog1();
     socket_lib_finish();
-    NNResult cr;
+    NNResult nnres;
+    BOOL con;
 
 closeAgain:
-    nnres = ACClose();
-    do
-    {
-        cr = ACGetCloseStatus();
-        if(cr.value == -1) // FAILED
-        {
-            if(ovl)
-                removeErrorOverlay(ovl);
+    nnres = ACIsApplicationConnected(&con);
+    if(nnres.value != 0)
+        con = false;
 
-            if(showNetworkError(localise("Error closing network!")))
+    if(con)
+    {
+        ACClose();
+        uint32_t timeout = 1000 / 2;
+        do
+        {
+            nnres = ACGetCloseStatus();
+            if(nnres.value == 0) // SUCCESS
+                break;
+
+            if(nnres.value == -1 || !--timeout) // FAILED
             {
-                ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
-                goto closeAgain;
+                if(ovl)
+                    removeErrorOverlay(ovl);
+
+                if(showNetworkError(localise("Error closing network!")))
+                {
+                    ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
+                    goto closeAgain;
+                }
+
+                goto exitApp;
             }
 
-            goto exitApp;
-        }
-    } while(cr.value != 0); // SUCCESS. A value of 1 means processing, so we're not handling it.
+            OSSleepTicks(OSMillisecondsToTicks(2));
+        } while(true); // SUCCESS. A value of 1 means processing, so we're not handling it.
+    }
+
+    ACFinalize();
 
     // Connect to network
 reconnect:
-    nnres = ACConnect();
+    nnres = ACInitialize();
     if(nnres.value == 0)
     {
-        socket_lib_init();
-        set_multicast_state(true);
+        nnres = ACConnectAsync();
+        if(nnres.value == 0)
+        {
+            BOOL con;
+            for(uint32_t i = 10 * 1000; i; --i)
+            {
+                nnres = ACIsApplicationConnected(&con);
+                if(nnres.value != 0)
+                    con = false;
 
-        restartUdpLog2();
-        initDownloader();
+                if(con)
+                {
+                    socket_lib_init();
+                    set_multicast_state(true);
 
-        if(ovl)
-            removeErrorOverlay(ovl);
+                    restartUdpLog2();
+                    initDownloader();
 
-        return;
+                    if(ovl)
+                        removeErrorOverlay(ovl);
+
+                    return;
+                }
+
+                OSSleepTicks(OSMillisecondsToTicks(1));
+            }
+
+            ACClose();
+        }
     }
 
     if(ovl)
@@ -286,6 +316,7 @@ reconnect:
     if(showNetworkError(localise("Error connecting to network!")))
     {
         ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
+        ACFinalize();
         goto reconnect;
     }
 

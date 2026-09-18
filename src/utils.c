@@ -331,8 +331,9 @@ static const char months[12][4] = {
     "Jul",
     "Aug",
     "Sep",
+    "Oct",
     "Nov",
-    "Dez",
+    "Dec",
 };
 
 static spinlock debugLock;

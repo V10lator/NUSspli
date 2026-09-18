@@ -261,6 +261,9 @@ closeAgain:
 
                 if(showNetworkError(localise("Error closing network!")))
                 {
+                    if(!AppRunning(true))
+                        return;
+
                     ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
                     goto closeAgain;
                 }
@@ -268,8 +271,9 @@ closeAgain:
                 goto exitApp;
             }
 
+            // A nnres.value of 1 means processing
             OSSleepTicks(OSMillisecondsToTicks(10));
-        } while(true); // SUCCESS. A value of 1 means processing, so we're not handling it.
+        } while(AppRunning(true));
     }
 
     ACFinalize();
@@ -283,7 +287,7 @@ reconnect:
         if(nnres.value == 0)
         {
             BOOL con;
-            for(uint32_t i = 10 * 1000 / 10; i; --i)
+            for(uint32_t i = 10 * 1000 / 10; i && AppRunning(true); --i)
             {
                 nnres = ACIsApplicationConnected(&con);
                 if(nnres.value != 0)
@@ -315,6 +319,9 @@ reconnect:
 
     if(showNetworkError(localise("Error connecting to network!")))
     {
+        if(!AppRunning(true))
+            return;
+
         ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
         ACFinalize();
         goto reconnect;

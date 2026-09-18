@@ -247,7 +247,7 @@ closeAgain:
     if(con)
     {
         ACClose();
-        uint32_t timeout = 1000 / 2;
+        uint32_t timeout = 1000 / 10;
         do
         {
             nnres = ACGetCloseStatus();
@@ -268,7 +268,7 @@ closeAgain:
                 goto exitApp;
             }
 
-            OSSleepTicks(OSMillisecondsToTicks(2));
+            OSSleepTicks(OSMillisecondsToTicks(10));
         } while(true); // SUCCESS. A value of 1 means processing, so we're not handling it.
     }
 
@@ -283,7 +283,7 @@ reconnect:
         if(nnres.value == 0)
         {
             BOOL con;
-            for(uint32_t i = 10 * 1000; i; --i)
+            for(uint32_t i = 10 * 1000 / 10; i; --i)
             {
                 nnres = ACIsApplicationConnected(&con);
                 if(nnres.value != 0)
@@ -303,7 +303,7 @@ reconnect:
                     return;
                 }
 
-                OSSleepTicks(OSMillisecondsToTicks(1));
+                OSSleepTicks(OSMillisecondsToTicks(10));
             }
 
             ACClose();

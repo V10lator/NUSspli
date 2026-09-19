@@ -57,15 +57,19 @@
 #include <nsysnet/_socket.h>
 #include <nsysnet/misc.h>
 #include <nsysnet/netconfig.h>
+#include <nn/nets2/somemopt.h>
 #pragma GCC diagnostic pop
 
 #define USERAGENT        "NUSspli/" NUSSPLI_VERSION
 #define SMOOTHING_FACTOR 0.2f
+#define SOCK_BUFSIZE     (256 * 1024)
+#define SOCKLIB_BUFSIZE  (SOCK_BUFSIZE * 2)
 
 static bool initialised = false;
 static CURL *curl;
 static char curlError[CURL_ERROR_SIZE];
 static bool curlReuseConnection = true;
+static OSThread *dlbgThread = NULL;
 
 static void *cancelOverlay = NULL;
 
@@ -127,6 +131,33 @@ static inline bool trySockopt(curl_socket_t socket, int level, int option, int v
     return true;
 }
 
+static int dlbgThreadMain(int argc, const char **argv)
+{
+    (void)argc;
+    (void)argv;
+
+    debugPrintf("Socket optimizer running!");
+
+    void *buf = MEMAllocFromDefaultHeapEx(SOCKLIB_BUFSIZE, 0x40);
+    if(buf == NULL)
+    {
+        debugPrintf("Socket optimizer: OUT OF MEMORY!");
+        return 1;
+    }
+
+    int ret = somemopt(SOMEMOPT_REQUEST_INIT, buf, SOCKLIB_BUFSIZE, SOMEMOPT_FLAGS_BIG_BUFFERS) == -1 ? RPLWRAP(socketlasterr)() : 50; // We need the rplwrapped socketlasterr() here as WUTs simply retuns errno but errno hasn't been setted.
+    __init_wut_socket();
+    debugInit();
+    if(ret == 50)
+        ret = 0;
+    else
+        debugPrintf("somemopt failed!");
+
+    MEMFreeToDefaultHeap(buf);
+    debugPrintf("Socket optimizer finished!");
+    return ret;
+}
+
 static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
 {
     (void)ptr;
@@ -141,15 +172,19 @@ static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
             ret = trySockopt(socket, IPPROTO_TCP, TCP_NODELAY, 1, "TCP nodelay"); // libCURL default
             if(ret)
             {
-                ret = trySockopt(socket, SOL_SOCKET, 0x4000, 1, "Noslowstart"); // Disable slowstart
+                ret = trySockopt(socket, SOL_SOCKET, 0x10000, 1, "UB");
                 if(ret)
                 {
-                    ret = trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default
+                    ret = trySockopt(socket, SOL_SOCKET, SO_RCVBUF, SOCK_BUFSIZE, "receive buffersize");
                     if(ret)
                     {
                         ret = trySockopt(socket, SOL_SOCKET, SO_SNDBUF, IO_BUFSIZE, "send buffersize");
                         if(ret)
-                            ret = trySockopt(socket, SOL_SOCKET, SO_RCVBUF, IO_BUFSIZE, "receive buffersize");
+                        {
+                            ret = trySockopt(socket, SOL_SOCKET, 0x4000, 1, "Noslowstart"); // Disable slowstart
+                            if(ret)
+                                ret = trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default
+                        }
                     }
                 }
             }
@@ -168,7 +203,25 @@ static CURLcode ssl_ctx_init(CURL *cu, void *sslctx, void *parm)
     return CURLE_OK;
 }
 
-#define initNetwork() (curlReuseConnection = false)
+#define killDlbgThread()                  \
+    {                                     \
+        if(dlbgThread != NULL)            \
+        {                                 \
+            shutdownDebug();              \
+            __fini_wut_socket();          \
+            stopThread(dlbgThread, NULL); \
+            dlbgThread = NULL;            \
+        }                                 \
+    }
+
+//TODO: SOMEMOPT_REQUEST_WAIT_FOR_INIT hangs indefinitely if the dlbg thread fails
+#define initNetwork()                                                                                                                                        \
+    {                                                                                                                                                        \
+        curlReuseConnection = false;                                                                                                                         \
+        dlbgThread = startThread("NUSspli socket optimizer", THREAD_PRIORITY_LOW, STACKSIZE_SMALL, dlbgThreadMain, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_CPU0); \
+        int used = somemopt(SOMEMOPT_REQUEST_WAIT_FOR_INIT, NULL, 0, SOMEMOPT_FLAGS_NONE);                                                                   \
+        debugPrintf("initSocketPool: %d bytes donated", used);                                                                                               \
+    }
 
 static bool showNetworkError(const char *err)
 {
@@ -236,6 +289,7 @@ static void resetNetwork()
     deinitDownloader();
     restartUdpLog1();
     socket_lib_finish();
+    killDlbgThread();
     NNResult nnres;
     BOOL con;
 
@@ -334,11 +388,16 @@ exitApp:
 bool initDownloader()
 {
     initNetwork();
+    if(dlbgThread == NULL)
+        return false;
 
     struct curl_blob blob = { .data = NULL, .flags = CURL_BLOB_COPY };
     blob.len = readFile(ROMFS_PATH "ca-certs.pem", &blob.data);
     if(blob.data == NULL)
+    {
+        killDlbgThread();
         return false;
+    }
 
     char pUrl[sizeof("http://") + 0x80 /* host */ + 0x40 /* user and pass */ + 5 /* port */ + 3 /* rest */] = "http://"; // TODO;
     char *pUrl2 = NULL;
@@ -392,6 +451,7 @@ bool initDownloader()
     if(ret != CURLE_OK)
     {
         MEMFreeToDefaultHeap(blob.data);
+        killDlbgThread();
         return false;
     }
 
@@ -401,6 +461,7 @@ bool initDownloader()
         debugPrintf("curl_easy_init() failed!");
         curl_global_cleanup();
         MEMFreeToDefaultHeap(blob.data);
+        killDlbgThread();
         return false;
     }
 
@@ -455,6 +516,7 @@ void deinitDownloader()
         curl = NULL;
     }
     curl_global_cleanup();
+    killDlbgThread();
     initialised = false;
 }
 

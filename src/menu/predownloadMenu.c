@@ -150,9 +150,9 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
     strcat(toFrame, " ");
     strcat(toFrame, localise(keepFiles ? "Yes" : "No"));
     if(dlDev == NUSDEV_SD && operation == OPERATION_DOWNLOAD_INSTALL)
-        textToFrame(--line, 4, localise(toFrame));
+        textToFrame(--line, 4, toFrame);
     else
-        textToFrameColored(--line, 4, localise(toFrame), SCREEN_COLOR_WHITE_TRANSP);
+        textToFrameColored(--line, 4, toFrame, SCREEN_COLOR_WHITE_TRANSP);
 
     strcpy(toFrame, localise("Download to:"));
     strcat(toFrame, " ");
@@ -170,7 +170,7 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
     }
 
     getFreeSpaceString(dlDev, toFrame + strlen(toFrame));
-    textToFrame(--line, 4, localise(toFrame));
+    textToFrame(--line, 4, toFrame);
 
     strcpy(toFrame, localise("Operation:"));
     strcat(toFrame, " ");

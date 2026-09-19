@@ -56,6 +56,12 @@ static char *cfwError = NULL;
 
 static const char *printCfwError(const char *str, ...)
 {
+    if(cfwError != NULL)
+    {
+        MEMFreeToDefaultHeap(cfwError);
+        cfwError = NULL;
+    }
+
     cfwError = MEMAllocFromDefaultHeap(sizeof(char) * 1024);
     if(cfwError == NULL)
         return CFW_ERR;

@@ -217,6 +217,7 @@ retryAddingToQueue:
             queueStalled = true;
         }
 #endif
+        OSSleepTicks(OSMillisecondsToTicks(1));
         if(checkForQueueErrors())
             return 0;
 
@@ -245,6 +246,7 @@ retryAddingToQueue:
             entry->size = IO_MAX_FILE_BUFFER;
 
             // TODO: Deduplicate code
+            OSMemoryBarrier();
             entry->file = file;
             if(++activeReadBuffer == MAX_IO_QUEUE_ENTRIES)
                 activeReadBuffer = 0;
@@ -264,6 +266,7 @@ retryAddingToQueue:
     else if(entry->size != 0)
     {
         // TODO: Deduplicate code
+        OSMemoryBarrier();
         entry->file = file;
         if(++activeReadBuffer == MAX_IO_QUEUE_ENTRIES)
             activeReadBuffer = 0;
@@ -271,6 +274,7 @@ retryAddingToQueue:
         entry = queueEntries + activeReadBuffer;
     }
 
+    OSMemoryBarrier();
     entry->file = file;
     if(++activeReadBuffer == MAX_IO_QUEUE_ENTRIES)
         activeReadBuffer = 0;
@@ -287,8 +291,11 @@ void flushIOQueue()
         debugPrintf("Flushing...");
 
         while(queueEntries[activeWriteBuffer].file != 0)
+        {
             if(checkForQueueErrors())
                 break;
+            OSSleepTicks(OSMillisecondsToTicks(1));
+        }
 
         if(ovl != NULL)
             removeErrorOverlay(ovl);

@@ -336,6 +336,8 @@ static bool unzipUpdate(const RAMBUF *rambuf)
 
                 MEMFreeToDefaultHeap(buf);
             }
+            else
+                showUpdateError(localise("Out of memory!"));
         }
         else
             showUpdateError(localise("Error getting zip info"));

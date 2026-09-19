@@ -143,6 +143,7 @@
     "Error opening internal memory": "Gwall wrth agor cof mewnol",
     "Error starting async installation of": "Gwall wrth gychwyn gosodiad async o:",
     "Installation failed!": "Methodd gosod!",
+    "Deinstallation failed": "Methodd dad-osod",
     "Install the main game to the same storage medium first": "Gosodwch y prif gêm i’r un cyfrwng storio yn gyntaf",
     "Also make sure there is no error with the USB drive": "Gwnewch yn siŵr hefyd nad oes gwall gyda’r gyriant USB",
     "Possible USB error": "Gwall USB posib",

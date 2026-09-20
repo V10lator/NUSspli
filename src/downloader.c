@@ -250,6 +250,11 @@ static void initSocketPool()
         }
     }
 
+    // Detached on purpose. somemopt() does not return until the socket library
+    // shuts down, and NUSspli only does that on a network reset - so on the way
+    // out this thread is still sitting in the call, and anything waiting to join
+    // it would hang the exit. A detached thread is never joined, so the stack
+    // that prepareThread() allocated is handed back by a deallocator instead.
     socketPoolThread = startThread("NUSspli socket pool", THREAD_PRIORITY_LOW, STACKSIZE_SMALL, socketPoolThreadMain, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_CPU2);
     if(socketPoolThread == NULL)
     {
@@ -1331,18 +1336,19 @@ static void speedTestRun(size_t pass, size_t target, size_t config, size_t runIn
     // Straight from libCURL, so nothing rests on a measurement taken on the far
     // side of the network. Connect time is the round trip that decides whether
     // the receive window can be the limit at all.
-    curl_off_t connectUs = 0;
+    // Only the single-stream path drives the shared handle; a parallel run leaves
+    // it untouched, and a stream handle would answer for its last chunk on a
+    // connection it kept, not for the run. The latency is the probe's figure.
     curl_off_t curlSpeed = 0;
     long code = 0;
     if(streams == 1)
     {
-        curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME_T, &connectUs);
         curl_easy_getinfo(curl, CURLINFO_SPEED_DOWNLOAD_T, &curlSpeed);
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
     }
 
     const float armAvg = armSamples ? armSum / (float)armSamples : -1.0f;
-    debugPrintf("Speedtest[%u/%s/%s]: RESULT bytes=%lld ms=%u avg=%.0fB/s curl=%lldB/s rtt=%ums starbucks=%.1f%% http=%ld rc=%d", (unsigned int)pass, tn, cn, (long long)total, ms, avg, (long long)curlSpeed, (unsigned int)(connectUs / 1000), armAvg, code, ret);
+    debugPrintf("Speedtest[%u/%s/%s]: RESULT bytes=%lld ms=%u avg=%.0fB/s curl=%lldB/s rtt=%ums starbucks=%.1f%% http=%ld rc=%d", (unsigned int)pass, tn, cn, (long long)total, ms, avg, (long long)curlSpeed, speedTestTargets[target].rtt, armAvg, code, ret);
 
     // Fixed columns so the runs line up under each other and can be compared by
     // eye. getSpeedString() picks its own unit, which would make the numbers
@@ -1420,8 +1426,12 @@ static bool speedTestPickTargets(void)
         // and dereferences whatever XFERINFODATA points at. There is no transfer
         // state here for it to read, so it has to be switched off rather than
         // left aimed at a stack frame that no longer exists.
+        // Without this the option chain in initSocket() lands inside the
+        // measurement: it runs between socket() and connect(), which is exactly
+        // the window CONNECT_TIME covers, and every one of its calls crosses to
+        // the core the network stack runs on.
         curlError[0] = '\0';
-        if(co != CURLE_OK || curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_URL, speedTestHosts[i]) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, 1L) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_RANGE, "0-0") != CURLE_OK || curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL) != CURLE_OK)
+        if(co != CURLE_OK || curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, NULL) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 1L) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_URL, speedTestHosts[i]) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, 1L) != CURLE_OK || curl_easy_setopt(curl, CURLOPT_RANGE, "0-0") != CURLE_OK || curl_easy_setopt(curl, CURLOPT_WRITEDATA, NULL) != CURLE_OK)
             continue;
 
         CURLcode pr = curl_easy_perform(curl);
@@ -1471,18 +1481,12 @@ static bool speedTestPickTargets(void)
     curl_easy_setopt(curl, CURLOPT_RANGE, NULL);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(curl, CURLOPT_SOCKOPTFUNCTION, initSocket);
 
     if(lo == SPEEDTEST_HOSTS || hi == SPEEDTEST_HOSTS || lo == hi)
     {
         debugPrintf("Speedtest: fewer than two usable hosts");
         addToScreenLog("no pair under %u ms to measure with", SPEEDTEST_FAR_RTT);
-        return false;
-    }
-
-    if(rtt[lo] > SPEEDTEST_NEAR_RTT)
-    {
-        debugPrintf("Speedtest: closest host is %u ms, too far to stand in for a near one", rtt[lo]);
-        addToScreenLog("closest host is %u ms, needs to be under %u ms", rtt[lo], SPEEDTEST_NEAR_RTT);
         return false;
     }
 
@@ -1531,6 +1535,12 @@ void speedTest(void)
     clearScreenLog();
     for(int i = 0; i < MAX_LINES; ++i)
         addToScreenLog(" ");
+
+    // Advisory, not a rejection: this is the console's own TCP handshake, which
+    // reads some 10 ms above what a PC on the same cable pings, so a mirror that
+    // looks too distant here may still be the closest one anybody has.
+    if(speedTestTargets[1].rtt > SPEEDTEST_NEAR_RTT)
+        addToScreenLog("near host is %u ms, over the %u ms it should be", speedTestTargets[1].rtt, SPEEDTEST_NEAR_RTT);
 
     speedTestAborted = false;
     speedTestOverride = true;

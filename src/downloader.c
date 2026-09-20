@@ -108,6 +108,7 @@ static CURL *curl;
 static char curlError[CURL_ERROR_SIZE];
 static bool curlReuseConnection = true;
 static void *socketPool = NULL;
+static OSThread *socketPoolThread = NULL;
 static bool socketPoolDonated = false;
 #ifdef NUSSPLI_DEBUG
 // Set by the speed test so one run can compare configurations back to back,
@@ -230,14 +231,6 @@ static int socketPoolThreadMain(int argc, const char **argv)
 // socket_lib_finish(), which ends the blocking request and hands the pool back,
 // and then the donation does have to be made anew - a terminated thread is how
 // we tell the two apart.
-// prepareThread() puts the OSThread and its stack in one allocation.
-static void freeSocketPoolThread(OSThread *thread, void *stack)
-{
-    (void)stack;
-
-    MEMFreeToDefaultHeap(thread);
-}
-
 static void initSocketPool()
 {
     // Ours is the only donation that must not be repeated, and the only one we
@@ -257,22 +250,12 @@ static void initSocketPool()
         }
     }
 
-    // Detached on purpose. somemopt() does not return until the socket library
-    // shuts down, and NUSspli only does that on a network reset - so on the way
-    // out this thread is still sitting in the call, and anything waiting to join
-    // it would hang the exit. A detached thread is never joined, so the stack
-    // that prepareThread() allocated is handed back by a deallocator instead.
-    OSThread *thread = prepareThread("NUSspli socket pool", THREAD_PRIORITY_LOW, STACKSIZE_SMALL, socketPoolThreadMain, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_CPU2 | OS_THREAD_ATTRIB_DETACHED);
-    if(thread == NULL)
+    socketPoolThread = startThread("NUSspli socket pool", THREAD_PRIORITY_LOW, STACKSIZE_SMALL, socketPoolThreadMain, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_CPU2);
+    if(socketPoolThread == NULL)
     {
         debugPrintf("initSocketPool: Couldn't start thread");
         return;
     }
-
-    // Set before the thread can run: a detached one that ends early would
-    // otherwise take its stack with it.
-    OSSetThreadDeallocator(thread, freeSocketPoolThread);
-    OSResumeThread(thread);
 
     // From here the thread is parked inside somemopt() until the socket library
     // ends, so the pool counts as ours whatever the donation turned out to be.
@@ -338,9 +321,14 @@ static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
                             // down still gives a working socket, just a smaller
                             // receive buffer.
                             if(rusrbuf && !trySockopt(socket, SOL_SOCKET, SO_RUSRBUF, 1, "user receive buffers"))
-                                rcvbuf = SOCKET_BUFSIZE;
+                                rcvbuf = IO_BUFSIZE;
 
+                            // Anything past IO_BUFSIZE only exists inside the
+                            // donated pool - the default one answers EINVAL - and
+                            // this option does gate the connection.
                             ret = trySockopt(socket, SOL_SOCKET, SO_RCVBUF, rcvbuf, "receive buffersize");
+                            if(!ret && rcvbuf != IO_BUFSIZE)
+                                ret = trySockopt(socket, SOL_SOCKET, SO_RCVBUF, IO_BUFSIZE, "receive buffersize");
                         }
                     }
                 }
@@ -612,15 +600,18 @@ bool initDownloader()
 
 // somemopt(SOMEMOPT_REQUEST_INIT) does not return until the socket library is
 // shut down, so the donating thread stays parked - and the title cannot unload -
-// until socket_lib_finish() runs. CRT0 gets there far too late, hanging the exit
-// on the goodbye screen, so the shutdown path calls it itself.
+// until socket_lib_finish() runs. The UDP log holds a socket of its own on the
+// same library, so it goes first, and the thread is joined once it is unparked.
 static void releaseSocketPool(void)
 {
-    if(socketPoolDonated)
-    {
-        socket_lib_finish();
-        socketPoolDonated = false;
-    }
+    if(socketPoolThread == NULL)
+        return;
+
+    shutdownDebug();
+    socket_lib_finish();
+    stopThread(socketPoolThread, NULL);
+    socketPoolThread = NULL;
+    socketPoolDonated = false;
 }
 
 void deinitDownloader()
@@ -642,7 +633,6 @@ void deinitDownloader()
     // Last, as it takes the socket library with it: every handle above still had
     // a keep-alive connection to close.
     releaseSocketPool();
-    debugPrintf("Socket pool released");
     initialised = false;
 }
 

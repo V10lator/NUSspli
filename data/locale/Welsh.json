@@ -3,6 +3,7 @@
     "Install content": "Gosod cynnwys",
     "Generate a fake <title.tik> file": "Creu ffeil <title.tik> ffug",
     "Browse installed titles": "Pori teitlau wedi'u gosod",
+    "Find missing content": "Chwilio am gynnwys coll",
     "Options": "Opsiynau",
     "Press \uE044 or \uE001 to exit": "Pwyswch \uE044 neu \uE001 i adael",
     "Developers:": "Datblygwyr:",
@@ -129,6 +130,14 @@
     "Installed successfully!": "Wedi gosod yn llwyddiannus!",
     "Uninstalled successfully!": "Wedi dad-osod yn llwyddiannus!",
     "Queue finished successfully!": "Ciw wedi gorffen yn llwyddiannus!",
+
+    "Searching for missing content...": "Wrthi'n chwilio am gynnwys coll...",
+    "No missing content found": "Heb ddod o hyd i unrhyw gynnwys coll",
+    "Error scanning for installed titles!": "Gwall wrth sganio teitlau wedi'u gosod!",
+    "Queueing missing content...": "Wrthi'n ychwanegu cynnwys coll i'r ciw...",
+    "\uE045 to queue all": "\uE045 i ychwanegu'r cyfan i'r ciw",
+    "Queued": "Wedi'i ychwanegu",
+    "Skipped": "Wedi'i hepgor",
     
     "Could not open path": "Methu agor y llwybr:",
     "Invalid title.tmd file!": "Ffeil title.tmd annilys!",

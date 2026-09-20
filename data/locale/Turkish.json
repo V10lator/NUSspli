@@ -4,6 +4,7 @@
     "Generate a fake <title.tik> file": "Sahte bir <title.tik> dosyası oluştur",
     "Browse installed titles": "Yüklenmiş başlıkları gözden geçir",
     "Uninstall a title": "Bir İçeriği Kaldır",
+    "Find missing content": "Eksik içerik bul",
     "Options": "Seçenekler",
     "Press \uE044 or \uE001 to exit": "\uE044 veya \uE001 tuşuna basarak çık",
     "Developers:": "Geliştiriciler:",
@@ -134,6 +135,14 @@
     "Installed successfully!": "Başarıyla yüklendi!",
     "Uninstalled successfully!": "Başarıyla kaldırıldı!",
     "Queue finished successfully!": "Kuyruk başarıyla tamamlandı!",
+
+    "Searching for missing content...": "Eksik içerik aranıyor...",
+    "No missing content found": "Eksik içerik bulunamadı",
+    "Error scanning for installed titles!": "Yüklü başlıklar taranırken hata oluştu!",
+    "Queueing missing content...": "Eksik içerik kuyruğa ekleniyor...",
+    "\uE045 to queue all": "\uE045 tümünü kuyruğa eklemek için",
+    "Queued": "Kuyruğa eklendi",
+    "Skipped": "Atlandı",
 
     "Could not open path": "Yol açılamadı:",
     "Invalid title.tmd file!": "Geçersiz title.tmd dosyası!",

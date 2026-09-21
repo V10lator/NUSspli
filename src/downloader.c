@@ -107,7 +107,6 @@ static bool initialised = false;
 static CURL *curl;
 static char curlError[CURL_ERROR_SIZE];
 static bool curlReuseConnection = true;
-static void *socketPool = NULL;
 static OSThread *socketPoolThread = NULL;
 static bool socketPoolDonated = false;
 #ifdef NUSSPLI_DEBUG
@@ -213,6 +212,13 @@ static int socketPoolThreadMain(int argc, const char **argv)
     (void)argc;
     (void)argv;
 
+    void *socketPool = MEMAllocFromDefaultHeapEx(SOCKET_POOL_SIZE, 0x40);
+    if(socketPool == NULL)
+    {
+        debugPrintf("socketPoolThread: Out of memory");
+        return -1;
+    }
+
     // BIG_BUFFERS splits the donation 50-50 between small and big buffers instead
     // of 80-20. Receive buffers are what we are here for, so the big half is the
     // half that matters.
@@ -222,6 +228,8 @@ static int socketPoolThreadMain(int argc, const char **argv)
     // sitting in WAIT_FOR_INIT on the thread that draws the screen.
     if(ret < 0)
         somemopt(SOMEMOPT_REQUEST_CANCEL_WAIT, NULL, 0, SOMEMOPT_FLAGS_NONE);
+
+    MEMFreeToDefaultHeap(socketPool);
 
     return ret;
 }
@@ -240,22 +248,12 @@ static void initSocketPool()
     if(socketPoolDonated)
         return;
 
-    if(socketPool == NULL)
-    {
-        socketPool = MEMAllocFromDefaultHeapEx(SOCKET_POOL_SIZE, 0x40);
-        if(socketPool == NULL)
-        {
-            debugPrintf("initSocketPool: Out of memory");
-            return;
-        }
-    }
-
     // Detached on purpose. somemopt() does not return until the socket library
     // shuts down, and NUSspli only does that on a network reset - so on the way
     // out this thread is still sitting in the call, and anything waiting to join
     // it would hang the exit. A detached thread is never joined, so the stack
     // that prepareThread() allocated is handed back by a deallocator instead.
-    socketPoolThread = startThread("NUSspli socket pool", THREAD_PRIORITY_LOW, STACKSIZE_SMALL, socketPoolThreadMain, 0, NULL, OS_THREAD_ATTRIB_AFFINITY_CPU2);
+    socketPoolThread = startThread("NUSspli socket pool", THREAD_PRIORITY_LOW, STACKSIZE_SMALL, socketPoolThreadMain, 0, NULL, AFFINITY_CPU12);
     if(socketPoolThread == NULL)
     {
         debugPrintf("initSocketPool: Couldn't start thread");
@@ -268,8 +266,10 @@ static void initSocketPool()
 
     // Donating is asynchronous, and a socket created before it lands would get a
     // default-sized buffer anyway, so wait it out. Returns the bytes now in use.
+#ifdef NUSSPLI_DEBUG
     int used = somemopt(SOMEMOPT_REQUEST_WAIT_FOR_INIT, NULL, 0, SOMEMOPT_FLAGS_NONE);
     debugPrintf("initSocketPool: %d bytes donated", used);
+#endif
 }
 
 // All the socket options we set below are pure performance tweaks, so a failure

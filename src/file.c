@@ -255,7 +255,7 @@ size_t getDirsize(const char *path)
 
         if(FSAOpenDir(getFSAClient(), path, &dir) == FS_ERROR_OK)
         {
-            while(ret == FS_ERROR_OK && FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
+            while(FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
             {
                 strcpy(newPath + start, entry.name);
                 ret += entry.info.flags & FS_STAT_DIRECTORY ? getDirsize(newPath) : entry.info.size;

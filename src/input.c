@@ -102,13 +102,16 @@ static void SWKBD_Render(SWKBD_Args *args, KeyboardChecks check)
     if(inputFormString != NULL)
     {
         size_t len = strlen(inputFormString);
-        if(len != 0 && check != CHECK_NONE && check != CHECK_NUMERICAL)
+        if(len != 0 && check != CHECK_NONE)
         {
             checkingFunction cf;
             switch(check)
             {
                 case CHECK_HEXADECIMAL:
                     cf = &isHexa;
+                    break;
+                case CHECK_NUMERICAL:
+                    cf = &isNumber;
                     break;
                 case CHECK_ALPHANUMERICAL:
                     cf = &isAllowedInFilename;

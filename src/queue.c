@@ -51,7 +51,7 @@ int addToQueue(TitleData *data)
     {
         if(data->operation & OPERATION_INSTALL && title->operation & OPERATION_INSTALL)
         {
-            if(data->toUSB && title->toUSB && data->tmd->tid == title->tmd->tid)
+            if(data->toUSB == title->toUSB && data->tmd->tid == title->tmd->tid)
                 return 2;
         }
         if(data->operation & OPERATION_DOWNLOAD && title->operation & OPERATION_DOWNLOAD)

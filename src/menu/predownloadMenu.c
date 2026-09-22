@@ -265,7 +265,7 @@ static inline void changeTitleVersion(char *buf)
 
 static inline void changeFolderName(char *buf)
 {
-    if(!showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_NORMAL, buf, CHECK_ALPHANUMERICAL, FS_MAX_PATH - (sizeof(INSTALL_DIR_USB1) - 1), false, buf, NULL))
+    if(!showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_NORMAL, buf, CHECK_ALPHANUMERICAL, FS_MAX_PATH - sizeof(INSTALL_DIR_USB1), false, buf, NULL))
         buf[0] = '\0';
 }
 

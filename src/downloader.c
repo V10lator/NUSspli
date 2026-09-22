@@ -1020,17 +1020,19 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     strcat(downloadUrl, "/");
 
     if(folderName[0] == '\0')
+    {
         for(size_t i = 0; i < strlen(titleEntry->name); ++i)
             folderName[i] = isAllowedInFilename(titleEntry->name[i]) ? titleEntry->name[i] : '_';
 
-    strcpy(folderName + strlen(titleEntry->name), " [");
-    strcat(folderName, tid);
-    strcat(folderName, "]");
+        strcpy(folderName + strlen(titleEntry->name), " [");
+        strcat(folderName, tid);
+        strcat(folderName, "]");
 
-    if(strlen(titleVer) > 0)
-    {
-        strcat(folderName, " v");
-        strcat(folderName, titleVer);
+        if(strlen(titleVer) > 0)
+        {
+            strcat(folderName, " v");
+            strcat(folderName, titleVer);
+        }
     }
 
     char installDir[FS_MAX_PATH];

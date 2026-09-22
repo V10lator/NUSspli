@@ -513,9 +513,10 @@ void readInput()
 
     if(vpad.trigger != 0)
     {
-        OSTime t = OSGetSystemTime() - lastButtonPress;
+        OSTime tmp = OSGetSystemTime();
+        OSTime t = tmp - lastButtonPress;
         addEntropy(&t, sizeof(OSTime));
-        lastButtonPress = t;
+        lastButtonPress = tmp;
     }
 
     if(!altCon && vError == VPAD_READ_INVALID_CONTROLLER)

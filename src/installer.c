@@ -159,7 +159,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     if(isDLC(tmd2->tid))
     {
         OSBlockMove(tmpPath + s, "title.tik", sizeof("title.tik"), false);
-        TICKET *tik;
+        TICKET *tik = NULL;
         s = readFile(tmpPath, (void **)&tik);
         if(tik != NULL && hasMagicHeader(tik) && strcmp(tik->header.app, "NUSspli") == 0)
         {
@@ -177,7 +177,10 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
                     if(minor >= 113 && minor < 125)
                     {
                         debugPrintf("Broken ticket detected, fixing...");
-                        if(generateTik(tmpPath, tmd2))
+                        bool fixed = generateTik(tmpPath, tmd2);
+                        MEMFreeToDefaultHeap(tik);
+                        tik = NULL;
+                        if(fixed)
                         {
                             if(noIntro != NULL)
                                 revertNoIntro(noIntro);
@@ -194,6 +197,9 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
                 }
             }
         }
+
+        if(tik != NULL)
+            MEMFreeToDefaultHeap(tik);
     }
 
     MCPInstallTitleInfo info __attribute__((__aligned__(0x40)));

@@ -501,7 +501,7 @@ void deleteTicket(uint64_t tid)
                     clearList(ticketList, true);
                     MEMFreeToDefaultHeap(file);
                 }
-                else if(fileSize == 0)
+                else if(fileSize == 0 && getFilesize(path) == 0) // readFile() also returns 0 on errors, only remove real zero byte files
                 {
                     debugPrintf("Removing %s", path);
                     FSARemove(getFSAClient(), path);

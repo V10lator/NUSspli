@@ -745,8 +745,8 @@ void resumeRenderer()
             return;
         }
 
+        // FC_LoadFont_RW(own_rwops = 1) closed the RWops already on failure
         debugPrintf("Font: Error loading RW!");
-        SDL_RWclose(rw);
     }
     else
         debugPrintf("Font: Error loading!");

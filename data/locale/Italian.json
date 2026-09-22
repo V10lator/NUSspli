@@ -163,6 +163,7 @@
     "Error opening internal memory": "Errore durante l'apertura della memoria interna",
     "Error starting async installation of": "Errore durante l'avvio dell'installazione asincrona di",
     "Installation failed!": "Installazione fallita!",
+    "Deinstallation failed": "Disinstallazione fallita",
     "Install the main game to the same storage medium first": "Prima installa il gioco principale sullo stesso supporto di archiviazione",
     "Also make sure there is no error with the USB drive": "Assicurati anche che non ci siano errori con l'unità USB",
     "Possible USB error": "Possibile errore USB",

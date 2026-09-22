@@ -121,6 +121,7 @@ void drawErrorFrame(const char *text, ErrorOptions option)
     char *l;
     size_t size;
     int line = -1;
+    char tmp[MAX_CHARS * 2 + 1];
     while(text)
     {
         l = strchr(text, '\n');
@@ -128,10 +129,9 @@ void drawErrorFrame(const char *text, ErrorOptions option)
         size = l == NULL ? strlen(text) : (size_t)(l - text);
         if(size > 0)
         {
-            char tmp[size + 1];
-            for(size_t i = 0; i < size; ++i)
-                tmp[i] = text[i];
-
+            if(size >= sizeof(tmp))
+                size = sizeof(tmp) - 1;
+            OSBlockMove(tmp, text, size, false);
             tmp[size] = '\0';
             textToFrame(line, 0, tmp);
         }

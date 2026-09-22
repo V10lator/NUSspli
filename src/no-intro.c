@@ -246,6 +246,7 @@ NO_INTRO_DATA *transformNoIntro(const char *path)
         goto transformError2;
     }
 
+    MEMFreeToDefaultHeap(tmd);
     *fromP = '\0';
     MEMFreeToDefaultHeap(tmd);
     return data;

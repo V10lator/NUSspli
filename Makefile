@@ -34,14 +34,14 @@ INCLUDES	:=	include \
 # options for code generation
 #-------------------------------------------------------------------------------
 
-CFLAGS		:=	$(MACHDEP) -O3 -ffast-math -flto=auto \
-				-fno-fat-lto-objects -fuse-linker-plugin \
-				-fipa-pta -pipe \
-				-ffunction-sections -fdata-sections\
+CFLAGS		:=	$(MACHDEP) -O3 -pipe \
+				-ffunction-sections -fdata-sections \
+				-fno-pic -fno-pie \
 				-Wall -Wextra -Wundef -Wshadow -Wpointer-arith \
 				-Wcast-align -Wno-trigraphs -Wno-empty-body \
 				-Wno-maybe-uninitialized -Wno-pointer-sign \
 				-Wno-implicit-fallthrough \
+				-Wno-unused-parameter -Wno-undef \
 				-D__WIIU__ -D__WUT__ -DIOAPI_NO_64 -D__unix__
 
 CXXFLAGS	:=	$(CFLAGS) -std=c++20 -fpermissive

@@ -76,33 +76,29 @@ int NUSrng(void *data, unsigned char *out, size_t outlen)
 
 void addEntropy(void *e, size_t l)
 {
-    uint8_t *buf8 = (uint8_t *)e;
-    uint32_t *buf32;
-    size_t l32 = l >> 2;
-    if(l32)
-    {
-        buf32 = (uint32_t *)e;
-        --buf32;
-        buf8 += l32 << 2;
-        l %= 4;
-    }
-
-    ++l;
-    ++l32;
-    --buf8;
+    if(!e || !l)
+        return;
 
     spinLock(rngLock);
 
-    while(--l32)
+    uint8_t *buf8 = (uint8_t *)e;
+    if(((uintptr_t)e & 3) == 0)
     {
-        rngRun();
-        entropy ^= *++buf32; // Not uninitialised!
+        uint32_t *buf32 = (uint32_t *)e;
+        size_t l32 = l >> 2;
+        while(l32--)
+        {
+            rngRun();
+            entropy ^= *buf32++;
+        }
+        buf8 = (uint8_t *)buf32;
+        l &= 3;
     }
 
-    while(--l)
+    while(l--)
     {
         rngRun();
-        entropy ^= *++buf8;
+        entropy ^= *buf8++;
     }
 
     spinReleaseLock(rngLock);

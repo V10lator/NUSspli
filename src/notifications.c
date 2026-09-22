@@ -84,6 +84,7 @@ void deinitNotifications()
         OSMessage msg = { .message = NUSSPLI_MESSAGE_EXIT };
         OSSendMessage(&rumble_queue, &msg, OS_MESSAGE_FLAGS_BLOCKING);
         stopThread(rumbleThread, NULL);
+        rumbleThread = NULL;
     }
 }
 

@@ -184,7 +184,7 @@ static void innerMain()
                                 lerr = "Couldn't initialize notification system!";
                         }
                         else
-                            lerr = "No support for rebrands, use original NUSspli!";
+                            lerr = "Data integrity check failed!\nFiles might be corrupted or SD card unreadable.\nPlease reinstall NUSspli.";
 
                         MCP_Close(mcpHandle);
                         debugPrintf("MCP closed");

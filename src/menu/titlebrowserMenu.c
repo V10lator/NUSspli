@@ -384,7 +384,10 @@ loop:
         if(vpad.trigger & VPAD_BUTTON_MINUS && getListSize(getTitleQueue()))
         {
             if(queueMenu())
+            {
+                MEMFreeToDefaultHeap(filteredTitleEntries);
                 return;
+            }
 
             redraw = true;
         }

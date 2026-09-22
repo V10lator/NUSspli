@@ -272,7 +272,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         if(noIntro != NULL)
             revertNoIntro(noIntro);
 
-        sprintf(toScreen, "%s \"%s\": %#010x", localise("Error starting async installation of"), path, data.err);
+        sprintf(toScreen, "%s \"%s\": %#010x", localise("Error starting async installation of"), path, err);
         debugPrintf(toScreen);
         addToScreenLog("Installation failed!");
         showErrorFrame(toScreen);

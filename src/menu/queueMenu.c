@@ -265,6 +265,17 @@ bool queueMenu()
                 return true;
             }
 
+            // The queue may have shrunk on a mid-queue failure: re-clamp the view
+            size_t size = getListSize(titleQueue);
+            if(size == 0)
+                return false;
+
+            mov = size >= MAX_ENTRIES;
+            if(pos >= size)
+                pos = 0;
+            if(cursor + pos >= size)
+                cursor = size - pos - 1;
+
             redraw = true;
         }
 

@@ -368,6 +368,16 @@ static bool addToOpQueue(RAMBUF *rambuf, const TitleEntry *entry, const char *ti
             return true;
 
         MEMFreeToDefaultHeap(titleInfo);
+
+        // 2 = already queued for install, 3 = already queued for download: the queue owns
+        // neither our TitleData nor our rambuf, so drop the rambuf ourselves but report
+        // success so the caller doesn't free it a second time.
+        if(ret == 2 || ret == 3)
+        {
+            freeRamBuf(rambuf);
+            addToScreenLog("\"%s\" is already queued", entry->name);
+            return true;
+        }
     }
 
     return ret;

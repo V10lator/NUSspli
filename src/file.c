@@ -57,7 +57,7 @@ bool dirExists(const char *path)
 FSError removeDirectory(const char *path)
 {
     size_t len = strlen(path);
-    if(len >= FS_MAX_PATH)
+    if(len >= FS_MAX_PATH - 1) // Room for the appended '/' and its terminator
         return FS_ERROR_INVALID_PATH;
 
     char newPath[FS_MAX_PATH];

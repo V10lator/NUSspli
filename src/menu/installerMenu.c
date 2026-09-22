@@ -62,6 +62,14 @@ static bool addToOpQueue(const TitleEntry *entry, const char *dir, const TMD *tm
         return true;
 
     MEMFreeToDefaultHeap(titleInfo);
+
+    // 2 = already queued for install, 3 = already queued for download: not an error
+    if(ret == 2 || ret == 3)
+    {
+        addToScreenLog("\"%s\" is already queued", entry->name);
+        return true;
+    }
+
     return false;
 }
 

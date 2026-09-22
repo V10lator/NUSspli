@@ -238,7 +238,7 @@ loop:
         }
         showFrame();
 
-        if(vpad.trigger & VPAD_BUTTON_A)
+        if(vpad.trigger & VPAD_BUTTON_A && filteredTitleEntrySize) // The filter can match nothing
         {
             entry = filteredTitleEntries[cursor + pos];
             break;
@@ -266,7 +266,7 @@ loop:
                 dpadAction = false;
             }
 
-            if(dpadAction)
+            if(dpadAction && filteredTitleEntrySize)
             {
                 if(cursor)
                     cursor--;
@@ -305,7 +305,7 @@ loop:
                 dpadAction = false;
             }
 
-            if(dpadAction)
+            if(dpadAction && filteredTitleEntrySize)
             {
                 if(cursor + pos >= filteredTitleEntrySize - 1 || cursor >= MAX_TITLEBROWSER_LINES - 1)
                 {

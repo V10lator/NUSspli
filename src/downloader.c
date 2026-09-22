@@ -672,7 +672,15 @@ retry:
     char *argv[1] = { (char *)&cdata };
     OSThread *dlThread = startThread("NUSspli downloader", THREAD_PRIORITY_HIGH, STACKSIZE_BIG, dlThreadMain, 1, (char *)argv, OS_THREAD_ATTRIB_AFFINITY_CPU0);
     if(dlThread == NULL)
+    {
+        if(rambuf)
+            fclose((FILE *)fp);
+        else
+            addToIOQueue(NULL, 0, 0, (FSAFileHandle)fp);
+
+        debugPrintf("Error starting the download thread!");
         return 1;
+    }
 
     OSTick ts;
     OSTick lastTransfair = OSGetTick();

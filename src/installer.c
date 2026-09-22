@@ -134,7 +134,11 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     char tmpPath[FS_MAX_PATH];
     size_t s = strlen(path);
     if(s + sizeof("title.tmd") >= sizeof(tmpPath))
+    {
+        if(tmd == NULL)
+            MEMFreeToDefaultHeap(tmd2);
         return false;
+    }
     OSBlockMove(tmpPath, path, s, false);
     OSBlockMove(tmpPath + s, "title.tmd", sizeof("title.tmd"), false);
     NO_INTRO_DATA *noIntro;

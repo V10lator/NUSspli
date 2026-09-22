@@ -1159,6 +1159,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
                 tikBuf->size = 0;
                 break;
             case 0:
+                data.dltotal += tikBuf->size; // dlnow already includes the ticket bytes
                 fp = openFile(installDir, "w", tikBuf->size);
                 if(fp == 0)
                 {

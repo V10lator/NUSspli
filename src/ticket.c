@@ -226,7 +226,7 @@ bool generateCert(const TMD *tmd, const TICKET *ticket, size_t ticketSize, const
 
         cetk.cert3.sig_type = 0x00010004;
         cetk.cert3.version = 0x00000001;
-        cetk.cert2.unknown_01 = 0x00010001;
+        cetk.cert3.unknown_01 = 0x00010001;
 
         // Overrite header
         OSBlockSet(&cetk, 0x00, sizeof(NUS_HEADER));

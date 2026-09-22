@@ -75,6 +75,13 @@ bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool
     }
 
     showMcpProgress(&data, name, false);
+    if(data.err != 0)
+    {
+        debugPrintf("Deinstallation failed with result: %#010x", data.err);
+        enableShutdown();
+        return false;
+    }
+
     deleteTicket(title->titleId);
     enableShutdown();
     t = OSGetTick() - t;

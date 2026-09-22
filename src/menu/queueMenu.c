@@ -249,8 +249,8 @@ bool queueMenu()
                 {
                     if(pos >= MAX_ENTRIES)
                         pos -= MAX_ENTRIES;
-                    else
-                        pos = getListSize(titleQueue) - MAX_ENTRIES;
+                    else // Wrap to the last page RIGHT paging can reach, so paging can't oscillate
+                        pos = ((getListSize(titleQueue) - 1) / MAX_ENTRIES) * MAX_ENTRIES;
                     cursor = 0;
                     redraw = true;
                 }

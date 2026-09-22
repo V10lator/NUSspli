@@ -1194,7 +1194,10 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
         freeRamBuf(tikBuf);
     }
     else
+    {
         addToScreenLog("title.tik skipped!");
+        ++data.dcontent; // The ticket is already there, count it as done
+    }
 
     if(!AppRunning(true))
         return false;

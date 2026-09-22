@@ -195,6 +195,7 @@ int textToFrameMultiline(int x, int y, const char *text, size_t len)
     int lines = 1;
     while(fl > len)
     {
+        bool split = false;
         for(char *i = p + l; i > p; --i)
         {
             o = *i;
@@ -204,22 +205,32 @@ int textToFrameMultiline(int x, int y, const char *text, size_t len)
                 t = strrchr(p, ' ');
                 if(t != NULL)
                 {
+                    // Break at the last space, it stays with the previous line
                     *t = '\0';
                     *i = o;
+                    textToFrame(x, y, p);
+                    p = t + 1;
                 }
                 else
-                    t = i;
+                {
+                    // No space to break at: break right before the overflowing character
+                    textToFrame(x, y, p);
+                    *i = o;
+                    p = i;
+                }
 
-                textToFrame(x, y, p);
+                l = strlen(p);
                 ++lines;
                 ++x;
-                p = ++t;
+                split = true;
                 break;
             }
 
             *i = o;
-            l = strlen(p);
         }
+
+        if(!split) // Not even a single character fits, don't loop forever
+            break;
 
         fl = FC_GetWidth(font, p) / spaceWidth;
     }

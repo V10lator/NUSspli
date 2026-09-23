@@ -75,7 +75,8 @@ typedef struct
 
 static bool isUrl(char c)
 {
-    return isNumber(c) || isLowercase(c) || isUppercase(c) || c == '.' || c == '/' || c == ':' || c == '%' || c == '-' || c == '_'; // TODO
+    // RFC 3986: unreserved, sub-delims and gen-delims (minus the square brackets):
+    return isNumber(c) || isLowercase(c) || isUppercase(c) || c == '.' || c == '/' || c == ':' || c == '%' || c == '-' || c == '_' || c == '~' || c == '?' || c == '#' || c == '@' || c == '!' || c == '$' || c == '&' || c == '\'' || c == '(' || c == ')' || c == '*' || c == '+' || c == ',' || c == ';' || c == '=';
 }
 
 typedef bool (*checkingFunction)(char);

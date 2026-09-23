@@ -424,7 +424,10 @@ void deleteTicket(uint64_t tid)
             // Loop through all the subfolders
             while(FSAReadDir(getFSAClient(), dir2, &entry) == FS_ERROR_OK)
             {
-                if((entry.info.flags & FS_STAT_DIRECTORY) || strlen(entry.name) != 12) // TODO: entry.info.flags & FS_STAT_FILE is false for some reason
+                // FSAReadDir never returns FS_STAT_FILE (0x01000000): the IOSU leaves
+                // that bit clear for plain files (libiosuhax even has to OR it into its
+                // own FSA results by hand), so the directory flag is tested negatively.
+                if((entry.info.flags & FS_STAT_DIRECTORY) || strlen(entry.name) != 12)
                 {
                     debugPrintf("Sanity check failed on %s", entry.name);
                     continue;

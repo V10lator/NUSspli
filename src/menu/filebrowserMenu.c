@@ -45,7 +45,7 @@
 #define MAX_FILEBROWSER_LINES (MAX_LINES - 5)
 
 static NUSDEV activeDevice = NUSDEV_NONE;
-// static char presavedPath[FS_MAX_PATH]; // TODO
+static char presavedPath[FS_MAX_PATH]; // Last visited directory, restored on the next visit when it still belongs to the active device
 
 static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const size_t cursor, bool usbMounted, bool installMenu, bool showQueue)
 {
@@ -145,6 +145,12 @@ char *fileBrowserMenu(bool installMenu, bool allowNoIntro)
 
         refreshVOlList:
             strcpy(path, (activeDevice & NUSDEV_USB) ? (usbMounted == NUSDEV_USB01 ? INSTALL_DIR_USB1 : INSTALL_DIR_USB2) : (activeDevice == NUSDEV_SD ? INSTALL_DIR_SD : INSTALL_DIR_MLC));
+
+            // Restore the last visited directory if it still belongs to the active device and exists
+            const char *devRoot = (activeDevice & NUSDEV_USB) ? (usbMounted == NUSDEV_USB01 ? NUSDIR_USB1 : NUSDIR_USB2) : (activeDevice == NUSDEV_SD ? NUSDIR_SD : NUSDIR_MLC);
+            if(strncmp(presavedPath, devRoot, strlen(devRoot)) == 0 && dirExists(presavedPath))
+                strcpy(path, presavedPath);
+
             if(activeDevice == NUSDEV_SD)
                 checkSpaceThread(); // To show the waiting for SD overlay
 
@@ -247,6 +253,7 @@ char *fileBrowserMenu(bool installMenu, bool allowNoIntro)
                         path[pos] = '\0';
                         if(redraw)
                         {
+                            strcpy(presavedPath, path);
                             destroyList(folders, true);
                             return path;
                         }
@@ -258,6 +265,7 @@ char *fileBrowserMenu(bool installMenu, bool allowNoIntro)
                             path[pos] = '\0';
                             if(redraw)
                             {
+                                strcpy(presavedPath, path);
                                 destroyList(folders, true);
                                 return path;
                             }
@@ -417,6 +425,7 @@ char *fileBrowserMenu(bool installMenu, bool allowNoIntro)
                     oldHold = 0;
             }
         exitFailure:
+            strcpy(presavedPath, path);
             destroyList(folders, true);
         }
 

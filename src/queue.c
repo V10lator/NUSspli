@@ -150,7 +150,8 @@ bool proccessQueue()
         }
         else if(title->operation & OPERATION_INSTALL)
         {
-            if(!install(title->entry == NULL ? prettyDir(title->folderName) : title->entry->name, false /* TODO */, title->dlDev, title->folderName, title->toUSB, title->keepFiles, title->tmd))
+            bool hasDeps = title->tmd != NULL && (isDLC(title->tmd->tid) || isUpdate(title->tmd->tid));
+            if(!install(title->entry == NULL ? prettyDir(title->folderName) : title->entry->name, hasDeps, title->dlDev, title->folderName, title->toUSB, title->keepFiles, title->tmd))
                 goto exitApd;
         }
 

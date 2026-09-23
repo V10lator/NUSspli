@@ -247,7 +247,7 @@ closeAgain:
     if(con)
     {
         ACClose();
-        uint32_t timeout = 1000 / 10;
+        uint32_t timeout = 5 * 1000 / 10;
         do
         {
             nnres = ACGetCloseStatus();

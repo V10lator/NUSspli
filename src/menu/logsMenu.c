@@ -22,28 +22,28 @@
 #include <menu/utils.h>
 #include <renderer.h>
 #include <state.h>
+#include <ui.h>
 
-static void drawLogsFrame()
+static void renderLogsFrame()
 {
     startNewFrame();
     writeScreenLog(-1);
-    drawFrame();
 }
+
+static void updateLogsMenu()
+{
+    if(vpad.trigger)
+        uiPop();
+}
+
+static const UIScreen logsScreen = {
+    .name = "logs",
+    .buttons = 0, // any press pops the screen
+    .update = updateLogsMenu,
+    .render = renderLogsFrame,
+};
 
 void logsMenu()
 {
-    drawLogsFrame();
-
-    while(AppRunning(true))
-    {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            drawLogsFrame();
-
-        showFrame();
-
-        if(vpad.trigger)
-            break;
-    }
+    uiModal(&logsScreen, NULL);
 }

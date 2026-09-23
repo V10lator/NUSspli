@@ -25,10 +25,14 @@
 #include <menu/utils.h>
 #include <renderer.h>
 #include <state.h>
+#include <ui.h>
 #include <updater.h>
 #include <utils.h>
 
-static void drawUpdateMenuFrame(const char *newVersion)
+static const char *updateVersion;
+static NUSSPLI_TYPE updateType;
+
+static void renderUpdateMenu()
 {
     startNewFrame();
     boxToFrame(0, 5);
@@ -45,38 +49,46 @@ static void drawUpdateMenuFrame(const char *newVersion)
     lineToFrame(MAX_LINES - 3, SCREEN_COLOR_WHITE);
     strcpy(toScreen, localise("Press " BUTTON_A " to update to"));
     strcat(toScreen, " ");
-    strcat(toScreen, newVersion);
+    strcat(toScreen, updateVersion);
     textToFrame(MAX_LINES - 2, 0, toScreen);
     textToFrame(MAX_LINES - 1, 0, localise("Press " BUTTON_B " to cancel"));
-    drawFrame();
 }
+
+static void updateUpdateMenu()
+{
+    if(vpad.trigger & VPAD_BUTTON_A)
+    {
+        if(update(updateVersion, updateType))
+        {
+            relaunch();
+            uiSetResult(1);
+            uiPop();
+            return;
+        }
+
+        // update() may have shown dialogs, so make the false explicit
+        uiSetResult(0);
+        uiPop();
+        return;
+    }
+
+    if(vpad.trigger & VPAD_BUTTON_B)
+    {
+        uiSetResult(0);
+        uiPop();
+    }
+}
+
+static const UIScreen updateScreen = {
+    .name = "update",
+    .buttons = VPAD_BUTTON_A | VPAD_BUTTON_B,
+    .update = updateUpdateMenu,
+    .render = renderUpdateMenu,
+};
 
 bool updateMenu(const char *newVersion, NUSSPLI_TYPE type)
 {
-    drawUpdateMenuFrame(newVersion);
-
-    while(AppRunning(true))
-    {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            drawUpdateMenuFrame(newVersion);
-
-        showFrame();
-
-        if(vpad.trigger & VPAD_BUTTON_A)
-        {
-            if(update(newVersion, type))
-            {
-                relaunch();
-                return true;
-            }
-            else
-                break;
-        }
-        if(vpad.trigger & VPAD_BUTTON_B)
-            break;
-    }
-
-    return false;
+    updateVersion = newVersion;
+    updateType = type;
+    return uiModal(&updateScreen, NULL);
 }

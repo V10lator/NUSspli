@@ -57,6 +57,18 @@ typedef struct
 static MISSING_ENTRY *missingEntries;
 static size_t missingEntrySize;
 
+// State of the list screen, reset on every push (enterMCMenu)
+static size_t cursorPos;
+static size_t listPos;
+static bool mov;
+static uint32_t oldHold;
+static size_t frameCount;
+static bool rescan;
+
+// Whether the "no missing content" screen is shown at all (only on the
+// first scan of a menu run, rescans just return)
+static bool firstRun;
+
 static void addMissingCandidate(const MCPTitleListType *list, uint32_t count, uint32_t index, bool isDlc)
 {
     uint64_t tid = isDlc ? BASE_TO_DLC(list[index].titleId) : BASE_TO_UPDATE(list[index].titleId);
@@ -156,8 +168,6 @@ static void drawMCMenuFrame(const size_t pos, const size_t cursor)
         OSBlockMove(toFrame + sizeof("[DLC] ") - 1, me->entry->name, strlen(me->entry->name) + 1, false);
         textToFrameCut(l, 7, toFrame, (SCREEN_WIDTH - (FONT_SIZE << 1)) - (getSpaceWidth() * 8));
     }
-
-    drawFrame();
 }
 
 static bool addOneToQueue(const MISSING_ENTRY *me)
@@ -228,14 +238,39 @@ static bool addOneToQueue(const MISSING_ENTRY *me)
     return false;
 }
 
+// Shows the progress of the synchronous queueing run. The queueing itself
+// blocks, so this presents the frame right away instead of waiting for the
+// main loop: the picture is what the summary overlay is drawn on.
 static inline void drawQFrame()
 {
     startNewFrame();
     textToFrame(0, 0, localise("Queueing missing content..."));
     writeScreenLog(1);
-    drawFrame();
-    showFrame();
+    presentFrame();
 }
+
+// The summary stays on screen until any button is pressed. It sits on top
+// of the last queueing frame, so this screen doesn't draw anything itself.
+static void *queueSummaryOverlay;
+
+static void updateQueueSummary()
+{
+    if(vpad.trigger)
+        uiPop();
+}
+
+static void leaveQueueSummary()
+{
+    uiHideOverlay(queueSummaryOverlay);
+    queueSummaryOverlay = NULL;
+}
+
+static const UIScreen queueSummaryScreen = {
+    .name = "queue summary",
+    .buttons = 0, // any press pops the dialog
+    .update = updateQueueSummary,
+    .leave = leaveQueueSummary,
+};
 
 static bool queueAllMissing()
 {
@@ -260,19 +295,11 @@ static bool queueAllMissing()
     char toFrame[256];
     snprintf(toFrame, sizeof(toFrame), "%s: %zu, %s: %zu", localise("Queued"), queued, localise("Skipped"), skipped);
 
-    void *ovl = addErrorOverlay(toFrame);
-    if(ovl == NULL)
+    queueSummaryOverlay = uiShowOverlay(toFrame);
+    if(queueSummaryOverlay == NULL)
         return true;
 
-    while(AppRunning(true))
-    {
-        showFrame();
-
-        if(vpad.trigger)
-            break;
-    }
-
-    removeErrorOverlay(ovl);
+    uiModal(&queueSummaryScreen, NULL);
 
     if(!AppRunning(true))
         return true;
@@ -283,40 +310,220 @@ static bool queueAllMissing()
     return false;
 }
 
-static void drawNMCscreen()
+static void renderNMCscreen()
 {
     colorStartNewFrame(SCREEN_COLOR_D_GREEN);
     textToFrame(0, 0, localise("No missing content found"));
     textToFrame(2, 0, localise("Press " BUTTON_B " to return"));
-    drawFrame();
 }
+
+static void updateNMCscreen()
+{
+    if(vpad.trigger & VPAD_BUTTON_B)
+        uiPop();
+}
+
+static const UIScreen nmcScreen = {
+    .name = "no missing content",
+    .buttons = VPAD_BUTTON_B,
+    .update = updateNMCscreen,
+    .render = renderNMCscreen,
+};
 
 static inline void showNMCscreen()
 {
-    drawNMCscreen();
-
-    while(AppRunning(true))
-    {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            drawNMCscreen();
-
-        showFrame();
-
-        if(vpad.trigger & VPAD_BUTTON_B)
-            break;
-    }
+    uiModal(&nmcScreen, NULL);
 }
+
+static void renderMCMenu()
+{
+    drawMCMenuFrame(listPos, cursorPos);
+}
+
+static void enterMCMenu(void *param)
+{
+    (void)param;
+    cursorPos = 0;
+    listPos = 0;
+    mov = missingEntrySize > MAX_MC_LINES;
+    oldHold = 0;
+    frameCount = 0;
+    rescan = false;
+}
+
+static void updateMCMenu()
+{
+    bool dpadAction;
+
+    if(vpad.trigger & VPAD_BUTTON_A)
+    {
+        if(!predownloadMenu(missingEntries[cursorPos + listPos].entry, missingEntries[cursorPos + listPos].toUSB ? NUSDEV_USB : NUSDEV_MLC))
+        {
+            rescan = true;
+            uiPop();
+        }
+
+        return;
+    }
+
+    if(vpad.trigger & VPAD_BUTTON_PLUS)
+    {
+        if(queueAllMissing()) // Trigger rescan in case the user removed items from the queue
+        {
+            rescan = true;
+            uiPop();
+        }
+
+        return;
+    }
+
+    if(vpad.trigger & VPAD_BUTTON_B)
+    {
+        uiPop();
+        return;
+    }
+
+    if(vpad.hold & VPAD_BUTTON_UP)
+    {
+        if(oldHold != VPAD_BUTTON_UP)
+        {
+            oldHold = VPAD_BUTTON_UP;
+            frameCount = DPAD_COOLDOWN_FRAMES;
+            dpadAction = true;
+        }
+        else if(frameCount == 0)
+            dpadAction = true;
+        else
+        {
+            --frameCount;
+            dpadAction = false;
+        }
+
+        if(dpadAction)
+        {
+            uiInvalidate();
+            if(cursorPos)
+                cursorPos--;
+            else
+            {
+                if(mov)
+                {
+                    if(listPos)
+                        listPos--;
+                    else
+                    {
+                        cursorPos = MAX_MC_LINES - 1;
+                        listPos = missingEntrySize - MAX_MC_LINES;
+                    }
+                }
+                else
+                    cursorPos = missingEntrySize - 1;
+            }
+        }
+    }
+    else if(vpad.hold & VPAD_BUTTON_DOWN)
+    {
+        if(oldHold != VPAD_BUTTON_DOWN)
+        {
+            oldHold = VPAD_BUTTON_DOWN;
+            frameCount = DPAD_COOLDOWN_FRAMES;
+            dpadAction = true;
+        }
+        else if(frameCount == 0)
+            dpadAction = true;
+        else
+        {
+            --frameCount;
+            dpadAction = false;
+        }
+
+        if(dpadAction)
+        {
+            uiInvalidate();
+            if(cursorPos + listPos >= missingEntrySize - 1 || cursorPos >= MAX_MC_LINES - 1)
+            {
+                if(!mov || ++listPos + cursorPos >= missingEntrySize)
+                    cursorPos = listPos = 0;
+            }
+            else
+                ++cursorPos;
+        }
+    }
+    else if(mov)
+    {
+        if(vpad.hold & VPAD_BUTTON_RIGHT)
+        {
+            if(oldHold != VPAD_BUTTON_RIGHT)
+            {
+                oldHold = VPAD_BUTTON_RIGHT;
+                frameCount = DPAD_COOLDOWN_FRAMES;
+                dpadAction = true;
+            }
+            else if(frameCount == 0)
+                dpadAction = true;
+            else
+            {
+                --frameCount;
+                dpadAction = false;
+            }
+
+            if(dpadAction)
+            {
+                uiInvalidate();
+                listPos += MAX_MC_LINES;
+                if(listPos >= missingEntrySize)
+                    listPos = 0;
+                cursorPos = 0;
+            }
+        }
+        else if(vpad.hold & VPAD_BUTTON_LEFT)
+        {
+            if(oldHold != VPAD_BUTTON_LEFT)
+            {
+                oldHold = VPAD_BUTTON_LEFT;
+                frameCount = DPAD_COOLDOWN_FRAMES;
+                dpadAction = true;
+            }
+            else if(frameCount == 0)
+                dpadAction = true;
+            else
+            {
+                --frameCount;
+                dpadAction = false;
+            }
+
+            if(dpadAction)
+            {
+                uiInvalidate();
+                if(listPos >= MAX_MC_LINES)
+                    listPos -= MAX_MC_LINES;
+                else
+                    listPos = missingEntrySize - MAX_MC_LINES;
+                cursorPos = 0;
+            }
+        }
+    }
+
+    if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
+        oldHold = 0;
+}
+
+static const UIScreen mcListScreen = {
+    .name = "missing content",
+    .buttons = VPAD_BUTTON_A | VPAD_BUTTON_B | VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT | VPAD_BUTTON_PLUS,
+    .enter = enterMCMenu,
+    .update = updateMCMenu,
+    .render = renderMCMenu,
+};
 
 void missingContentMenu()
 {
-    bool firstRun = true;
+    firstRun = true;
+
 entry:
     startNewFrame();
     textToFrame(0, ALIGNED_CENTER, localise("Searching for missing content..."));
-    drawFrame();
-    showFrame();
+    presentFrame();
 
     if(!scanForMissingContent())
     {
@@ -333,184 +540,12 @@ entry:
         return;
     }
 
-    size_t cursor = 0;
-    size_t pos = 0;
-    bool mov;
-    bool redraw = true;
-    uint32_t oldHold = 0;
-    size_t frameCount = 0;
-    bool dpadAction;
-
-    while(AppRunning(true))
-    {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            redraw = true;
-
-        if(redraw)
-        {
-            drawMCMenuFrame(pos, cursor);
-            mov = missingEntrySize > MAX_MC_LINES;
-            redraw = false;
-        }
-        showFrame();
-
-        if(vpad.trigger & VPAD_BUTTON_A)
-        {
-            if(!predownloadMenu(missingEntries[cursor + pos].entry, missingEntries[cursor + pos].toUSB ? NUSDEV_USB : NUSDEV_MLC))
-            {
-                MEMFreeToDefaultHeap(missingEntries);
-                firstRun = false;
-                goto entry;
-            }
-
-            redraw = true;
-            continue;
-        }
-
-        if(vpad.trigger & VPAD_BUTTON_PLUS)
-        {
-            if(queueAllMissing()) // Trigger rescan in case the user removed items from the queue
-            {
-                MEMFreeToDefaultHeap(missingEntries);
-                firstRun = false;
-                goto entry;
-            }
-
-            redraw = true;
-            continue;
-        }
-
-        if(vpad.trigger & VPAD_BUTTON_B)
-            break;
-
-        if(vpad.hold & VPAD_BUTTON_UP)
-        {
-            if(oldHold != VPAD_BUTTON_UP)
-            {
-                oldHold = VPAD_BUTTON_UP;
-                frameCount = DPAD_COOLDOWN_FRAMES;
-                dpadAction = true;
-            }
-            else if(frameCount == 0)
-                dpadAction = true;
-            else
-            {
-                --frameCount;
-                dpadAction = false;
-            }
-
-            if(dpadAction)
-            {
-                if(cursor)
-                    cursor--;
-                else
-                {
-                    if(mov)
-                    {
-                        if(pos)
-                            pos--;
-                        else
-                        {
-                            cursor = MAX_MC_LINES - 1;
-                            pos = missingEntrySize - MAX_MC_LINES;
-                        }
-                    }
-                    else
-                        cursor = missingEntrySize - 1;
-                }
-
-                redraw = true;
-            }
-        }
-        else if(vpad.hold & VPAD_BUTTON_DOWN)
-        {
-            if(oldHold != VPAD_BUTTON_DOWN)
-            {
-                oldHold = VPAD_BUTTON_DOWN;
-                frameCount = DPAD_COOLDOWN_FRAMES;
-                dpadAction = true;
-            }
-            else if(frameCount == 0)
-                dpadAction = true;
-            else
-            {
-                --frameCount;
-                dpadAction = false;
-            }
-
-            if(dpadAction)
-            {
-                if(cursor + pos >= missingEntrySize - 1 || cursor >= MAX_MC_LINES - 1)
-                {
-                    if(!mov || ++pos + cursor >= missingEntrySize)
-                        cursor = pos = 0;
-                }
-                else
-                    ++cursor;
-
-                redraw = true;
-            }
-        }
-        else if(mov)
-        {
-            if(vpad.hold & VPAD_BUTTON_RIGHT)
-            {
-                if(oldHold != VPAD_BUTTON_RIGHT)
-                {
-                    oldHold = VPAD_BUTTON_RIGHT;
-                    frameCount = DPAD_COOLDOWN_FRAMES;
-                    dpadAction = true;
-                }
-                else if(frameCount == 0)
-                    dpadAction = true;
-                else
-                {
-                    --frameCount;
-                    dpadAction = false;
-                }
-
-                if(dpadAction)
-                {
-                    pos += MAX_MC_LINES;
-                    if(pos >= missingEntrySize)
-                        pos = 0;
-                    cursor = 0;
-                    redraw = true;
-                }
-            }
-            else if(vpad.hold & VPAD_BUTTON_LEFT)
-            {
-                if(oldHold != VPAD_BUTTON_LEFT)
-                {
-                    oldHold = VPAD_BUTTON_LEFT;
-                    frameCount = DPAD_COOLDOWN_FRAMES;
-                    dpadAction = true;
-                }
-                else if(frameCount == 0)
-                    dpadAction = true;
-                else
-                {
-                    --frameCount;
-                    dpadAction = false;
-                }
-
-                if(dpadAction)
-                {
-                    if(pos >= MAX_MC_LINES)
-                        pos -= MAX_MC_LINES;
-                    else
-                        pos = missingEntrySize - MAX_MC_LINES;
-                    cursor = 0;
-                    redraw = true;
-                }
-            }
-        }
-
-        if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
-            oldHold = 0;
-    }
+    uiModal(&mcListScreen, NULL);
 
     MEMFreeToDefaultHeap(missingEntries);
+    if(rescan) // Trigger rescan in case the user removed items from the queue
+    {
+        firstRun = false;
+        goto entry;
+    }
 }

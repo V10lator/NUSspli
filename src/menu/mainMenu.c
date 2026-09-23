@@ -36,6 +36,7 @@
 #include <renderer.h>
 #include <state.h>
 #include <ticket.h>
+#include <ui.h>
 #include <utils.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
@@ -44,7 +45,7 @@
 
 static int cursorPos = 11;
 
-static void drawMainMenuFrame()
+static void renderMainMenuFrame()
 {
     startNewFrame();
     boxToFrame(0, 5);
@@ -83,77 +84,67 @@ static void drawMainMenuFrame()
 
     lineToFrame(MAX_LINES - 2, SCREEN_COLOR_WHITE);
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, localise("Press " BUTTON_HOME " or " BUTTON_B " to exit"));
-
-    drawFrame();
 }
+
+static void updateMainMenu()
+{
+    if(vpad.trigger & VPAD_BUTTON_B)
+    {
+        if(showExitOverlay(true))
+        {
+            drawByeFrame();
+            uiExit();
+        }
+    }
+    else if(vpad.trigger & VPAD_BUTTON_A)
+    {
+        switch(cursorPos)
+        {
+            case 11:
+                titleBrowserMenu();
+                break;
+            case 12:
+                installerMenu();
+                break;
+            case 13:
+                generateFakeTicket();
+                break;
+            case 14:
+                ititleBrowserMenu();
+                break;
+            case 15:
+                missingContentMenu();
+                break;
+            case 16:
+                configMenu();
+                break;
+            case 17:
+                logsMenu();
+                break;
+        }
+    }
+    else if(vpad.trigger & VPAD_BUTTON_DOWN)
+    {
+        if(++cursorPos == 18)
+            cursorPos = 11;
+    }
+    else if(vpad.trigger & VPAD_BUTTON_UP)
+    {
+        if(--cursorPos == 10)
+            cursorPos = 17;
+    }
+}
+
+static const UIScreen mainScreen = {
+    .name = "main menu",
+    .buttons = VPAD_BUTTON_A | VPAD_BUTTON_B | VPAD_BUTTON_UP | VPAD_BUTTON_DOWN,
+    .update = updateMainMenu,
+    .render = renderMainMenuFrame,
+};
 
 void mainMenu()
 {
-    bool redraw = true;
-    while(AppRunning(true))
-    {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            redraw = true;
-
-        if(redraw)
-        {
-            drawMainMenuFrame();
-            redraw = false;
-        }
-        showFrame();
-
-        if(vpad.trigger & VPAD_BUTTON_B)
-        {
-            if(showExitOverlay(true))
-            {
-                drawByeFrame();
-                return;
-            }
-        }
-        else if(vpad.trigger & VPAD_BUTTON_A)
-        {
-            switch(cursorPos)
-            {
-                case 11:
-                    titleBrowserMenu();
-                    break;
-                case 12:
-                    installerMenu();
-                    break;
-                case 13:
-                    generateFakeTicket();
-                    break;
-                case 14:
-                    ititleBrowserMenu();
-                    break;
-                case 15:
-                    missingContentMenu();
-                    break;
-                case 16:
-                    configMenu();
-                    break;
-                case 17:
-                    logsMenu();
-                    break;
-            }
-
-            redraw = true;
-        }
-        else if(vpad.trigger & VPAD_BUTTON_DOWN)
-        {
-            if(++cursorPos == 18)
-                cursorPos = 11;
-
-            redraw = true;
-        }
-        else if(vpad.trigger & VPAD_BUTTON_UP)
-        {
-            if(--cursorPos == 10)
-                cursorPos = 17;
-
-            redraw = true;
-        }
-    }
+    // The main menu is the root screen: uiRun is THE loop of the app.
+    uiPush(&mainScreen, NULL);
+    uiRun();
 }

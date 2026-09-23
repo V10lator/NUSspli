@@ -35,6 +35,7 @@
 #include <renderer.h>
 #include <state.h>
 #include <titles.h>
+#include <ui.h>
 #include <utils.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
@@ -92,18 +93,28 @@ static void foldCase(char *str)
     }
 }
 
-static void updateFilter(const TITLE_CATEGORY tab, char *search)
+// The old loop locals. enter resets them so every fresh opening of the
+// browser starts out like before, while pop-less paths (the finished
+// download behind the A button) keep the state like the old goto loop did.
+static TITLE_CATEGORY tab;
+static size_t cursor;
+static size_t pos;
+static char search[129];
+static uint32_t oldHold;
+static size_t frameCount;
+
+static void updateFilter(const TITLE_CATEGORY category, char *searchBuf)
 {
-    filteredTitleEntrySize = getTitleEntriesSize(tab);
-    const TitleEntry *titleEntrys = getTitleEntries(tab);
+    filteredTitleEntrySize = getTitleEntriesSize(category);
+    const TitleEntry *titleEntrys = getTitleEntries(category);
     MCPRegion currentRegion = getRegion();
     size_t l = 0;
     size_t j;
     size_t max;
 
-    if(search[0] != '\0')
+    if(searchBuf[0] != '\0')
     {
-        foldCase(search);
+        foldCase(searchBuf);
 
         char *ptr[2];
         bool found;
@@ -122,7 +133,7 @@ static void updateFilter(const TITLE_CATEGORY tab, char *search)
 
             tmpName[j] = '\0';
             foldCase(tmpName);
-            ptr[0] = search;
+            ptr[0] = searchBuf;
             ptr[1] = strstr(ptr[0], " ");
             while(true)
             {
@@ -161,7 +172,48 @@ static void updateFilter(const TITLE_CATEGORY tab, char *search)
     filterDirty = false;
 }
 
-static void drawTBMenuFrame(const TITLE_CATEGORY tab, const size_t pos, const size_t cursor, char *search)
+static bool allocTitleList()
+{
+    filteredTitleEntrySize = getTitleEntriesSize(TITLE_CATEGORY_ALL);
+    filteredTitleEntries = (TitleEntry **)MEMAllocFromDefaultHeap(filteredTitleEntrySize * sizeof(uintptr_t));
+    if(filteredTitleEntries == NULL)
+    {
+        debugPrintf("Titlebrowser: OUT OF MEMORY!");
+        return false;
+    }
+
+    return true;
+}
+
+// Fresh browser session: default tab, cleared search, list filtered for it.
+static void resetTitleBrowser()
+{
+    tab = TITLE_CATEGORY_GAME;
+    cursor = 0;
+    pos = 0;
+    search[0] = '\0';
+    oldHold = 0;
+    frameCount = 0;
+    filterDirty = true;
+    updateFilter(tab, search); // The old code filtered before the first input, too
+}
+
+static void enterTitleBrowser(void *param)
+{
+    (void)param;
+    resetTitleBrowser();
+}
+
+static void leaveTitleBrowser()
+{
+    if(filteredTitleEntries != NULL)
+    {
+        MEMFreeToDefaultHeap(filteredTitleEntries);
+        filteredTitleEntries = NULL;
+    }
+}
+
+static void renderTitleBrowserFrame()
 {
     startNewFrame();
 
@@ -239,106 +291,107 @@ static void drawTBMenuFrame(const TITLE_CATEGORY tab, const size_t pos, const si
         else
             textToFrameCut(l, 10, toFrame, (SCREEN_WIDTH - (FONT_SIZE << 1)) - (getSpaceWidth() * 11));
     }
-    drawFrame();
 }
 
-void titleBrowserMenu()
+static void updateTitleBrowser()
 {
-    filteredTitleEntrySize = getTitleEntriesSize(TITLE_CATEGORY_ALL);
-    filteredTitleEntries = (TitleEntry **)MEMAllocFromDefaultHeap(filteredTitleEntrySize * sizeof(uintptr_t));
-    if(filteredTitleEntries == NULL)
+    const bool mov = filteredTitleEntrySize > MAX_TITLEBROWSER_LINES;
+    bool dpadAction;
+
+    if(vpad.trigger & VPAD_BUTTON_A && filteredTitleEntrySize) // The filter can match nothing
     {
-        debugPrintf("Titlebrowser: OUT OF MEMORY!");
+        const TitleEntry *entry = filteredTitleEntries[cursor + pos];
+        if(!predownloadMenu(entry, NUSDEV_NONE)) // entry is initialised
+        {
+            uiPop();
+            return;
+        }
+
+        // Finished download: stay in the browser with the state we had.
+        // The old goto loop only redrew, which happens every frame now.
         return;
     }
 
-    TITLE_CATEGORY tab = TITLE_CATEGORY_GAME;
-    size_t cursor = 0;
-    size_t pos = 0;
-    char search[129];
-    search[0] = '\0';
-    filterDirty = true;
-    bool redraw;
-    const TitleEntry *entry;
-    uint32_t oldHold = 0;
-    size_t frameCount = 0;
-    bool dpadAction;
-    bool mov;
-loop:
-    redraw = true;
-
-    while(AppRunning(true))
+    if(vpad.trigger & VPAD_BUTTON_B)
     {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            redraw = true;
+        uiPop();
+        return;
+    }
 
-        if(redraw)
+    if(vpad.hold & VPAD_BUTTON_UP)
+    {
+        if(oldHold != VPAD_BUTTON_UP)
         {
-            drawTBMenuFrame(tab, pos, cursor, search);
-            mov = filteredTitleEntrySize > MAX_TITLEBROWSER_LINES;
-            redraw = false;
+            oldHold = VPAD_BUTTON_UP;
+            frameCount = DPAD_COOLDOWN_FRAMES;
+            dpadAction = true;
         }
-        showFrame();
-
-        if(vpad.trigger & VPAD_BUTTON_A && filteredTitleEntrySize) // The filter can match nothing
+        else if(frameCount == 0)
+            dpadAction = true;
+        else
         {
-            entry = filteredTitleEntries[cursor + pos];
-            break;
-        }
-
-        if(vpad.trigger & VPAD_BUTTON_B)
-        {
-            MEMFreeToDefaultHeap(filteredTitleEntries);
-            return;
+            --frameCount;
+            dpadAction = false;
         }
 
-        if(vpad.hold & VPAD_BUTTON_UP)
+        if(dpadAction && filteredTitleEntrySize)
         {
-            if(oldHold != VPAD_BUTTON_UP)
-            {
-                oldHold = VPAD_BUTTON_UP;
-                frameCount = 30;
-                dpadAction = true;
-            }
-            else if(frameCount == 0)
-                dpadAction = true;
+            uiInvalidate();
+            if(cursor)
+                cursor--;
             else
             {
-                --frameCount;
-                dpadAction = false;
-            }
-
-            if(dpadAction && filteredTitleEntrySize)
-            {
-                if(cursor)
-                    cursor--;
-                else
+                if(mov)
                 {
-                    if(mov)
+                    if(pos)
+                        pos--;
+                    else
                     {
-                        if(pos)
-                            pos--;
-                        else
-                        {
-                            cursor = MAX_TITLEBROWSER_LINES - 1;
-                            pos = filteredTitleEntrySize - MAX_TITLEBROWSER_LINES;
-                        }
+                        cursor = MAX_TITLEBROWSER_LINES - 1;
+                        pos = filteredTitleEntrySize - MAX_TITLEBROWSER_LINES;
                     }
-                    else
-                        cursor = filteredTitleEntrySize - 1;
                 }
-
-                redraw = true;
+                else
+                    cursor = filteredTitleEntrySize - 1;
             }
         }
-        else if(vpad.hold & VPAD_BUTTON_DOWN)
+    }
+    else if(vpad.hold & VPAD_BUTTON_DOWN)
+    {
+        if(oldHold != VPAD_BUTTON_DOWN)
         {
-            if(oldHold != VPAD_BUTTON_DOWN)
+            oldHold = VPAD_BUTTON_DOWN;
+            frameCount = DPAD_COOLDOWN_FRAMES;
+            dpadAction = true;
+        }
+        else if(frameCount == 0)
+            dpadAction = true;
+        else
+        {
+            --frameCount;
+            dpadAction = false;
+        }
+
+        if(dpadAction && filteredTitleEntrySize)
+        {
+            uiInvalidate();
+            if(cursor + pos >= filteredTitleEntrySize - 1 || cursor >= MAX_TITLEBROWSER_LINES - 1)
             {
-                oldHold = VPAD_BUTTON_DOWN;
-                frameCount = 30;
+                if(!mov || ++pos + cursor >= filteredTitleEntrySize)
+                    cursor = pos = 0;
+            }
+            else
+                ++cursor;
+        }
+    }
+    else if(mov)
+    {
+        if(vpad.hold & VPAD_BUTTON_RIGHT)
+        {
+            if(oldHold != VPAD_BUTTON_RIGHT)
+            {
+                oldHold = VPAD_BUTTON_RIGHT;
+                frameCount = DPAD_COOLDOWN_FRAMES;
                 dpadAction = true;
             }
             else if(frameCount == 0)
@@ -349,144 +402,133 @@ loop:
                 dpadAction = false;
             }
 
-            if(dpadAction && filteredTitleEntrySize)
+            if(dpadAction)
             {
-                if(cursor + pos >= filteredTitleEntrySize - 1 || cursor >= MAX_TITLEBROWSER_LINES - 1)
-                {
-                    if(!mov || ++pos + cursor >= filteredTitleEntrySize)
-                        cursor = pos = 0;
-                }
-                else
-                    ++cursor;
-
-                redraw = true;
+                uiInvalidate();
+                pos += MAX_TITLEBROWSER_LINES;
+                if(pos >= filteredTitleEntrySize)
+                    pos = 0;
+                cursor = 0;
             }
         }
-        else if(mov)
+        else if(vpad.hold & VPAD_BUTTON_LEFT)
         {
-            if(vpad.hold & VPAD_BUTTON_RIGHT)
+            if(oldHold != VPAD_BUTTON_LEFT)
             {
-                if(oldHold != VPAD_BUTTON_RIGHT)
-                {
-                    oldHold = VPAD_BUTTON_RIGHT;
-                    frameCount = 30;
-                    dpadAction = true;
-                }
-                else if(frameCount == 0)
-                    dpadAction = true;
-                else
-                {
-                    --frameCount;
-                    dpadAction = false;
-                }
-
-                if(dpadAction)
-                {
-                    pos += MAX_TITLEBROWSER_LINES;
-                    if(pos >= filteredTitleEntrySize)
-                        pos = 0;
-                    cursor = 0;
-                    redraw = true;
-                }
+                oldHold = VPAD_BUTTON_LEFT;
+                frameCount = DPAD_COOLDOWN_FRAMES;
+                dpadAction = true;
             }
-            else if(vpad.hold & VPAD_BUTTON_LEFT)
+            else if(frameCount == 0)
+                dpadAction = true;
+            else
             {
-                if(oldHold != VPAD_BUTTON_LEFT)
-                {
-                    oldHold = VPAD_BUTTON_LEFT;
-                    frameCount = 30;
-                    dpadAction = true;
-                }
-                else if(frameCount == 0)
-                    dpadAction = true;
-                else
-                {
-                    --frameCount;
-                    dpadAction = false;
-                }
+                --frameCount;
+                dpadAction = false;
+            }
 
-                if(dpadAction)
-                {
-                    if(pos >= MAX_TITLEBROWSER_LINES)
-                        pos -= MAX_TITLEBROWSER_LINES;
-                    else
-                        pos = filteredTitleEntrySize - MAX_TITLEBROWSER_LINES;
-                    cursor = 0;
-                    redraw = true;
-                }
+            if(dpadAction)
+            {
+                uiInvalidate();
+                if(pos >= MAX_TITLEBROWSER_LINES)
+                    pos -= MAX_TITLEBROWSER_LINES;
+                else
+                    pos = filteredTitleEntrySize - MAX_TITLEBROWSER_LINES;
+                cursor = 0;
             }
         }
+    }
 
-        if(vpad.trigger & VPAD_BUTTON_X)
+    if(vpad.trigger & VPAD_BUTTON_X)
+    {
+        // The list stays alive until downloadMenu is done: dialogs it
+        // shows on top redraw this screen when they close.
+        if(!downloadMenu())
         {
+            // The user cancelled: start over fresh like the old
+            // recursive call did.
             MEMFreeToDefaultHeap(filteredTitleEntries);
-            if(!downloadMenu())
-                titleBrowserMenu();
-            return;
-        }
-
-        if(vpad.trigger & VPAD_BUTTON_MINUS && getListSize(getTitleQueue()))
-        {
-            if(queueMenu())
+            filteredTitleEntries = NULL;
+            if(!allocTitleList())
             {
-                MEMFreeToDefaultHeap(filteredTitleEntries);
+                uiPop();
                 return;
             }
 
-            redraw = true;
+            resetTitleBrowser();
+            return;
         }
 
-        if(vpad.trigger & VPAD_BUTTON_Y)
-        {
-            char oldSearch[sizeof(search)];
-            strcpy(oldSearch, search);
-            showKeyboard(KEYBOARD_LAYOUT_NORMAL, KEYBOARD_TYPE_NORMAL, search, CHECK_NONE, 128, false, search, localise("Search"));
-            if(strcmp(oldSearch, search) != 0)
-            {
-                cursor = pos = 0;
-                filterDirty = true;
-                redraw = true;
-            }
-        }
-
-        if(vpad.trigger & VPAD_BUTTON_R || vpad.trigger & VPAD_BUTTON_ZR || vpad.trigger & VPAD_BUTTON_PLUS)
-        {
-            size_t tt = (size_t)tab;
-            if(++tt > TITLE_CATEGORY_ALL)
-                tt = (size_t)TITLE_CATEGORY_GAME;
-
-            tab = (TITLE_CATEGORY)tt;
-            cursor = pos = 0;
-            filterDirty = true;
-            redraw = true;
-        }
-        else if(vpad.trigger & VPAD_BUTTON_L || vpad.trigger & VPAD_BUTTON_ZL)
-        {
-            if(tab == TITLE_CATEGORY_GAME)
-                tab = TITLE_CATEGORY_ALL;
-            else
-            {
-                size_t tt = (size_t)tab;
-                tt--;
-                tab = (TITLE_CATEGORY)tt;
-            }
-
-            cursor = pos = 0;
-            filterDirty = true;
-            redraw = true;
-        }
-
-        if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
-            oldHold = 0;
-    }
-    if(!AppRunning(true))
-    {
-        MEMFreeToDefaultHeap(filteredTitleEntries);
+        uiPop(); // leaveTitleBrowser frees the list
         return;
     }
 
-    if(predownloadMenu(entry, NUSDEV_NONE)) // entry is initialised
-        goto loop;
+    if(vpad.trigger & VPAD_BUTTON_MINUS && getListSize(getTitleQueue()))
+    {
+        if(queueMenu())
+        {
+            uiPop();
+            return;
+        }
 
-    MEMFreeToDefaultHeap(filteredTitleEntries);
+        // Back in the browser: it gets rendered again anyway.
+        return;
+    }
+
+    if(vpad.trigger & VPAD_BUTTON_Y)
+    {
+        char oldSearch[sizeof(search)];
+        strcpy(oldSearch, search);
+        showKeyboard(KEYBOARD_LAYOUT_NORMAL, KEYBOARD_TYPE_NORMAL, search, CHECK_NONE, 128, false, search, localise("Search"));
+        if(strcmp(oldSearch, search) != 0)
+        {
+            cursor = pos = 0;
+            filterDirty = true;
+        }
+    }
+
+    if(vpad.trigger & VPAD_BUTTON_R || vpad.trigger & VPAD_BUTTON_ZR || vpad.trigger & VPAD_BUTTON_PLUS)
+    {
+        size_t tt = (size_t)tab;
+        if(++tt > TITLE_CATEGORY_ALL)
+            tt = (size_t)TITLE_CATEGORY_GAME;
+
+        tab = (TITLE_CATEGORY)tt;
+        cursor = pos = 0;
+        filterDirty = true;
+    }
+    else if(vpad.trigger & VPAD_BUTTON_L || vpad.trigger & VPAD_BUTTON_ZL)
+    {
+        if(tab == TITLE_CATEGORY_GAME)
+            tab = TITLE_CATEGORY_ALL;
+        else
+        {
+            size_t tt = (size_t)tab;
+            tt--;
+            tab = (TITLE_CATEGORY)tt;
+        }
+
+        cursor = pos = 0;
+        filterDirty = true;
+    }
+
+    if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
+        oldHold = 0;
+}
+
+static const UIScreen titleBrowserScreen = {
+    .name = "title browser",
+    .buttons = VPAD_BUTTON_A | VPAD_BUTTON_B | VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT | VPAD_BUTTON_L | VPAD_BUTTON_R | VPAD_BUTTON_ZL | VPAD_BUTTON_ZR | VPAD_BUTTON_X | VPAD_BUTTON_Y | VPAD_BUTTON_PLUS | VPAD_BUTTON_MINUS,
+    .enter = enterTitleBrowser,
+    .update = updateTitleBrowser,
+    .render = renderTitleBrowserFrame,
+    .leave = leaveTitleBrowser,
+};
+
+void titleBrowserMenu()
+{
+    if(!allocTitleList())
+        return;
+
+    uiModal(&titleBrowserScreen, NULL);
 }

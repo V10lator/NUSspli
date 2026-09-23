@@ -37,6 +37,7 @@
 #include <stdio.h>
 #include <titles.h>
 #include <tmd.h>
+#include <ui.h>
 #include <utils.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
@@ -114,7 +115,7 @@ void writeScreenLog(int line)
     }
 }
 
-void drawErrorFrame(const char *text, ErrorOptions option)
+static void drawErrorFrameContent(const char *text, ErrorOptions option)
 {
     colorStartNewFrame(SCREEN_COLOR_RED);
 
@@ -157,25 +158,113 @@ void drawErrorFrame(const char *text, ErrorOptions option)
 
     lineToFrame(--line, SCREEN_COLOR_WHITE);
     textToFrame(--line, 0, "NUSspli v" NUSSPLI_VERSION);
+}
+
+void drawErrorFrame(const char *text, ErrorOptions option)
+{
+    drawErrorFrameContent(text, option);
     drawFrame();
+}
+
+static const char *errorDialogText;
+static ErrorOptions errorDialogOptions;
+
+static void updateErrorDialog()
+{
+    ErrorOptions pressed = 0;
+
+    if(errorDialogOptions == ANY_RETURN)
+    {
+        if(vpad.trigger)
+            pressed = ANY_RETURN;
+    }
+    else
+    {
+        if(vpad.trigger & VPAD_BUTTON_B)
+            pressed |= B_RETURN;
+        if(vpad.trigger & VPAD_BUTTON_A)
+            pressed |= A_CONTINUE;
+        if(vpad.trigger & VPAD_BUTTON_Y)
+            pressed |= Y_RETRY;
+
+        pressed &= errorDialogOptions;
+    }
+
+    if(pressed)
+    {
+        uiSetResult((int)pressed);
+        uiPop();
+    }
+}
+
+static void renderErrorDialog()
+{
+    drawErrorFrameContent(errorDialogText, errorDialogOptions);
+}
+
+static const UIScreen errorDialog = {
+    .name = "error dialog",
+    .buttons = 0, // ANY_RETURN takes every button, so any press redraws
+    .update = updateErrorDialog,
+    .render = renderErrorDialog,
+};
+
+ErrorOptions showErrorDialog(const char *text, ErrorOptions option)
+{
+    const char *oldText = errorDialogText;
+    ErrorOptions oldOptions = errorDialogOptions;
+    errorDialogText = text;
+    errorDialogOptions = option;
+
+    ErrorOptions ret = (ErrorOptions)uiModal(&errorDialog, NULL);
+
+    errorDialogText = oldText;
+    errorDialogOptions = oldOptions;
+    return ret;
 }
 
 void showErrorFrame(const char *text)
 {
-    drawErrorFrame(text, ANY_RETURN);
+    showErrorDialog(text, ANY_RETURN);
+}
 
-    while(AppRunning(true))
+// The three brick warnings share one overlay dialog: an overlay keeps the
+// frame below visible, A continues, B cancels.
+static void *yesNoOverlay;
+
+static void updateYesNoDialog()
+{
+    if(vpad.trigger & VPAD_BUTTON_A)
     {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            drawErrorFrame(text, ANY_RETURN);
-
-        showFrame();
-
-        if(vpad.trigger)
-            break;
+        uiSetResult(1);
+        uiPop();
     }
+    else if(vpad.trigger & VPAD_BUTTON_B)
+        uiPop();
+}
+
+static void leaveYesNoDialog()
+{
+    uiHideOverlay(yesNoOverlay);
+    yesNoOverlay = NULL;
+}
+
+static const UIScreen yesNoDialog = {
+    .name = "yes/no dialog",
+    .buttons = VPAD_BUTTON_A | VPAD_BUTTON_B,
+    .update = updateYesNoDialog,
+    .leave = leaveYesNoDialog,
+};
+
+// Shows msg as an overlay and blocks until the user picked an answer.
+// Returns false on B or when the overlay couldn't be created.
+static bool askYesNo(const char *msg)
+{
+    yesNoOverlay = uiShowOverlay(msg);
+    if(yesNoOverlay == NULL)
+        return false;
+
+    return uiModal(&yesNoDialog, NULL) != 0;
 }
 
 bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall)
@@ -241,92 +330,25 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall)
         localise("Yes"),
         localise("No"));
 
-    void *ovl = addErrorOverlay(toFrame);
-    if(ovl == NULL)
+    if(!askYesNo(toFrame))
         return false;
 
-    bool ret = AppRunning(true);
-    while(ret)
-    {
-        showFrame();
+    sprintf(toFrame,
+        "%s\n\n" BUTTON_A " %s || " BUTTON_B " %s",
+        localise("Are you really sure you want to brick your Wii U?"),
+        localise("Yes"),
+        localise("No"));
 
-        if(vpad.trigger & VPAD_BUTTON_A)
-            break;
-        if(vpad.trigger & VPAD_BUTTON_B)
-        {
-            ret = false;
-            break;
-        }
+    if(!askYesNo(toFrame))
+        return false;
 
-        ret = AppRunning(true);
-    }
+    sprintf(toFrame,
+        "%s\n\n" BUTTON_A " %s || " BUTTON_B " %s",
+        localise("You're on your own doing this,\ndo you understand the consequences?"),
+        localise("Yes"),
+        localise("No"));
 
-    removeErrorOverlay(ovl);
-
-    // The loops above also end when the app stops, and ret is false
-    // then: no answer came, so a confirmation only counts as long as the
-    // app runs, and the dialogs that follow must not come up in the
-    // middle of a shutdown.
-    if(ret)
-    {
-        sprintf(toFrame,
-            "%s\n\n" BUTTON_A " %s || " BUTTON_B " %s",
-            localise("Are you really sure you want to brick your Wii U?"),
-            localise("Yes"),
-            localise("No"));
-
-        ovl = addErrorOverlay(toFrame);
-        if(ovl == NULL)
-            return false;
-
-        while(ret)
-        {
-            showFrame();
-
-            if(vpad.trigger & VPAD_BUTTON_A)
-                break;
-            if(vpad.trigger & VPAD_BUTTON_B)
-            {
-                ret = false;
-                break;
-            }
-
-            ret = AppRunning(true);
-        }
-        removeErrorOverlay(ovl);
-    }
-
-    if(ret)
-    {
-        sprintf(toFrame,
-            "%s\n\n" BUTTON_A " %s || " BUTTON_B " %s",
-            localise("You're on your own doing this,\ndo you understand the consequences?"),
-            localise("Yes"),
-            localise("No"));
-
-        ovl = addErrorOverlay(toFrame);
-        if(ovl == NULL)
-            return false;
-
-        while(ret)
-        {
-            showFrame();
-
-            if(vpad.trigger & VPAD_BUTTON_A)
-                break;
-            if(vpad.trigger & VPAD_BUTTON_B)
-            {
-                ret = false;
-                break;
-            }
-
-            ret = AppRunning(true);
-        }
-        removeErrorOverlay(ovl);
-    }
-
-    // The last loop can end the same way: a stopped app never said yes.
-    return ret;
+    return askYesNo(toFrame);
 }
 
 bool checkSystemTitleFromEntry(const TitleEntry *entry, bool deinstall)
@@ -372,14 +394,43 @@ const char *prettyDir(const char *dir)
     return ret;
 }
 
-static inline void drawFinishedScreen(const char *titleName, const char *text, FINISHING_OPERATION op)
+static const char *finishedTitle;
+static const char *finishedText;
+static FINISHING_OPERATION finishedOp;
+
+static void enterFinishedDialog(void *param)
+{
+    (void)param;
+    startNotification();
+}
+
+static void updateFinishedDialog()
+{
+    if(vpad.trigger)
+        uiPop();
+}
+
+static void renderFinishedDialog()
 {
     colorStartNewFrame(SCREEN_COLOR_D_GREEN);
-    int i = op != FINISHING_OPERATION_QUEUE ? textToFrameMultiline(0, ALIGNED_CENTER, titleName, MAX_CHARS) : 0;
-    textToFrame(i++, 0, text);
+    int i = finishedOp != FINISHING_OPERATION_QUEUE ? textToFrameMultiline(0, ALIGNED_CENTER, finishedTitle, MAX_CHARS) : 0;
+    textToFrame(i++, 0, finishedText);
     writeScreenLog(i);
-    drawFrame();
 }
+
+static void leaveFinishedDialog()
+{
+    stopNotification();
+}
+
+static const UIScreen finishedDialog = {
+    .name = "finished dialog",
+    .buttons = 0, // any press pops the dialog
+    .enter = enterFinishedDialog,
+    .update = updateFinishedDialog,
+    .render = renderFinishedDialog,
+    .leave = leaveFinishedDialog,
+};
 
 void showFinishedScreen(const char *titleName, FINISHING_OPERATION op)
 {
@@ -400,24 +451,32 @@ void showFinishedScreen(const char *titleName, FINISHING_OPERATION op)
             break;
     }
 
-    drawFinishedScreen(titleName, text, op);
-    startNotification();
-
-    while(AppRunning(true))
-    {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            drawFinishedScreen(titleName, text, op);
-
-        showFrame();
-
-        if(vpad.trigger)
-            break;
-    }
-
-    stopNotification();
+    finishedTitle = titleName;
+    finishedText = text;
+    finishedOp = op;
+    uiModal(&finishedDialog, NULL);
 }
+
+static void *noSpaceOverlay;
+
+static void updateNoSpaceDialog()
+{
+    if(vpad.trigger)
+        uiPop();
+}
+
+static void leaveNoSpaceDialog()
+{
+    uiHideOverlay(noSpaceOverlay);
+    noSpaceOverlay = NULL;
+}
+
+static const UIScreen noSpaceDialog = {
+    .name = "no space dialog",
+    .buttons = 0, // any press pops the dialog
+    .update = updateNoSpaceDialog,
+    .leave = leaveNoSpaceDialog,
+};
 
 void showNoSpaceOverlay(NUSDEV dev)
 {
@@ -439,19 +498,11 @@ void showNoSpaceOverlay(NUSDEV dev)
     char toFrame[256];
     sprintf(toFrame, "%s  %s\n\n%s", localise("Not enough free space on"), nd, localise("Press any key to return")); // nd is initialised!
 
-    void *ovl = addErrorOverlay(toFrame);
-    if(ovl != NULL)
-    {
-        while(AppRunning(true))
-        {
-            showFrame();
+    noSpaceOverlay = uiShowOverlay(toFrame);
+    if(noSpaceOverlay == NULL)
+        return;
 
-            if(vpad.trigger)
-                break;
-        }
-
-        removeErrorOverlay(ovl);
-    }
+    uiModal(&noSpaceDialog, NULL);
 }
 
 bool showExitOverlay(bool really)
@@ -471,29 +522,18 @@ bool showExitOverlay(bool really)
     OSBlockMove(ovlMsg + extMsgS + sizeof("\n\n" BUTTON_A) + yesS, " || " BUTTON_B " ", sizeof(" || " BUTTON_B), false);
     OSBlockMove(ovlMsg + extMsgS + sizeof("\n\n" BUTTON_A) + yesS + sizeof(" || " BUTTON_B), no, noS, false);
 
-    void *ovl = addErrorOverlay(ovlMsg);
+    void *ovl = uiShowOverlay(ovlMsg);
     if(ovl == NULL)
         return true;
 
-    bool ret = false;
-    if(really)
+    if(!really)
     {
-        while(AppRunning(true))
-        {
-            showFrame();
-
-            if(vpad.trigger & VPAD_BUTTON_A)
-            {
-                ret = true;
-                break;
-            }
-            if(vpad.trigger & VPAD_BUTTON_B)
-                break;
-        }
+        uiHideOverlay(ovl);
+        return false;
     }
 
-    removeErrorOverlay(ovl);
-    return ret;
+    yesNoOverlay = ovl;
+    return uiModal(&yesNoDialog, NULL) != 0;
 }
 
 void humanize(uint64_t size, char *out)

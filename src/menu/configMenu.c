@@ -30,6 +30,7 @@
 #include <state.h>
 #include <swkbd_wrapper.h>
 #include <titles.h>
+#include <ui.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/mcp.h>
@@ -39,7 +40,13 @@
 
 static int cursorPos = 0;
 
-static void drawConfigMenu()
+static void enterConfigMenu(void *param)
+{
+    (void)param;
+    cursorPos = 0;
+}
+
+static void renderConfigMenu()
 {
     startNewFrame();
     char toScreen[256];
@@ -78,8 +85,6 @@ static void drawConfigMenu()
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, localise("Press " BUTTON_B " to return"));
 
     arrowToFrame(cursorPos, 0);
-
-    drawFrame();
 }
 
 static inline void switchMenuLanguage()
@@ -268,68 +273,62 @@ static inline void switchParallelMode()
     setParallelMode(mode);
 }
 
-void configMenu()
+static void updateConfigMenu()
 {
-    bool redraw = true;
-    while(AppRunning(true))
+    if(vpad.trigger & VPAD_BUTTON_B)
     {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            redraw = true;
+        saveConfig(false);
+        uiPop();
+        return;
+    }
 
-        if(redraw)
+    if(vpad.trigger & (VPAD_BUTTON_RIGHT | VPAD_BUTTON_LEFT | VPAD_BUTTON_A))
+    {
+        switch(cursorPos)
         {
-            drawConfigMenu();
-            redraw = false;
-        }
-        showFrame();
-
-        if(vpad.trigger & VPAD_BUTTON_B)
-        {
-            saveConfig(false);
-            return;
-        }
-
-        if(vpad.trigger & (VPAD_BUTTON_RIGHT | VPAD_BUTTON_LEFT | VPAD_BUTTON_A))
-        {
-            switch(cursorPos)
-            {
-                case 0:
-                    switchMenuLanguage();
-                    break;
-                case 1:
-                    setUpdateCheck(!updateCheckEnabled());
-                    break;
-                case 2:
-                    setAutoResume(!autoResumeEnabled());
-                    break;
-                case 3:
-                    switchNotificationMethod();
-                    break;
-                case 4:
-                    switchRegion();
-                    break;
-                case 5:
-                    switchParallelMode();
-                    break;
-            }
-
-            redraw = true;
-        }
-        else if(vpad.trigger & VPAD_BUTTON_UP)
-        {
-            --cursorPos;
-            if(cursorPos < 0)
-                cursorPos = ENTRY_COUNT;
-            redraw = true;
-        }
-        else if(vpad.trigger & VPAD_BUTTON_DOWN)
-        {
-            ++cursorPos;
-            if(cursorPos > ENTRY_COUNT)
-                cursorPos = 0;
-            redraw = true;
+            case 0:
+                switchMenuLanguage();
+                break;
+            case 1:
+                setUpdateCheck(!updateCheckEnabled());
+                break;
+            case 2:
+                setAutoResume(!autoResumeEnabled());
+                break;
+            case 3:
+                switchNotificationMethod();
+                break;
+            case 4:
+                switchRegion();
+                break;
+            case 5:
+                switchParallelMode();
+                break;
         }
     }
+    else if(vpad.trigger & VPAD_BUTTON_UP)
+    {
+        --cursorPos;
+        if(cursorPos < 0)
+            cursorPos = ENTRY_COUNT;
+    }
+    else if(vpad.trigger & VPAD_BUTTON_DOWN)
+    {
+        ++cursorPos;
+        if(cursorPos > ENTRY_COUNT)
+            cursorPos = 0;
+    }
+}
+
+static const UIScreen configScreen = {
+    .name = "options",
+    .buttons = VPAD_BUTTON_A | VPAD_BUTTON_B | VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT,
+    .enter = enterConfigMenu,
+    .update = updateConfigMenu,
+    .render = renderConfigMenu,
+};
+
+void configMenu()
+{
+    uiModal(&configScreen, NULL);
 }

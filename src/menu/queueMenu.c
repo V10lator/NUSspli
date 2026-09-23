@@ -30,6 +30,7 @@
 #include <queue.h>
 #include <renderer.h>
 #include <state.h>
+#include <ui.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memory.h>
@@ -39,22 +40,41 @@
 #define SPACER      7
 #define SPACER_END  14
 
-static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
+static LIST *titleQueue;
+static uint32_t oldHold;
+static size_t frameCount;
+static size_t cursor;
+static size_t pos;
+static bool mov;
+
+static void enterQueueMenu(void *param)
+{
+    (void)param;
+    oldHold = 0;
+    frameCount = 0;
+    cursor = 0;
+    pos = 0;
+    titleQueue = getTitleQueue();
+    mov = getListSize(titleQueue) >= MAX_ENTRIES;
+}
+
+static void renderQueueMenu()
 {
     startNewFrame();
     boxToFrame(0, MAX_LINES - 3);
 
     char toScreen[FS_MAX_PATH + 256];
     size_t i = 0;
+    size_t drawPos = pos; // local copy: the paging state must survive rendering
     int p;
     TitleData *data;
     MCPRegion region;
 
     forEachListEntry(titleQueue, data)
     {
-        if(pos)
+        if(drawPos)
         {
-            --pos;
+            --drawPos;
             continue;
         }
 
@@ -117,189 +137,185 @@ static void drawQueueMenu(LIST *titleQueue, size_t cursor, size_t pos)
     strcat(toScreen, " || ");
     strcat(toScreen, localise(BUTTON_MINUS " to delete an item"));
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, toScreen);
-
-    drawFrame();
 }
+
+static void updateQueueMenu()
+{
+    bool dpadAction;
+
+    if(vpad.trigger & VPAD_BUTTON_B)
+    {
+        uiSetResult(0);
+        uiPop();
+        return;
+    }
+
+    if(vpad.hold & VPAD_BUTTON_UP)
+    {
+        if(oldHold != VPAD_BUTTON_UP)
+        {
+            oldHold = VPAD_BUTTON_UP;
+            frameCount = DPAD_COOLDOWN_FRAMES;
+            dpadAction = true;
+        }
+        else if(frameCount == 0)
+            dpadAction = true;
+        else
+        {
+            --frameCount;
+            dpadAction = false;
+        }
+
+        if(dpadAction)
+        {
+            uiInvalidate();
+            if(cursor)
+                --cursor;
+            else if(pos)
+                --pos;
+        }
+    }
+    else if(vpad.hold & VPAD_BUTTON_DOWN)
+    {
+        if(oldHold != VPAD_BUTTON_DOWN)
+        {
+            oldHold = VPAD_BUTTON_DOWN;
+            frameCount = DPAD_COOLDOWN_FRAMES;
+            dpadAction = true;
+        }
+        else if(frameCount == 0)
+            dpadAction = true;
+        else
+        {
+            --frameCount;
+            dpadAction = false;
+        }
+
+        if(dpadAction)
+        {
+            uiInvalidate();
+            if(cursor < getListSize(titleQueue) - pos - 1 && cursor < MAX_ENTRIES - 1)
+                ++cursor;
+            else if(mov && cursor + ++pos == getListSize(titleQueue))
+                --pos;
+        }
+    }
+    else if(mov)
+    {
+        if(vpad.hold & VPAD_BUTTON_RIGHT)
+        {
+            if(oldHold != VPAD_BUTTON_RIGHT)
+            {
+                oldHold = VPAD_BUTTON_RIGHT;
+                frameCount = DPAD_COOLDOWN_FRAMES;
+                dpadAction = true;
+            }
+            else if(frameCount == 0)
+                dpadAction = true;
+            else
+            {
+                --frameCount;
+                dpadAction = false;
+            }
+
+            if(dpadAction)
+            {
+                uiInvalidate();
+                pos += MAX_ENTRIES;
+                if(pos >= getListSize(titleQueue))
+                    pos = 0;
+
+                cursor = 0;
+            }
+        }
+        else if(vpad.hold & VPAD_BUTTON_LEFT)
+        {
+            if(oldHold != VPAD_BUTTON_LEFT)
+            {
+                oldHold = VPAD_BUTTON_LEFT;
+                frameCount = DPAD_COOLDOWN_FRAMES;
+                dpadAction = true;
+            }
+            else if(frameCount == 0)
+                dpadAction = true;
+            else
+            {
+                --frameCount;
+                dpadAction = false;
+            }
+
+            if(dpadAction)
+            {
+                uiInvalidate();
+                if(pos >= MAX_ENTRIES)
+                    pos -= MAX_ENTRIES;
+                else // Wrap to the last page RIGHT paging can reach, so paging can't oscillate
+                    pos = ((getListSize(titleQueue) - 1) / MAX_ENTRIES) * MAX_ENTRIES;
+                cursor = 0;
+            }
+        }
+    }
+
+    if(vpad.trigger & VPAD_BUTTON_PLUS)
+    {
+        if(proccessQueue())
+        {
+            showFinishedScreen(NULL, FINISHING_OPERATION_QUEUE);
+            uiSetResult(1);
+            uiPop();
+            return;
+        }
+
+        // The queue may have shrunk on a mid-queue failure: re-clamp the view
+        size_t size = getListSize(titleQueue);
+        if(size == 0)
+        {
+            uiSetResult(0);
+            uiPop();
+            return;
+        }
+
+        mov = size >= MAX_ENTRIES;
+        if(pos >= size)
+            pos = 0;
+        if(cursor + pos >= size)
+            cursor = size - pos - 1;
+    }
+
+    if(vpad.trigger & VPAD_BUTTON_MINUS)
+    {
+        removeFromQueue(cursor + pos);
+        if(getListSize(titleQueue) == 0)
+        {
+            uiSetResult(0);
+            uiPop();
+            return;
+        }
+
+        if(cursor + pos == getListSize(titleQueue))
+        {
+            if(cursor)
+                --cursor;
+            else if(pos)
+                --pos;
+        }
+
+        mov = getListSize(titleQueue) >= MAX_ENTRIES;
+    }
+
+    if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
+        oldHold = 0;
+}
+
+static const UIScreen queueScreen = {
+    .name = "queue",
+    .buttons = VPAD_BUTTON_B | VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT | VPAD_BUTTON_PLUS | VPAD_BUTTON_MINUS,
+    .enter = enterQueueMenu,
+    .update = updateQueueMenu,
+    .render = renderQueueMenu,
+};
 
 bool queueMenu()
 {
-    uint32_t oldHold = 0;
-    bool dpadAction;
-    size_t frameCount = 0;
-    size_t cursor = 0;
-    size_t pos = 0;
-    bool redraw = true;
-    LIST *titleQueue = getTitleQueue();
-    bool mov = getListSize(titleQueue) >= MAX_ENTRIES;
-
-    while(AppRunning(true))
-    {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            redraw = true;
-
-        if(redraw)
-        {
-            drawQueueMenu(titleQueue, cursor, pos);
-            redraw = false;
-        }
-        showFrame();
-
-        if(vpad.trigger & VPAD_BUTTON_B)
-            return false;
-
-        if(vpad.hold & VPAD_BUTTON_UP)
-        {
-            if(oldHold != VPAD_BUTTON_UP)
-            {
-                oldHold = VPAD_BUTTON_UP;
-                frameCount = 30;
-                dpadAction = true;
-            }
-            else if(frameCount == 0)
-                dpadAction = true;
-            else
-            {
-                --frameCount;
-                dpadAction = false;
-            }
-
-            if(dpadAction)
-            {
-                if(cursor)
-                    --cursor;
-                else if(pos)
-                    --pos;
-
-                redraw = true;
-            }
-        }
-        else if(vpad.hold & VPAD_BUTTON_DOWN)
-        {
-            if(oldHold != VPAD_BUTTON_DOWN)
-            {
-                oldHold = VPAD_BUTTON_DOWN;
-                frameCount = 30;
-                dpadAction = true;
-            }
-            else if(frameCount == 0)
-                dpadAction = true;
-            else
-            {
-                --frameCount;
-                dpadAction = false;
-            }
-
-            if(dpadAction)
-            {
-                if(cursor < getListSize(titleQueue) - pos - 1 && cursor < MAX_ENTRIES - 1)
-                    ++cursor;
-                else if(mov && cursor + ++pos == getListSize(titleQueue))
-                    --pos;
-
-                redraw = true;
-            }
-        }
-        else if(mov)
-        {
-            if(vpad.hold & VPAD_BUTTON_RIGHT)
-            {
-                if(oldHold != VPAD_BUTTON_RIGHT)
-                {
-                    oldHold = VPAD_BUTTON_RIGHT;
-                    frameCount = 30;
-                    dpadAction = true;
-                }
-                else if(frameCount == 0)
-                    dpadAction = true;
-                else
-                {
-                    --frameCount;
-                    dpadAction = false;
-                }
-
-                if(dpadAction)
-                {
-                    pos += MAX_ENTRIES;
-                    if(pos >= getListSize(titleQueue))
-                        pos = 0;
-
-                    cursor = 0;
-                    redraw = true;
-                }
-            }
-            else if(vpad.hold & VPAD_BUTTON_LEFT)
-            {
-                if(oldHold != VPAD_BUTTON_LEFT)
-                {
-                    oldHold = VPAD_BUTTON_LEFT;
-                    frameCount = 30;
-                    dpadAction = true;
-                }
-                else if(frameCount == 0)
-                    dpadAction = true;
-                else
-                {
-                    --frameCount;
-                    dpadAction = false;
-                }
-
-                if(dpadAction)
-                {
-                    if(pos >= MAX_ENTRIES)
-                        pos -= MAX_ENTRIES;
-                    else // Wrap to the last page RIGHT paging can reach, so paging can't oscillate
-                        pos = ((getListSize(titleQueue) - 1) / MAX_ENTRIES) * MAX_ENTRIES;
-                    cursor = 0;
-                    redraw = true;
-                }
-            }
-        }
-
-        if(vpad.trigger & VPAD_BUTTON_PLUS)
-        {
-            if(proccessQueue())
-            {
-                showFinishedScreen(NULL, FINISHING_OPERATION_QUEUE);
-                return true;
-            }
-
-            // The queue may have shrunk on a mid-queue failure: re-clamp the view
-            size_t size = getListSize(titleQueue);
-            if(size == 0)
-                return false;
-
-            mov = size >= MAX_ENTRIES;
-            if(pos >= size)
-                pos = 0;
-            if(cursor + pos >= size)
-                cursor = size - pos - 1;
-
-            redraw = true;
-        }
-
-        if(vpad.trigger & VPAD_BUTTON_MINUS)
-        {
-            removeFromQueue(cursor + pos);
-            if(getListSize(titleQueue) == 0)
-                return false;
-
-            if(cursor + pos == getListSize(titleQueue))
-            {
-                if(cursor)
-                    --cursor;
-                else if(pos)
-                    --pos;
-            }
-
-            mov = getListSize(titleQueue) >= MAX_ENTRIES;
-            redraw = true;
-        }
-
-        if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
-            oldHold = 0;
-    }
-
-    return true;
+    return uiModal(&queueScreen, NULL);
 }

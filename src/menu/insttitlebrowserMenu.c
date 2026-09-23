@@ -70,6 +70,18 @@ static MCPTitleListType *ititleEntries;
 static size_t ititleEntrySize;
 static volatile ASYNC_STATE asyncState;
 
+// The old loop locals: a fresh visit starts at the top while returning
+// from the uninstall confirmation keeps the position (the original jumped
+// back to loopEntry instead of restarting), so they are reset in
+// ititleBrowserMenu() and not in an enter handler.
+static size_t itbCursor;
+static size_t itbPos;
+static bool itbMov;
+static uint32_t itbOldHold;
+static size_t itbFrameCount;
+static bool itbDpadAction;
+static void *itbOverlay;
+
 static volatile INST_META *getInstalledTitle(size_t index, bool block)
 {
     volatile INST_META *title = installedTitles + index;
@@ -163,6 +175,8 @@ static int asyncTitleLoader(int argc, const char **argv)
     size_t max = ititleEntrySize - 1;
     size_t cur;
 
+    // A worker thread, not a UI loop: the stop signal is ASYNC_STATE_EXIT,
+    // set in ititleBrowserMenu's cleanup.
     while(min <= max && AppRunning(false))
     {
         switch(asyncState)
@@ -184,7 +198,7 @@ asyncExit:
     return 0;
 }
 
-static void drawITBMenuFrame(const size_t pos, const size_t cursor)
+static void renderITBMenu()
 {
     startNewFrame();
     boxToFrame(0, MAX_LINES - 2);
@@ -197,14 +211,14 @@ static void drawITBMenuFrame(const size_t pos, const size_t cursor)
     strcat(toFrame, localise(BUTTON_B " to return"));
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, toFrame);
 
-    size_t max = ititleEntrySize - pos;
+    size_t max = ititleEntrySize - itbPos;
     if(max > MAX_ITITLEBROWSER_LINES)
         max = MAX_ITITLEBROWSER_LINES;
 
     volatile INST_META *im;
     for(size_t i = 0, l = 1; i < max; ++i, ++l)
     {
-        im = getInstalledTitle(pos + i, true);
+        im = getInstalledTitle(itbPos + i, true);
         if(im->isDlc)
             strcpy(toFrame, "[DLC] ");
         else if(im->isUpdate)
@@ -212,7 +226,7 @@ static void drawITBMenuFrame(const size_t pos, const size_t cursor)
         else
             toFrame[0] = '\0';
 
-        if(cursor == i)
+        if(itbCursor == i)
             arrowToFrame(l, 1);
 
         deviceToFrame(l, 4, im->dt);
@@ -220,8 +234,6 @@ static void drawITBMenuFrame(const size_t pos, const size_t cursor)
         strcat(toFrame, (const char *)im->name);
         textToFrameCut(l, 10, toFrame, (SCREEN_WIDTH - (FONT_SIZE << 1)) - (getSpaceWidth() * 11));
     }
-
-    drawFrame();
 }
 
 static OSThread *initITBMenu()
@@ -270,189 +282,44 @@ static OSThread *initITBMenu()
     return NULL;
 }
 
-void ititleBrowserMenu()
+// The uninstall confirmation stays an overlay on the frame below, so it is
+// pushed while the list screen is still on the stack (A = yes, B = no).
+static void updateITBConfirm()
 {
-    OSThread *bgt = initITBMenu();
-    if(!bgt)
-        return;
-
-    size_t cursor = 0;
-    size_t pos = 0;
-
-    bool mov;
-    bool redraw = true;
-    MCPTitleListType *entry;
-    uint32_t oldHold = VPAD_BUTTON_RIGHT;
-    size_t frameCount = DPAD_COOLDOWN_FRAMES;
-    bool dpadAction;
-
-loopEntry:
-    while(AppRunning(true))
+    if(vpad.trigger & VPAD_BUTTON_B)
+        uiPop();
+    else if(vpad.trigger & VPAD_BUTTON_A)
     {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            redraw = true;
+        uiSetResult(1);
+        uiPop();
+    }
+}
 
-        if(redraw)
-        {
-            drawITBMenuFrame(pos, cursor);
-            mov = ititleEntrySize > MAX_ITITLEBROWSER_LINES;
-            redraw = false;
-        }
-        showFrame();
+static void leaveITBConfirm()
+{
+    uiHideOverlay(itbOverlay);
+    itbOverlay = NULL;
+}
 
-        if(vpad.trigger & VPAD_BUTTON_PLUS)
-        {
-            launchTitle(ititleEntries + cursor + pos);
-            goto instExit;
-        }
+static const UIScreen itbConfirmScreen = {
+    .name = "uninstall confirmation",
+    .buttons = VPAD_BUTTON_A | VPAD_BUTTON_B,
+    .update = updateITBConfirm,
+    .leave = leaveITBConfirm,
+};
 
-        if(vpad.trigger & VPAD_BUTTON_MINUS)
-        {
-            entry = ititleEntries + cursor + pos;
-            break;
-        }
-
-        if(vpad.trigger & VPAD_BUTTON_B)
-            goto instExit;
-
-        if(vpad.hold & VPAD_BUTTON_UP)
-        {
-            if(oldHold != VPAD_BUTTON_UP)
-            {
-                asyncState = ASYNC_STATE_BKWD;
-                oldHold = VPAD_BUTTON_UP;
-                frameCount = DPAD_COOLDOWN_FRAMES;
-                dpadAction = true;
-            }
-            else if(frameCount == 0)
-                dpadAction = true;
-            else
-            {
-                --frameCount;
-                dpadAction = false;
-            }
-
-            if(dpadAction)
-            {
-                if(cursor)
-                    cursor--;
-                else
-                {
-                    if(mov)
-                    {
-                        if(pos)
-                        {
-                            pos--;
-                        }
-                        else
-                        {
-                            cursor = MAX_ITITLEBROWSER_LINES - 1;
-                            pos = ititleEntrySize - MAX_ITITLEBROWSER_LINES;
-                        }
-                    }
-                    else
-                        cursor = ititleEntrySize - 1;
-                }
-
-                redraw = true;
-            }
-        }
-        else if(vpad.hold & VPAD_BUTTON_DOWN)
-        {
-            if(oldHold != VPAD_BUTTON_DOWN)
-            {
-                asyncState = ASYNC_STATE_FWD;
-                oldHold = VPAD_BUTTON_DOWN;
-                frameCount = DPAD_COOLDOWN_FRAMES;
-                dpadAction = true;
-            }
-            else if(frameCount == 0)
-                dpadAction = true;
-            else
-            {
-                --frameCount;
-                dpadAction = false;
-            }
-
-            if(dpadAction)
-            {
-                if(cursor + pos >= ititleEntrySize - 1 || cursor >= MAX_ITITLEBROWSER_LINES - 1)
-                {
-                    if(!mov || ++pos + cursor >= ititleEntrySize)
-                        cursor = pos = 0;
-                }
-                else
-                    ++cursor;
-
-                redraw = true;
-            }
-        }
-        else if(mov)
-        {
-            if(vpad.hold & VPAD_BUTTON_RIGHT)
-            {
-                if(oldHold != VPAD_BUTTON_RIGHT)
-                {
-                    asyncState = ASYNC_STATE_FWD;
-                    oldHold = VPAD_BUTTON_RIGHT;
-                    frameCount = DPAD_COOLDOWN_FRAMES;
-                    dpadAction = true;
-                }
-                else if(frameCount == 0)
-                    dpadAction = true;
-                else
-                {
-                    --frameCount;
-                    dpadAction = false;
-                }
-
-                if(dpadAction)
-                {
-                    pos += MAX_ITITLEBROWSER_LINES;
-                    if(pos >= ititleEntrySize)
-                        pos = 0;
-                    cursor = 0;
-                    redraw = true;
-                }
-            }
-            else if(vpad.hold & VPAD_BUTTON_LEFT)
-            {
-                if(oldHold != VPAD_BUTTON_LEFT)
-                {
-                    asyncState = ASYNC_STATE_BKWD;
-                    oldHold = VPAD_BUTTON_LEFT;
-                    frameCount = DPAD_COOLDOWN_FRAMES;
-                    dpadAction = true;
-                }
-                else if(frameCount == 0)
-                    dpadAction = true;
-                else
-                {
-                    --frameCount;
-                    dpadAction = false;
-                }
-
-                if(dpadAction)
-                {
-                    if(pos >= MAX_ITITLEBROWSER_LINES)
-                        pos -= MAX_ITITLEBROWSER_LINES;
-                    else
-                        pos = ititleEntrySize - MAX_ITITLEBROWSER_LINES;
-                    cursor = 0;
-                    redraw = true;
-                }
-            }
-        }
-
-        if(oldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
-            oldHold = 0;
+static void updateITBMenu()
+{
+    if(vpad.trigger & VPAD_BUTTON_PLUS)
+    {
+        launchTitle(ititleEntries + itbCursor + itbPos);
+        uiPop();
+        return;
     }
 
-    if(AppRunning(true))
+    if(vpad.trigger & VPAD_BUTTON_MINUS)
     {
-        volatile INST_META *im = installedTitles + cursor + pos;
+        volatile INST_META *im = installedTitles + itbCursor + itbPos;
         char toFrame[512];
         strcpy(toFrame, localise("Do you really want to uninstall"));
         strcat(toFrame, "\n");
@@ -469,32 +336,186 @@ loopEntry:
         strcat(toFrame, " || " BUTTON_B " ");
         strcat(toFrame, localise("No"));
 
-        void *r = addErrorOverlay(toFrame);
-        if(r == NULL)
-            goto instExit;
-
-        while(AppRunning(true))
+        itbOverlay = uiShowOverlay(toFrame);
+        if(itbOverlay == NULL)
         {
-            showFrame();
-
-            if(vpad.trigger & VPAD_BUTTON_B)
-            {
-                removeErrorOverlay(r);
-                goto loopEntry;
-            }
-            if(vpad.trigger & VPAD_BUTTON_A)
-                break;
+            uiPop(); // the original bailed out to instExit
+            return;
         }
 
-        removeErrorOverlay(r);
+        if(uiModal(&itbConfirmScreen, NULL) == 0)
+            return; // B (or the app stopped): back to the list
 
+        MCPTitleListType *entry = ititleEntries + itbCursor + itbPos;
         if(checkSystemTitleFromListType(entry, true) && AppRunning(true)) // entry is initialised, the compiler just can't follow
+        {
             deinstall(entry, (const char *)im->name, false, false);
-        else
-            goto loopEntry;
+            uiPop(); // done, the original fell through to instExit
+        }
+
+        return; // declined: keep the list (the original jumped to loopEntry)
     }
 
-instExit:
+    if(vpad.trigger & VPAD_BUTTON_B)
+    {
+        uiPop();
+        return;
+    }
+
+    if(vpad.hold & VPAD_BUTTON_UP)
+    {
+        if(itbOldHold != VPAD_BUTTON_UP)
+        {
+            asyncState = ASYNC_STATE_BKWD;
+            itbOldHold = VPAD_BUTTON_UP;
+            itbFrameCount = DPAD_COOLDOWN_FRAMES;
+            itbDpadAction = true;
+        }
+        else if(itbFrameCount == 0)
+            itbDpadAction = true;
+        else
+        {
+            --itbFrameCount;
+            itbDpadAction = false;
+        }
+
+        if(itbDpadAction)
+        {
+            uiInvalidate();
+            if(itbCursor)
+                itbCursor--;
+            else
+            {
+                if(itbMov)
+                {
+                    if(itbPos)
+                    {
+                        itbPos--;
+                    }
+                    else
+                    {
+                        itbCursor = MAX_ITITLEBROWSER_LINES - 1;
+                        itbPos = ititleEntrySize - MAX_ITITLEBROWSER_LINES;
+                    }
+                }
+                else
+                    itbCursor = ititleEntrySize - 1;
+            }
+        }
+    }
+    else if(vpad.hold & VPAD_BUTTON_DOWN)
+    {
+        if(itbOldHold != VPAD_BUTTON_DOWN)
+        {
+            asyncState = ASYNC_STATE_FWD;
+            itbOldHold = VPAD_BUTTON_DOWN;
+            itbFrameCount = DPAD_COOLDOWN_FRAMES;
+            itbDpadAction = true;
+        }
+        else if(itbFrameCount == 0)
+            itbDpadAction = true;
+        else
+        {
+            --itbFrameCount;
+            itbDpadAction = false;
+        }
+
+        if(itbDpadAction)
+        {
+            uiInvalidate();
+            if(itbCursor + itbPos >= ititleEntrySize - 1 || itbCursor >= MAX_ITITLEBROWSER_LINES - 1)
+            {
+                if(!itbMov || ++itbPos + itbCursor >= ititleEntrySize)
+                    itbCursor = itbPos = 0;
+            }
+            else
+                ++itbCursor;
+        }
+    }
+    else if(itbMov)
+    {
+        if(vpad.hold & VPAD_BUTTON_RIGHT)
+        {
+            if(itbOldHold != VPAD_BUTTON_RIGHT)
+            {
+                asyncState = ASYNC_STATE_FWD;
+                itbOldHold = VPAD_BUTTON_RIGHT;
+                itbFrameCount = DPAD_COOLDOWN_FRAMES;
+                itbDpadAction = true;
+            }
+            else if(itbFrameCount == 0)
+                itbDpadAction = true;
+            else
+            {
+                --itbFrameCount;
+                itbDpadAction = false;
+            }
+
+            if(itbDpadAction)
+            {
+                uiInvalidate();
+                itbPos += MAX_ITITLEBROWSER_LINES;
+                if(itbPos >= ititleEntrySize)
+                    itbPos = 0;
+                itbCursor = 0;
+            }
+        }
+        else if(vpad.hold & VPAD_BUTTON_LEFT)
+        {
+            if(itbOldHold != VPAD_BUTTON_LEFT)
+            {
+                asyncState = ASYNC_STATE_BKWD;
+                itbOldHold = VPAD_BUTTON_LEFT;
+                itbFrameCount = DPAD_COOLDOWN_FRAMES;
+                itbDpadAction = true;
+            }
+            else if(itbFrameCount == 0)
+                itbDpadAction = true;
+            else
+            {
+                --itbFrameCount;
+                itbDpadAction = false;
+            }
+
+            if(itbDpadAction)
+            {
+                uiInvalidate();
+                if(itbPos >= MAX_ITITLEBROWSER_LINES)
+                    itbPos -= MAX_ITITLEBROWSER_LINES;
+                else
+                    itbPos = ititleEntrySize - MAX_ITITLEBROWSER_LINES;
+                itbCursor = 0;
+            }
+        }
+    }
+
+    if(itbOldHold && !(vpad.hold & (VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT)))
+        itbOldHold = 0;
+}
+
+static const UIScreen itbScreen = {
+    .name = "installed titles",
+    .buttons = VPAD_BUTTON_B | VPAD_BUTTON_UP | VPAD_BUTTON_DOWN | VPAD_BUTTON_LEFT | VPAD_BUTTON_RIGHT | VPAD_BUTTON_PLUS | VPAD_BUTTON_MINUS,
+    .update = updateITBMenu,
+    .render = renderITBMenu,
+};
+
+void ititleBrowserMenu()
+{
+    OSThread *bgt = initITBMenu();
+    if(!bgt)
+        return;
+
+    // Fresh visit: the loop locals of the original start over, going back
+    // from the confirmation (done inside updateITBMenu) keeps them.
+    itbCursor = 0;
+    itbPos = 0;
+    itbMov = ititleEntrySize > MAX_ITITLEBROWSER_LINES;
+    itbOldHold = VPAD_BUTTON_RIGHT;
+    itbFrameCount = DPAD_COOLDOWN_FRAMES;
+
+    uiModal(&itbScreen, NULL); // blocks until B, launch or deinstall
+
     asyncState = ASYNC_STATE_EXIT;
     stopThread(bgt, NULL);
     MEMFreeToDefaultHeap(ititleEntries);

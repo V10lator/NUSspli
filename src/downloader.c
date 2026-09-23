@@ -496,7 +496,12 @@ static const char *translateCurlError(CURLcode err, const char *error)
         // libCURL is right here: CafeOS answered ENOPROTOOPT (92) to a WUT socket
         // call, so libCURL got an invalid argument. See issue #302.
         case CURLE_BAD_FUNCTION_ARGUMENT:
-            return "Internal WUT error"; // TODO: How to handle correctly?
+            // Why the socket died is never reported to the app: CafeOS destroys it
+            // itself on a network hiccup (only visible as "Received request to kill
+            // all sockets" in a serial log, see issue #302), so the errno above is
+            // all we get. downloadFile() reconnects instead of reusing the dead
+            // socket, the message there carries the issue link.
+            return "Internal WUT error";
         default:
             return error[0] == '\0' ? curl_easy_strerror(err) : error;
     }
@@ -886,7 +891,7 @@ retry:
             case CURLE_PARTIAL_FILE:
                 sprintf(toScreen, "%s:\n\t%s\n\n%s", "Network error", te, "check the network settings and try again");
                 break;
-            case CURLE_BAD_FUNCTION_ARGUMENT: // Killed socket, see above - TODO: Why did it kill the socket? "see above" is not really an answer. Also how to handle correctly?
+            case CURLE_BAD_FUNCTION_ARGUMENT: // The socket was killed by CafeOS behind libCURLs back (why is up to the OS, see the comment above and issue #302) - handled by reconnecting instead of reusing it
                 sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Internal WUT error"), te, "See https://github.com/V10lator/NUSspli/issues/302#issuecomment-2108134284");
                 break;
             case CURLE_PEER_FAILED_VERIFICATION:

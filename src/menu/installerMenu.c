@@ -85,7 +85,7 @@ static void drawInstallerMenuFrame(const char *name, NUSDEV dev, NUSDEV toDev, b
     strcat(toFrame, " [");
     strcat(toFrame, tid);
     strcat(toFrame, "]");
-    int line = textToFrameMultiline(0, ALIGNED_CENTER, toFrame, MAX_CHARS - 33); // TODO
+    int line = textToFrameMultiline(0, ALIGNED_CENTER, toFrame, MAX_CHARS - 33); // 33 below full width: centred that leaves ~16 chars of margin per side so the name can never overlap the "Name:" label at the left edge of line 0
 
     uint64_t size = 0;
     for(uint16_t i = 0; i < tmd->num_contents; ++i)

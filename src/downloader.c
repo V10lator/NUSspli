@@ -285,6 +285,7 @@ static void initSocketPool()
 // would kill the whole transfer instead of just losing the tweak.
 static inline bool trySockopt(curl_socket_t socket, int level, int option, int value, const char *name)
 {
+    (void)name; // Only handed to debugPrintf, which compiles away in release builds
     int ret = setsockopt(socket, level, option, &value, sizeof(value));
     if(ret != 0 && errno != 92)
     {

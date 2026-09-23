@@ -37,6 +37,17 @@
 #define CUSTOM_MCP_ERROR_EOM       ((int)0xDEAD0001)
 #define CUSTOM_MCP_ERROR_CANCELLED ((int)0xDEAD0002)
 
+// MCP install results, names ours - wut does not name them, values via the WUP installer lineage:
+#define MCP_INSTALL_ERR_MISSING_DEP       ((int)0xFFFCFFE9)
+#define MCP_INSTALL_ERR_MISSING_TIK       ((int)0xFFFBF446)
+#define MCP_INSTALL_ERR_BAD_TIK           ((int)0xFFFBF43F)
+#define MCP_INSTALL_ERR_MISSING_CERT      ((int)0xFFFBF440)
+#define MCP_INSTALL_ERR_INCORRECT_CONSOLE ((int)0xFFFBF441)
+#define MCP_INSTALL_ERR_INVALID_CERT      ((int)0xFFFBF442)
+#define MCP_INSTALL_ERR_NOT_ENOUGH_SPACE  ((int)0xFFFCFFE4)
+#define MCP_INSTALL_ERR_FILES_CORRUPT     ((int)0xFFFFF825)
+#define MCP_INSTALL_ERR_BAD_STORAGE       ((int)0xFFFFF82E)
+
 #ifdef NUSSPLI_DEBUG
 #pragma GCC diagnostic ignored "-Wundef"
 #include <whb/log.h>

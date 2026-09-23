@@ -295,7 +295,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     t = OSGetSystemTime() - t;
     addEntropy(&t, sizeof(OSTime));
 
-    // MCP thread finished. Let's see if we got any error - TODO: This is a 1:1 copy&paste from WUP Installer GX2 which itself stole it from WUP Installer Y mod which got it from WUP Installer minor edit by Nexocube who got it from WUP installer JHBL Version by Dimrok who portet it from the ASM of WUP Installer. So I think it's time for something new... ^^
+    // MCP thread finished. Let's see if we got any error. Codes and texts come from the WUP installer lineage (GX2, Y mod, Nexocube, Dimrok JHBL, original ASM): the pure code to text mapping moved to translateMCPInstallErr(), this switch keeps the control flow and the context hints.
     if(data.err != 0)
     {
         if(keepFiles && noIntro != NULL)
@@ -311,10 +311,10 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
                 // The fallthrough here is by design, don't listen to the compiler!
             case CUSTOM_MCP_ERROR_EOM:
                 return true;
-            case 0xFFFCFFE9:
+            case MCP_INSTALL_ERR_MISSING_DEP:
                 if(hasDeps)
                 {
-                    strcat(toScreen, "Install the main game to the same storage medium first");
+                    strcat(toScreen, localise("Install the main game to the same storage medium first"));
                     if(toUsb)
                     {
                         strcat(toScreen, "\n");
@@ -324,28 +324,12 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
                 else if(toUsb)
                     strcat(toScreen, localise("Possible USB error"));
                 break;
-            case 0xFFFBF446:
-            case 0xFFFBF43F:
-                strcat(toScreen, localise("Possible missing or bad title.tik file"));
-                break;
-            case 0xFFFBF440:
-                strcat(toScreen, localise("Missing title.cert file"));
-                break;
-            case 0xFFFBF441:
-                strcat(toScreen, localise("Possible incorrect console for DLC title.tik file"));
-                break;
-            case 0xFFFBF442:
-                strcat(toScreen, localise("Invalid title.cert file"));
-                break;
-            case 0xFFFCFFE4:
-                strcat(toScreen, localise("Not enough free space on target device"));
-                break;
-            case 0xFFFFF825:
-            case 0xFFFFF82E:
-                strcat(toScreen, localise("Files might be corrupt or bad storage medium.\nTry redownloading files or reformat/replace target device"));
-                break;
             default:
-                if((data.err & 0xFFFF0000) == 0xFFFB0000)
+            {
+                const char *errText = translateMCPInstallErr(data.err);
+                if(errText != NULL)
+                    strcat(toScreen, localise(errText));
+                else if((data.err & 0xFFFF0000) == 0xFFFB0000)
                 {
                     if(dev & NUSDEV_USB)
                     {
@@ -357,6 +341,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
                 }
                 else
                     sprintf(toScreen + strlen(toScreen), "%s: %#010x", localise("Unknown Error"), data.err);
+            }
         }
 
         addToScreenLog("Installation failed!");

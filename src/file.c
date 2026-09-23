@@ -529,6 +529,29 @@ const char *translateFSErr(FSError err)
     return ret;
 }
 
+const char *translateMCPInstallErr(MCPError err)
+{
+    switch(err)
+    {
+        case MCP_INSTALL_ERR_MISSING_TIK:
+        case MCP_INSTALL_ERR_BAD_TIK:
+            return "Possible missing or bad title.tik file";
+        case MCP_INSTALL_ERR_MISSING_CERT:
+            return "Missing title.cert file";
+        case MCP_INSTALL_ERR_INCORRECT_CONSOLE:
+            return "Possible incorrect console for DLC title.tik file";
+        case MCP_INSTALL_ERR_INVALID_CERT:
+            return "Invalid title.cert file";
+        case MCP_INSTALL_ERR_NOT_ENOUGH_SPACE:
+            return "Not enough free space on target device";
+        case MCP_INSTALL_ERR_FILES_CORRUPT:
+        case MCP_INSTALL_ERR_BAD_STORAGE:
+            return "Files might be corrupt or bad storage medium.\nTry redownloading files or reformat/replace target device";
+        default:
+            return NULL;
+    }
+}
+
 NUSDEV getDevFromPath(const char *path)
 {
     if(strncmp(NUSDIR_SD, path, sizeof(NUSDIR_SD) - 1) == 0)

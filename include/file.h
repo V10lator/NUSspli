@@ -27,6 +27,7 @@
 
 #pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
+#include <coreinit/mcp.h>
 #pragma GCC diagnostic pop
 
 #define NUSDIR_SD        "/vol/app_sd/"
@@ -85,6 +86,7 @@ extern "C"
     FSError createDirectory(const char *path);
     bool createDirRecursive(const char *dir) __attribute__((__hot__));
     const char *translateFSErr(FSError err) __attribute__((__cold__));
+    const char *translateMCPInstallErr(MCPError err) __attribute__((__cold__));
     size_t getFilesize(const char *path) __attribute__((__hot__));
     NUSDEV getDevFromPath(const char *path);
     size_t readFile(const char *path, void **buffer) __attribute__((__hot__));

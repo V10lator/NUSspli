@@ -446,7 +446,9 @@ bool update(const char *newVersion, NUSSPLI_TYPE type)
             {
                 OSBlockMove(path, NUSDIR_SD, sizeof(NUSDIR_SD) - 1, false);
                 err = FSARemove(getFSAClient(), path);
-                OSSleepTicks(OSMillisecondsToTicks(200)); // TODO
+                // Deliberate pause after removing the old .wuhb file (df6bdcee) - the
+                // new bundle is renamed onto this path right afterwards.
+                OSSleepTicks(OSMillisecondsToTicks(200));
                 if(err != FS_ERROR_OK)
                 {
                     showUpdateErrorf("%s: %s", localise("Error removing file"), translateFSErr(err));

@@ -46,9 +46,15 @@ extern "C"
 
     typedef struct
     {
+        char *buf;
+        size_t size;
+    } RAMBUF;
+
+    typedef struct
+    {
         TMD *tmd;
         size_t tmdSize;
-        void *rambuf; // TODO
+        RAMBUF *rambuf;
         OPERATION operation;
         const TitleEntry *entry;
         char titleVer[33];

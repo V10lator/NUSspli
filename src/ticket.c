@@ -73,6 +73,10 @@ WUT_CHECK_OFFSET(TICKET_HEADER_SECTION, 0x10, unk05);
 WUT_CHECK_OFFSET(TICKET_HEADER_SECTION, 0x18, unk06);
 WUT_CHECK_SIZE(TICKET_HEADER_SECTION, 0x98);
 
+// cert3 (XS0000000c) of a downloaded cetk starts at 0x350 - that is sizeof(TICKET)
+// plus sizeof(TICKET_HEADER_SECTION):
+#define CETK_CERT3_OFFSET (sizeof(TICKET) + sizeof(TICKET_HEADER_SECTION))
+
 static const uint8_t magic_header[10] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09 };
 static uint8_t default_cert[sizeof(OTHER_PPKI_CERT)] = { 0xff };
 
@@ -166,9 +170,9 @@ static uint8_t *getDefaultCert()
         {
             if(downloadFile(DOWNLOAD_URL "000500101000400a/cetk", "OSv10 title.tik", NULL, FILE_TYPE_TIK | FILE_TYPE_TORAM, false, NULL, rambuf) == 0)
             {
-                if(rambuf->size >= 0x350 + sizeof(OTHER_PPKI_CERT)) // TODO
+                if(rambuf->size >= CETK_CERT3_OFFSET + sizeof(OTHER_PPKI_CERT))
                 {
-                    OSBlockMove(default_cert, rambuf->buf + 0x350, sizeof(OTHER_PPKI_CERT), false);
+                    OSBlockMove(default_cert, rambuf->buf + CETK_CERT3_OFFSET, sizeof(OTHER_PPKI_CERT), false);
                     ret = default_cert;
                 }
             }
@@ -235,10 +239,10 @@ bool generateCert(const TMD *tmd, const TICKET *ticket, size_t ticketSize, const
     else
     {
         const uint8_t *ptr;
-        if(ticketSize >= 0x350 + sizeof(OTHER_PPKI_CERT)) // TODO
+        if(ticketSize >= CETK_CERT3_OFFSET + sizeof(OTHER_PPKI_CERT))
         {
             ptr = (uint8_t *)ticket;
-            ptr += 0x350;
+            ptr += CETK_CERT3_OFFSET;
         }
         else
         {

@@ -33,6 +33,11 @@ extern "C"
 
     bool initIOThread() __attribute__((__cold__));
     void shutdownIOThread() __attribute__((__cold__));
+
+    // True once the I/O thread gave up on a write: detection only, the
+    // caller stops whatever it does. Reacting to it (the dialog, the exit)
+    // happens on the UI side in uiDrainEvents(), so this stays callable
+    // from every thread without anyone answering who is allowed to draw.
     bool checkForQueueErrors() __attribute__((__hot__));
     size_t addToIOQueue(const void *buf, size_t size, size_t n, FSAFileHandle file) __attribute__((__hot__));
     void flushIOQueue();

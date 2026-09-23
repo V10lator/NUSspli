@@ -29,9 +29,10 @@
 #include <crypto.h>
 #include <input.h>
 #include <localisation.h>
+#include <menu/engineFrames.h>
 #include <menu/utils.h>
-#include <renderer.h>
 #include <state.h>
+#include <ui.h>
 #include <utils.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
@@ -203,6 +204,7 @@ void showMcpProgress(McpData *data, const char *game, bool inst)
     char speedBuf[32];
     speedBuf[0] = '\0';
     void *ovl = NULL;
+    McpProgressView view;
 
     while(data->processing)
     {
@@ -211,17 +213,6 @@ void showMcpProgress(McpData *data, const char *game, bool inst)
         {
             if(progress.inProgress == 1 && progress.sizeTotal != 0 && data->err != CUSTOM_MCP_ERROR_CANCELLED)
             {
-                startNewFrame();
-                strcpy(toScreen, localise(inst ? "Installing" : "Uninstalling"));
-                strcat(toScreen, " ");
-                strcat(toScreen, game);
-                textToFrame(0, 0, toScreen);
-                barToFrame(1, 0, 40, (float)progress.sizeProgress / (float)progress.sizeTotal);
-                humanize(progress.sizeProgress, toScreen);
-                strcat(toScreen, " / ");
-                humanize(progress.sizeTotal, toScreen + strlen(toScreen));
-                textToFrame(1, 41, toScreen);
-
                 if(progress.sizeProgress != 0)
                 {
                     now = OSGetSystemTime();
@@ -245,18 +236,24 @@ void showMcpProgress(McpData *data, const char *game, bool inst)
                             lastSpeedCalc = now;
                         }
                     }
-
-                    textToFrame(1, ALIGNED_RIGHT, speedBuf);
                 }
 
-                writeScreenLog(2);
-                drawFrame();
+                view.game = game;
+                view.inst = inst;
+                view.sizeProgress = progress.sizeProgress;
+                view.sizeTotal = progress.sizeTotal;
+                view.ratio = (float)progress.sizeProgress / (float)progress.sizeTotal;
+                view.speed = speedBuf;
+                uiPump(drawMcpProgressFrame, &view);
             }
+            else
+                uiPump(NULL, NULL);
         }
         else
+        {
             debugPrintf("MCP_InstallGetProgress() returned %#010x", err);
-
-        showFrame();
+            uiPump(NULL, NULL);
+        }
 
         if(inst)
         {
@@ -265,30 +262,25 @@ void showMcpProgress(McpData *data, const char *game, bool inst)
                 if(vpad.trigger & VPAD_BUTTON_B)
                 {
                     sprintf(toScreen, "%s\n\n" BUTTON_A " %s || " BUTTON_B " %s", localise("Do you really want to cancel?"), localise("Yes"), localise("No"));
-                    ovl = addErrorOverlay(toScreen);
+                    ovl = uiShowOverlay(toScreen);
                 }
             }
             else
             {
                 if(vpad.trigger & VPAD_BUTTON_A)
                 {
-                    removeErrorOverlay(ovl);
+                    uiHideOverlay(ovl);
                     ovl = NULL;
                     inst = false;
 
-                    startNewFrame();
-                    textToFrame(0, 0, localise("Cancelling installation."));
-                    textToFrame(1, 0, localise("Please wait..."));
-                    writeScreenLog(2);
-                    drawFrame();
-                    showFrame();
+                    showStatusFrame(localise("Cancelling installation."), localise("Please wait..."), false, 2);
 
                     MCP_InstallTitleAbort(mcpHandle);
                     data->err = CUSTOM_MCP_ERROR_CANCELLED;
                 }
                 else if(vpad.trigger & VPAD_BUTTON_B)
                 {
-                    removeErrorOverlay(ovl);
+                    uiHideOverlay(ovl);
                     ovl = NULL;
                 }
             }
@@ -296,7 +288,7 @@ void showMcpProgress(McpData *data, const char *game, bool inst)
     }
 
     if(ovl != NULL)
-        removeErrorOverlay(ovl);
+        uiHideOverlay(ovl);
 }
 
 #ifdef NUSSPLI_DEBUG

@@ -27,8 +27,8 @@
 #include <ioQueue.h>
 #include <localisation.h>
 #include <menu/utils.h>
-#include <renderer.h>
 #include <romfs.h>
+#include <ui.h>
 #include <utils.h>
 
 #include <jansson.h>
@@ -614,9 +614,9 @@ void setKeyboardLanguage(Swkbd_LanguageType language)
 
     SWKBD_Shutdown();
     debugPrintf("CA");
-    pauseRenderer();
+    uiPauseRenderer();
     debugPrintf("CB");
-    resumeRenderer();
+    uiResumeRenderer();
     debugPrintf("CC");
     //	SWKBD_Init();
     debugPrintf("CD");

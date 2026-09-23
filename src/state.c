@@ -24,8 +24,8 @@
 #include <cfw.h>
 #include <crypto.h>
 #include <menu/utils.h>
-#include <renderer.h>
 #include <state.h>
+#include <ui.h>
 #include <utils.h>
 
 #include <SDL2/SDL.h>
@@ -189,12 +189,12 @@ static bool pumpEvents(void)
                 app = APP_STATE_STOPPED;
                 return false;
             case SDL_APP_WILLENTERBACKGROUND:
-                // Exit with power button: drawByeFrame() presents and shares
-                // the STOPPING guard with every other present, so the frame
-                // has to go out before the state changes. SDL defers the
-                // foreground release into a later pump (see the shutdown path
-                // in main()), so presenting here still has the foreground.
-                drawByeFrame();
+                // Exit with power button: the bye frame presents and shares
+                // the STOPPING guard with every other present, so it has to
+                // go out before the state changes. SDL defers the foreground
+                // release into a later pump (see the shutdown path in
+                // main()), so presenting here still has the foreground.
+                uiDrawByeFrame();
                 app = APP_STATE_STOPPING;
                 return false;
             default:

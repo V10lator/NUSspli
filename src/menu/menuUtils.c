@@ -115,7 +115,7 @@ void writeScreenLog(int line)
     }
 }
 
-static void drawErrorFrameContent(const char *text, ErrorOptions option)
+void drawErrorFrameContent(const char *text, ErrorOptions option)
 {
     colorStartNewFrame(SCREEN_COLOR_RED);
 

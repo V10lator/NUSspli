@@ -25,9 +25,9 @@
 #include <deinstaller.h>
 #include <filesystem.h>
 #include <localisation.h>
+#include <menu/engineFrames.h>
 #include <menu/utils.h>
 #include <osdefs.h>
-#include <renderer.h>
 #include <state.h>
 #include <ticket.h>
 #include <utils.h>
@@ -39,17 +39,12 @@
 
 bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool skipEnd)
 {
-    startNewFrame();
     char toFrame[256];
     // For a folder that is not in the database this is a whole path
     // (prettyDir(), see the queue), not just a title name: build the line
     // in one bounded step instead of appending to it.
     snprintf(toFrame, sizeof(toFrame), "%s %s", localise("Uninstalling"), name);
-    textToFrame(0, 0, toFrame);
-    textToFrame(1, 0, localise("Preparing..."));
-    writeScreenLog(2);
-    drawFrame();
-    showFrame();
+    showStatusFrame(toFrame, localise("Preparing..."), false, 2);
 
     size_t titleSize = getDirsize(title->path);
     MCPInstallTitleInfo info __attribute__((__aligned__(0x40)));

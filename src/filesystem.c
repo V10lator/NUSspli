@@ -25,8 +25,8 @@
 #include <filesystem.h>
 #include <localisation.h>
 #include <menu/utils.h>
-#include <renderer.h>
 #include <thread.h>
+#include <ui.h>
 #include <utils.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
@@ -101,11 +101,11 @@ void checkSpaceThread()
 {
     if(spaceThread)
     {
-        void *ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
+        void *ovl = uiShowOverlay(localise("Preparing. This might take some time. Please be patient."));
         stopThread(spaceThread, NULL);
         spaceThread = NULL;
         if(ovl != NULL)
-            removeErrorOverlay(ovl);
+            uiHideOverlay(ovl);
     }
 }
 

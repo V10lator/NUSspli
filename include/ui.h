@@ -161,6 +161,23 @@ extern "C"
     // still writes files and has no frame left of its own.
     void uiDrainEvents();
 
+    // One frame for engine code that cannot draw itself: drain posted
+    // errors, read input, let the UI side fill the frame through the
+    // optional callback and present it. frame == NULL keeps the retained
+    // picture and just paces the wait, like the old showFrame(). The first
+    // pump of a flow marks the frame as engine owned until the flow is back
+    // in the frame that started it, so a dialog popping in between does not
+    // flash the stale screen below it.
+    void uiPump(UiWaitFrame frame, void *ctx);
+
+    // Wrappers for the software keyboard, which owns the screen while it
+    // is up and pauses the regular frame flow around it.
+    void uiPauseRenderer();
+    void uiResumeRenderer();
+
+    // Draws the goodbye frame on the power button exit path.
+    void uiDrawByeFrame();
+
 #ifdef __cplusplus
 }
 #endif

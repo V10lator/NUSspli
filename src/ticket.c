@@ -29,14 +29,13 @@
 #include <downloader.h>
 #include <file.h>
 #include <filesystem.h>
-#include <input.h>
 #include <ioQueue.h>
 #include <keygen.h>
 #include <list.h>
 #include <localisation.h>
+#include <menu/engineFrames.h>
 #include <menu/filebrowser.h>
 #include <menu/utils.h>
-#include <renderer.h>
 #include <state.h>
 #include <titles.h>
 #include <tmd.h>
@@ -270,32 +269,6 @@ bool generateCert(const TMD *tmd, const TICKET *ticket, size_t ticketSize, const
     return true;
 }
 
-static void drawTicketFrame(uint64_t titleID)
-{
-    char tid[17];
-    hex(titleID, 16, tid);
-
-    startNewFrame();
-    textToFrame(0, 0, localise("Title ID:"));
-    textToFrame(1, 3, tid);
-
-    int line = MAX_LINES - 1;
-    textToFrame(line--, 0, localise("Press " BUTTON_B " to return"));
-    textToFrame(line--, 0, localise("Press " BUTTON_A " to continue"));
-    lineToFrame(line, SCREEN_COLOR_WHITE);
-    drawFrame();
-}
-
-static void drawTicketGenFrame(const char *dir)
-{
-    colorStartNewFrame(SCREEN_COLOR_D_GREEN);
-    textToFrame(0, 0, localise("Fake ticket generated on:"));
-    textToFrame(1, 0, prettyDir(dir));
-
-    textToFrame(3, 0, localise("Press any key to return"));
-    drawFrame();
-}
-
 static void browseFiles(char *out)
 {
     const char *dir = fileBrowserMenu(false, false);
@@ -324,65 +297,42 @@ gftEntry:
         return;
     }
 
-    drawTicketFrame(tmd->tid);
-
-    while(AppRunning(true))
+    ErrorOptions choice = showTicketConfirmDialog(tmd->tid);
+    if(choice == 0) // The app stopped while the dialog was up
     {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        if(app == APP_STATE_RETURNING)
-            drawTicketFrame(tmd->tid);
-
-        showFrame();
-
-        if(vpad.trigger & VPAD_BUTTON_A)
-        {
-            startNewFrame();
-            textToFrame(0, 0, localise("Generating fake ticket..."));
-            drawFrame();
-            showFrame();
-
-            // fileBrowserMenu() leaves room for exactly this behind the
-            // folder it hands out, so this only guards against a shorter way
-            // in later on: never write the two names past the buffer.
-            if(strlen(dir) + sizeof("title.cert") > FS_MAX_PATH)
-            {
-                debugPrintf("Path too long: %s", dir);
-                break;
-            }
-
-            strcat(dir, "title.");
-            char *ptr = dir + strlen(dir);
-            strcpy(ptr, "cert");
-            if(!generateCert(tmd, NULL, 0, dir))
-                break;
-
-            strcpy(ptr, "tik");
-            if(!generateTik(dir, tmd))
-                break;
-
-            drawTicketGenFrame(dir);
-
-            while(AppRunning(true))
-            {
-                if(app == APP_STATE_BACKGROUND)
-                    continue;
-                if(app == APP_STATE_RETURNING)
-                    drawTicketGenFrame(dir);
-
-                showFrame();
-                if(vpad.trigger)
-                    break;
-            }
-            break;
-        }
-        if(vpad.trigger & VPAD_BUTTON_B)
-        {
-            MEMFreeToDefaultHeap(tmd);
-            goto gftEntry;
-        }
+        MEMFreeToDefaultHeap(tmd);
+        return;
+    }
+    if(choice & B_RETURN)
+    {
+        MEMFreeToDefaultHeap(tmd);
+        goto gftEntry;
     }
 
+    showStatusFrame(localise("Generating fake ticket..."), NULL, false, -1);
+
+    // fileBrowserMenu() leaves room for exactly this behind the folder it
+    // hands out, so this only guards against a shorter way in later on:
+    // never write the two names past the buffer.
+    if(strlen(dir) + sizeof("title.cert") > FS_MAX_PATH)
+    {
+        debugPrintf("Path too long: %s", dir);
+        goto gftFree;
+    }
+
+    strcat(dir, "title.");
+    char *ptr = dir + strlen(dir);
+    strcpy(ptr, "cert");
+    if(!generateCert(tmd, NULL, 0, dir))
+        goto gftFree;
+
+    strcpy(ptr, "tik");
+    if(!generateTik(dir, tmd))
+        goto gftFree;
+
+    showTicketGeneratedDialog(dir);
+
+gftFree:
     MEMFreeToDefaultHeap(tmd);
 }
 

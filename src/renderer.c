@@ -1017,9 +1017,9 @@ void showFrame()
 }
 
 // Presents the retained frame and waits for the next VSync. This is the
-// fixed frame rate of the main loop: one present per VSync, independent of
-// whether the picture changed. Input is handled by the loop itself, not
-// here anymore.
+// fixed frame rate of the main loop: one present per frame, independent
+// of whether the picture changed. Input is handled by the loop itself,
+// not here anymore.
 void presentFrame()
 {
     if(font == NULL)

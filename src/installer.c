@@ -20,6 +20,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include <crypto.h>
 #include <deinstaller.h>
@@ -29,9 +30,9 @@
 #include <installer.h>
 #include <ioQueue.h>
 #include <localisation.h>
+#include <menu/engineFrames.h>
 #include <menu/utils.h>
 #include <no-intro.h>
-#include <renderer.h>
 #include <state.h>
 #include <ticket.h>
 #include <utils.h>
@@ -96,17 +97,11 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
             deinstall(&titleEntry, game, false, true);
     }
 
-    startNewFrame();
     char toScreen[256];
     strcpy(toScreen, localise("Installing"));
     strcat(toScreen, " ");
     strcat(toScreen, game);
-    textToFrame(0, 0, toScreen);
-    barToFrame(1, 0, 40, 0.0f);
-    textToFrame(1, 41, localise("Preparing. This might take some time. Please be patient."));
-    writeScreenLog(2);
-    drawFrame();
-    showFrame();
+    showStatusFrame(toScreen, localise("Preparing. This might take some time. Please be patient."), true, 2);
     flushIOQueue(); // Make sure all game files are on disc
 
     TMD *tmd2;

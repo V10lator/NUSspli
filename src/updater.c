@@ -32,11 +32,11 @@
 #include <input.h>
 #include <installer.h>
 #include <ioQueue.h>
+#include <menu/engineFrames.h>
 #include <menu/update.h>
 #include <menu/utils.h>
 #include <notifications.h>
 #include <osdefs.h>
-#include <renderer.h>
 #include <state.h>
 #include <utils.h>
 
@@ -118,11 +118,7 @@ bool updateCheck()
     bool ret = false;
     if(downloadFile(updateChkUrl, "JSON", NULL, FILE_TYPE_JSON | FILE_TYPE_TORAM, false, NULL, rambuf) == 0)
     {
-        startNewFrame();
-        textToFrame(0, 0, localise("Parsing JSON"));
-        writeScreenLog(1);
-        drawFrame();
-        showFrame();
+        showStatusFrame(localise("Parsing JSON"), NULL, false, 1);
 
         json_t *json = json_loadb(rambuf->buf, rambuf->size, 0, NULL);
         if(json != NULL)
@@ -389,11 +385,7 @@ static bool unzipUpdate(const RAMBUF *rambuf)
 
 static inline void showUpdateFrame()
 {
-    startNewFrame();
-    textToFrame(0, 0, localise("Updating, please wait..."));
-    writeScreenLog(1);
-    drawFrame();
-    showFrame();
+    showStatusFrame(localise("Updating, please wait..."), NULL, false, 1);
 }
 
 bool update(const char *newVersion, NUSSPLI_TYPE type)

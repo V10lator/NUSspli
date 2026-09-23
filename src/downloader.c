@@ -22,6 +22,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <netinet/tcp.h>
+#include <stdlib.h>
 
 #include <config.h>
 #include <crypto.h>
@@ -32,9 +33,9 @@
 #include <installer.h>
 #include <ioQueue.h>
 #include <localisation.h>
+#include <menu/engineFrames.h>
 #include <menu/utils.h>
 #include <queue.h>
-#include <renderer.h>
 #include <romfs.h>
 #include <state.h>
 #include <thread.h>
@@ -181,10 +182,10 @@ typedef struct
     curl_off_t written;
 } curlProgressData;
 
-#define closeCancelOverlay()               \
-    {                                      \
-        removeErrorOverlay(cancelOverlay); \
-        cancelOverlay = NULL;              \
+#define closeCancelOverlay()          \
+    {                                 \
+        uiHideOverlay(cancelOverlay); \
+        cancelOverlay = NULL;         \
     }
 
 // Both download paths report through this. The byte count and the timestamp have
@@ -375,70 +376,10 @@ static CURLcode ssl_ctx_init(CURL *cu, void *sslctx, void *parm)
 
 #define initNetwork() (curlReuseConnection = false)
 
-static bool showNetworkError(const char *err)
-{
-    char toScreen[512];
-    // The caller composes into FS_MAX_PATH + 64, so the text can be
-    // longer than this buffer: cut it instead of running over it. The
-    // old if() around the copy compared the local buffer against the
-    // pointer of the parameter, which can never be equal.
-    snprintf(toScreen, sizeof(toScreen), "%s", err);
-
-    int os = 0;
-    int frames = 0;
-    char *p = NULL;
-    if(autoResumeEnabled())
-    {
-        os = 9 * 60; // 9 seconds with 60 FPS
-        frames = os;
-        strcat(toScreen, "\n\n");
-        p = toScreen + strlen(toScreen);
-        const char *pt = localise("Next try in _ seconds.");
-        strcpy(p, pt);
-        const char *n = strchr(pt, '_');
-        p += n - pt;
-    }
-    else
-        drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
-
-    int s;
-    bool ret = false;
-    while(AppRunning(true))
-    {
-        if(app == APP_STATE_BACKGROUND)
-            continue;
-        else if(app == APP_STATE_RETURNING)
-            drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
-
-        if(autoResumeEnabled())
-        {
-            s = frames / 60;
-            if(s != os)
-            {
-                *p = '1' + s;
-                os = s;
-                drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
-            }
-        }
-
-        showFrame();
-
-        if(vpad.trigger & VPAD_BUTTON_B)
-            break;
-        if(vpad.trigger & VPAD_BUTTON_Y || (autoResumeEnabled() && --frames == 0))
-        {
-            ret = true;
-            break;
-        }
-    }
-
-    return ret;
-}
-
 // We're not using WUTs NNResult_IsSuccess() / NNResult_IsFailure() here as it's wrong
 static void resetNetwork()
 {
-    void *ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
+    void *ovl = uiShowOverlay(localise("Preparing. This might take some time. Please be patient."));
 
     // Disconnect from network. deinitDownloader() cleans up curl and releases
     // the socket pool, and releaseSocketPool() brackets socket_lib_finish()
@@ -467,14 +408,14 @@ closeAgain:
             if(nnres.value == -1 || !--timeout) // FAILED
             {
                 if(ovl)
-                    removeErrorOverlay(ovl);
+                    uiHideOverlay(ovl);
 
                 if(showNetworkError(localise("Error closing network!")))
                 {
                     if(!AppRunning(true))
                         return;
 
-                    ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
+                    ovl = uiShowOverlay(localise("Preparing. This might take some time. Please be patient."));
                     goto closeAgain;
                 }
 
@@ -508,7 +449,7 @@ reconnect:
                     initDownloader();
 
                     if(ovl)
-                        removeErrorOverlay(ovl);
+                        uiHideOverlay(ovl);
 
                     return;
                 }
@@ -521,14 +462,14 @@ reconnect:
     }
 
     if(ovl)
-        removeErrorOverlay(ovl);
+        uiHideOverlay(ovl);
 
     if(showNetworkError(localise("Error connecting to network!")))
     {
         if(!AppRunning(true))
             return;
 
-        ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
+        ovl = uiShowOverlay(localise("Preparing. This might take some time. Please be patient."));
         ACFinalize();
         goto reconnect;
     }
@@ -1063,48 +1004,6 @@ static const char *translateCurlError(CURLcode err, const char *error)
     }
 }
 
-static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize, float bps, uint32_t *eta)
-{
-    if(currentSize)
-    {
-        // The ticket download reports bytes while the total is still unknown
-        // (dltotal == 0), and dividing by that would produce an infinity which
-        // then overflows the percentage buffer in barToFrame().
-        float tmp = 0.0f;
-        if(totalSize)
-        {
-            tmp = currentSize;
-            tmp /= totalSize;
-        }
-        barToFrame(line, 0, 29, tmp);
-        // A speed at or near zero makes the quotient infinite or larger than
-        // *eta can hold, and converting such a float to uint32_t is undefined.
-        if(totalSize && bps > 0.0f)
-        {
-            float secs = (totalSize - currentSize) / bps;
-            *eta = secs >= (float)UINT32_MAX ? UINT32_MAX : (uint32_t)secs;
-        }
-    }
-    else
-        barToFrame(line, 0, 29, 0.0D);
-
-    char toScreen[256];
-    humanize(currentSize, toScreen);
-    char *ptr = toScreen + strlen(toScreen);
-    strcpy(ptr, " / ");
-    ptr += 3;
-    humanize(totalSize, ptr);
-    textToFrame(line, 30, toScreen);
-
-    // UINT32_MAX means there is no usable estimate: either none has been taken
-    // yet, or the transfer is too slow to put a bound on.
-    if(*eta != UINT32_MAX)
-    {
-        secsToTime(*eta, toScreen);
-        textToFrame(line, ALIGNED_RIGHT, toScreen);
-    }
-}
-
 // Peel scheme and path off a URL to get at the host, for the Auto ramp's
 // per-host pin: what six streams won on one mirror says nothing about the next.
 static void urlHost(const char *url, char *out, size_t len)
@@ -1371,11 +1270,18 @@ transfer:;
     size_t dlnow;
     size_t downloaded = 0;
     size_t tmp;
-    uint32_t fileEta = UINT32_MAX;
     float bps;
     float oldBps = 0.0D;
     int frames = 1;
-    int line;
+    DLProgressView view;
+    view.data = data;
+    view.queueData = queueData;
+    view.name = name;
+    view.dlnow = 0;
+    view.dltotal = 0;
+    view.bps = 0.0f;
+    view.fileEta = UINT32_MAX;
+    view.preparing = true;
     while(cdata.running && AppRunning(true))
     {
         if(--frames == 0)
@@ -1454,31 +1360,10 @@ transfer:;
                 }
             }
 
-            startNewFrame();
-
-            if(data != NULL)
-            {
-                if(queueData != NULL)
-                {
-                    sprintf(toScreen, "%s (%d/%d)", data->name, queueData->current, queueData->packages);
-                    line = textToFrameMultiline(0, ALIGNED_CENTER, toScreen, MAX_CHARS);
-                }
-                else
-                    line = textToFrameMultiline(0, ALIGNED_CENTER, data->name, MAX_CHARS);
-
-                drawStatLine(line++, data->dltotal, data->dlnow + dlnow, bps, &data->eta);
-
-                if(queueData != NULL)
-                    drawStatLine(line++, queueData->dlSize, queueData->downloaded + dlnow, bps, &queueData->eta);
-
-                lineToFrame(line++, SCREEN_COLOR_WHITE);
-
-                sprintf(toScreen, "(%d/%d)", data->dcontent + 1, data->contents);
-                textToFrame(line, ALIGNED_CENTER, toScreen);
-            }
-            else
-                line = 0;
-
+            // The drawing lives on the UI side now: queue errors are checked
+            // first because they can post their own overlay, then the sampled
+            // values are handed over and the frame is filled and presented in
+            // one go.
             if(dltotal)
             {
                 if(!rambuf)
@@ -1486,31 +1371,21 @@ transfer:;
 
                 frames = FRAMERATE;
                 dltotal += fileSize;
-
-                strcpy(toScreen, localise("Downloading"));
-                strcat(toScreen, " ");
-                strcat(toScreen, name);
-                textToFrame(line, 0, toScreen);
-
-                getSpeedString(bps, toScreen);
-                textToFrame(line, ALIGNED_RIGHT, toScreen);
-
-                drawStatLine(++line, dltotal, dlnow, bps, &fileEta);
+                view.preparing = false;
             }
             else
             {
                 frames = 1;
-                strcpy(toScreen, localise("Preparing"));
-                strcat(toScreen, " ");
-                strcat(toScreen, name);
-                textToFrame(line++, 0, toScreen);
+                view.preparing = true;
             }
 
-            writeScreenLog(++line);
-            drawFrame();
+            view.dlnow = dlnow;
+            view.dltotal = dltotal;
+            view.bps = bps;
+            uiPump(drawDownloadProgressFrame, &view);
         }
-
-        showFrame();
+        else
+            uiPump(NULL, NULL);
 
         if(cancelOverlay == NULL)
         {
@@ -1521,7 +1396,7 @@ transfer:;
                 strcat(toScreen, localise("Yes"));
                 strcat(toScreen, " || " BUTTON_B " ");
                 strcat(toScreen, localise("No"));
-                cancelOverlay = addErrorOverlay(toScreen);
+                cancelOverlay = uiShowOverlay(toScreen);
             }
         }
         else
@@ -1747,29 +1622,16 @@ transfer:;
             strcpy(toScreen, localise("The download of title.tmd failed with error: 404"));
             strcat(toScreen, "\n\n");
             strcat(toScreen, localise("The title cannot be found on the NUS, maybe the provided title ID doesn't exists or\nthe TMD was deleted"));
-            drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
 
-            while(AppRunning(true))
+            if(showErrorDialog(toScreen, B_RETURN | Y_RETRY) & Y_RETRY)
             {
-                if(app == APP_STATE_BACKGROUND)
-                    continue;
-                if(app == APP_STATE_RETURNING)
-                    drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
-
-                showFrame();
-
-                if(vpad.trigger & VPAD_BUTTON_B)
-                    break;
-                if(vpad.trigger & VPAD_BUTTON_Y)
+                if(rambuf && rambuf->buf)
                 {
-                    if(rambuf && rambuf->buf)
-                    {
-                        MEMFreeToDefaultHeap(rambuf->buf);
-                        rambuf->buf = NULL;
-                        rambuf->size = 0;
-                    }
-                    goto retry;
+                    MEMFreeToDefaultHeap(rambuf->buf);
+                    rambuf->buf = NULL;
+                    rambuf->size = 0;
                 }
+                goto retry;
             }
             return 1;
         }
@@ -1786,22 +1648,8 @@ transfer:;
                 strcat(toScreen, "\n\n");
             }
 
-            drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
-
-            while(AppRunning(true))
-            {
-                if(app == APP_STATE_BACKGROUND)
-                    continue;
-                if(app == APP_STATE_RETURNING)
-                    drawErrorFrame(toScreen, B_RETURN | Y_RETRY);
-
-                showFrame();
-
-                if(vpad.trigger & VPAD_BUTTON_B)
-                    break;
-                if(vpad.trigger & VPAD_BUTTON_Y)
-                    goto retry;
-            }
+            if(showErrorDialog(toScreen, B_RETURN | Y_RETRY) & Y_RETRY)
+                goto retry;
             return 1;
         }
     }

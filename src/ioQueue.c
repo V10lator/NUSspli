@@ -19,10 +19,10 @@
 #include <wut-fixups.h>
 
 #include <stdbool.h>
+#include <stdio.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/cache.h>
-#include <coreinit/core.h>
 #include <coreinit/filesystem_fsa.h>
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
@@ -33,11 +33,9 @@
 #include <crypto.h>
 #include <file.h>
 #include <filesystem.h>
-#include <input.h>
 #include <ioQueue.h>
-#include <renderer.h>
-#include <state.h>
 #include <thread.h>
+#include <ui.h>
 #include <utils.h>
 
 #define IO_MAX_FILE_BUFFER   (1024 * 1024) // 1 MB
@@ -58,7 +56,6 @@ static volatile uint32_t activeReadBuffer;
 static volatile uint32_t activeWriteBuffer;
 
 static volatile FSError fwriteErrno = FS_ERROR_OK;
-static volatile void *fwriteOverlay = NULL;
 
 #ifdef NUSSPLI_DEBUG
 static bool queueStalled = false;
@@ -70,6 +67,7 @@ static int ioThreadMain(int argc, const char **argv)
     (void)argv;
 
     FSError err;
+    char errMsg[256];
     uint32_t asl = activeWriteBuffer;
     WriteQueueEntry *entry = queueEntries + asl;
 
@@ -111,6 +109,12 @@ static int ioThreadMain(int argc, const char **argv)
     return 0;
 
 ioError:
+    // The dialog belongs to the UI thread: post it before the state becomes
+    // visible here, so every later poll of checkForQueueErrors() finds both
+    // - the message in the queue and the errno behind it. Whoever reaches a
+    // frame next runs the dialog (uiDrainEvents).
+    sprintf(errMsg, "Write error:\n%s\n\nThis is an unrecoverable error!\nPress any button to exit.", translateFSErr(err));
+    uiPostError(errMsg);
     fwriteErrno = err;
     return 1;
 }
@@ -149,35 +153,13 @@ bool initIOThread()
 
 bool checkForQueueErrors()
 {
-    if(fwriteErrno != FS_ERROR_OK)
-    {
-        if(fwriteOverlay == NULL && OSIsMainCore())
-        {
-            char errMsg[256];
-            sprintf(errMsg, "Write error:\n%s\n\nThis is an unrecoverable error!\nPress any button to exit.", translateFSErr(fwriteErrno));
-            fwriteOverlay = addErrorOverlay(errMsg);
-
-            if(fwriteOverlay != NULL)
-            {
-                while(AppRunning(true))
-                {
-                    showFrame();
-
-                    if(vpad.trigger)
-                        break;
-                }
-
-                removeErrorOverlay((void *)fwriteOverlay);
-            }
-
-            if(AppRunning(true))
-                homeButtonCallback((void *)true);
-        }
-
-        return true;
-    }
-
-    return false;
+    // Pure detection, no reaction: the I/O thread queued its message before
+    // it published the state, so every poll of this sees the failure and
+    // stops the caller, whichever thread that is. Showing the dialog and
+    // leaving the app is the UI side's job now (uiDrainEvents), which is
+    // why nobody here has to answer whether this is the thread that may
+    // draw.
+    return fwriteErrno != FS_ERROR_OK;
 }
 
 void shutdownIOThread()
@@ -227,6 +209,13 @@ retryAddingToQueue:
 #endif
         if(checkForQueueErrors())
             return 0;
+
+        // One slice instead of a hot spin: the wait stops burning a core
+        // the way it used to. Nothing is shown here - the caller may be a
+        // worker, so the dialog of a posted message waits for a frame
+        // (uiDrainEvents) and this loop leaves through the detection above
+        // as soon as the queue is dead.
+        uiYield();
 
         goto retryAddingToQueue; // We use goto here instead of just calling addToIOQueue again to not overgrow the stack.
     }
@@ -288,15 +277,23 @@ void flushIOQueue()
     OSMemoryBarrier();
     if(queueEntries[activeWriteBuffer].file != 0)
     {
-        void *ovl = addErrorOverlay("Flushing queue, please wait...");
+        void *ovl = uiShowOverlay("Flushing queue, please wait...");
         debugPrintf("Flushing...");
 
         while(queueEntries[activeWriteBuffer].file != 0)
+        {
             if(checkForQueueErrors())
                 break;
 
+            // The I/O thread has to empty the ring to get here: sleep one
+            // slice instead of spinning and leave through the detection
+            // above once the queue is dead (the overlay above stays on
+            // screen meanwhile).
+            uiYield();
+        }
+
         if(ovl != NULL)
-            removeErrorOverlay(ovl);
+            uiHideOverlay(ovl);
 
         OSMemoryBarrier();
     }

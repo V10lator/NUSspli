@@ -387,6 +387,36 @@ void uiWaitWhile(volatile bool *condition, UiWaitFrame frame, void *ctx)
     uiInvalidate(); // the engine content is gone, redraw the screen below
 }
 
+void uiPump(UiWaitFrame frame, void *ctx)
+{
+    // First, not last: a dialog can be pumped from inside uiDrainEvents or
+    // readInput and has to see the marker when it pops.
+    engineFlow = true;
+
+    tickClock();
+    uiDrainEvents();
+    readInput();
+    if(frame != NULL)
+        frame(ctx);
+
+    presentFrame();
+}
+
+void uiPauseRenderer()
+{
+    pauseRenderer();
+}
+
+void uiResumeRenderer()
+{
+    resumeRenderer();
+}
+
+void uiDrawByeFrame()
+{
+    drawByeFrame();
+}
+
 void uiYield()
 {
     // Only a sleep: the callers wait inside the I/O queue, where the error

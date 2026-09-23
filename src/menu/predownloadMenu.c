@@ -607,7 +607,10 @@ naNedNa:
         if(isDemo(entry->tid))
         {
             uint64_t t = entry->tid;
-            t &= 0xFFFFFFF0FFFFFFF0; // TODO
+            // Derive the main game's TID: the demo type sits in bits 32-35
+            // (TID_HIGH_DEMO 0x00050002 vs TID_HIGH_GAME 0x00050000) and the
+            // lowest nibble of a demo TID differs from the retail one as well.
+            t &= 0xFFFFFFF0FFFFFFF0;
             const TitleEntry *te = getTitleEntryByTid(t);
             if(te != NULL && te->key != TITLE_KEY_MAGIC)
             {

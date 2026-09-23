@@ -3,6 +3,7 @@
     "Install content": "Instalar contenido",
     "Generate a fake <title.tik> file": "Generar un archivo <title.tik> falso",
     "Browse installed titles": "Explorar los títulos instalados",
+    "Find missing content": "Buscar contenido faltante",
     "Options": "Opciones",
     "Logs": "Registros",
     "Press \uE044 or \uE001 to exit": "Pulsa \uE044 o \uE001 para salir",
@@ -141,6 +142,14 @@
     "Preparing...": "Preparando...",
     "Uninstalled successfully!": "¡Desinstalado con éxito!",
     "Queue finished successfully!": "¡La cola ha finalizado con éxito!",
+
+    "Searching for missing content...": "Buscando contenido faltante...",
+    "No missing content found": "No se encontró contenido faltante",
+    "Error scanning for installed titles!": "¡Error al escanear los títulos instalados!",
+    "Queueing missing content...": "Añadiendo el contenido faltante a la cola...",
+    "\uE045 to queue all": "\uE045 para añadir todo a la cola",
+    "Queued": "Añadido",
+    "Skipped": "Omitido",
 
     "Could not open path": "No se ha podido abrir la ruta:",
     "Invalid title.tmd file!": "¡Archivo <title.tmd> inválido!",

@@ -48,7 +48,17 @@
 
 #define PD_MENU_ENTRIES 5
 
-static int cursorPos = 15;
+typedef enum
+{
+    PD_LINE_INSTALL_DEVICE = 15,
+    PD_LINE_OPERATION = 16,
+    PD_LINE_DOWNLOAD_DEVICE = 17,
+    PD_LINE_KEEP_FILES = 18,
+    PD_LINE_TITLE_VERSION = 19,
+    PD_LINE_FOLDER_NAME = 20,
+} PD_LINE;
+
+static int cursorPos = PD_LINE_INSTALL_DEVICE;
 static OPERATION operation = OPERATION_DOWNLOAD_INSTALL;
 static bool keepFiles = true;
 static NUSDEV dlDev = NUSDEV_NONE;
@@ -77,7 +87,7 @@ static void drawPDMenuFrame(const TitleEntry *entry, const char *titleVer, uint6
     strcat(toFrame, " [");
     strcat(toFrame, tid);
     strcat(toFrame, "]");
-    int line = textToFrameMultiline(0, ALIGNED_CENTER, toFrame, MAX_CHARS - 33); // TODO
+    int line = textToFrameMultiline(0, ALIGNED_CENTER, toFrame, MAX_CHARS - 33); // 33 below full width: centred that leaves ~16 chars of margin per side so the name can never overlap the "Name:" label at the left edge of line 0
 
     humanize(size, toFrame);
 
@@ -265,7 +275,7 @@ static inline void changeTitleVersion(char *buf)
 
 static inline void changeFolderName(char *buf)
 {
-    if(!showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_NORMAL, buf, CHECK_ALPHANUMERICAL, FS_MAX_PATH - (sizeof(INSTALL_DIR_USB1) - 1), false, buf, NULL))
+    if(!showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_NORMAL, buf, CHECK_ALPHANUMERICAL, FS_MAX_PATH - sizeof(INSTALL_DIR_USB1), false, buf, NULL))
         buf[0] = '\0';
 }
 
@@ -368,6 +378,16 @@ static bool addToOpQueue(RAMBUF *rambuf, const TitleEntry *entry, const char *ti
             return true;
 
         MEMFreeToDefaultHeap(titleInfo);
+
+        // 2 = already queued for install, 3 = already queued for download: the queue owns
+        // neither our TitleData nor our rambuf, so drop the rambuf ourselves but report
+        // success so the caller doesn't free it a second time.
+        if(ret == 2 || ret == 3)
+        {
+            freeRamBuf(rambuf);
+            addToScreenLog("\"%s\" is already queued", entry->name);
+            return true;
+        }
     }
 
     return ret;
@@ -478,25 +498,25 @@ naNedNa:
             {
                 switch(cursorPos)
                 {
-                    case 15: // TODO: Change hardcoded numbers to something prettier
+                    case PD_LINE_INSTALL_DEVICE:
                         if(operation == OPERATION_DOWNLOAD_INSTALL && forcedInstDev == NUSDEV_NONE)
                             switchInstallDevice();
                         break;
-                    case 16:
+                    case PD_LINE_OPERATION:
                         if(forcedInstDev == NUSDEV_NONE)
                             switchOperation();
                         break;
-                    case 17:
+                    case PD_LINE_DOWNLOAD_DEVICE:
                         switchDownloadDevice();
                         break;
-                    case 18:
+                    case PD_LINE_KEEP_FILES:
                         if(dlDev == NUSDEV_SD && operation == OPERATION_DOWNLOAD_INSTALL)
                             keepFiles = !keepFiles;
                         break;
-                    case 19:
+                    case PD_LINE_TITLE_VERSION:
                         changeTitleVersion(titleVer);
                         goto downloadTMD;
-                    case 20:
+                    case PD_LINE_FOLDER_NAME:
                         changeFolderName(folderName);
                         break;
                 }
@@ -505,15 +525,15 @@ naNedNa:
             }
             else if(vpad.trigger & VPAD_BUTTON_DOWN)
             {
-                if(++cursorPos == 21) // TODO: Change hardcoded numbers to something prettier
-                    cursorPos = 15;
+                if(++cursorPos == PD_LINE_FOLDER_NAME + 1)
+                    cursorPos = PD_LINE_INSTALL_DEVICE;
 
                 redraw = true;
             }
             else if(vpad.trigger & VPAD_BUTTON_UP)
             {
-                if(--cursorPos == 14) // TODO: Change hardcoded numbers to something prettier
-                    cursorPos = 20;
+                if(--cursorPos == PD_LINE_INSTALL_DEVICE - 1)
+                    cursorPos = PD_LINE_FOLDER_NAME;
 
                 redraw = true;
             }
@@ -586,8 +606,7 @@ naNedNa:
 
         if(isDemo(entry->tid))
         {
-            uint64_t t = entry->tid;
-            t &= 0xFFFFFFF0FFFFFFF0; // TODO
+            uint64_t t = DEMO_TO_GAME(entry->tid);
             const TitleEntry *te = getTitleEntryByTid(t);
             if(te != NULL && te->key != TITLE_KEY_MAGIC)
             {
@@ -620,7 +639,7 @@ naNedNa:
         else if(!forcedInstDev && (isDLC(entry->tid) || isUpdate(entry->tid)))
         {
             MCPTitleListType tl __attribute__((__aligned__(0x40)));
-            uint64_t t = entry->tid & 0xFFFFFFF0FFFFFFFF;
+            uint64_t t = TID_TO_BASE(entry->tid);
             if(MCP_GetTitleInfo(mcpHandle, t, &tl) == 0)
             {
                 if(operation == OPERATION_DOWNLOAD_INSTALL)
@@ -709,7 +728,7 @@ naNedNa:
         }
         else if(isGame(entry->tid))
         {
-            uint64_t t = entry->tid | 0x0000000E00000000;
+            uint64_t t = BASE_TO_UPDATE(entry->tid);
             const TitleEntry *te = getTitleEntryByTid(t);
             if(te != NULL) // Update available
             {

@@ -128,7 +128,7 @@ static volatile INST_META *getInstalledTitle(size_t index, bool block)
         if(ACPGetTitleMetaXmlByTitleListType(list, &meta) == ACP_RESULT_SUCCESS)
         {
             size_t len = strlen(meta.longname_en);
-            if(++len < MAX_ITITLEBROWSER_TITLE_LENGTH)
+            if(++len <= MAX_ITITLEBROWSER_TITLE_LENGTH) // len includes the terminator, 128 bytes fit exactly
             {
                 if(strcmp(meta.longname_en, "Long Title Name (EN)"))
                 {

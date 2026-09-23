@@ -46,12 +46,6 @@ extern "C"
         size_t cs;
     } downloadData;
 
-    typedef struct
-    {
-        char *buf;
-        size_t size;
-    } RAMBUF;
-
 #define DOWNLOAD_URL "http://ccs.cdn.wup.shop.nintendo.net/ccs/download/"
 
     bool initDownloader() __attribute__((__cold__));

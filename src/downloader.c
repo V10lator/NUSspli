@@ -133,22 +133,22 @@ static int initSocket(void *ptr, curl_socket_t socket, curlsocktype type)
     (void)type;
 
     bool ret = trySockopt(socket, SOL_SOCKET, SO_WINSCALE, 1, "WinScale");
-    if(!ret)
+    if(ret)
     {
         ret = trySockopt(socket, SOL_SOCKET, SO_TCPSACK, 1, "TCP SAck");
-        if(!ret)
+        if(ret)
         {
             ret = trySockopt(socket, IPPROTO_TCP, TCP_NODELAY, 1, "TCP nodelay"); // libCURL default
-            if(!ret)
+            if(ret)
             {
                 ret = trySockopt(socket, SOL_SOCKET, 0x4000, 1, "Noslowstart"); // Disable slowstart
-                if(!ret)
+                if(ret)
                 {
                     ret = trySockopt(socket, SOL_SOCKET, SO_KEEPALIVE, 0, "TCP keepalive"); // libCURL default
-                    if(!ret)
+                    if(ret)
                     {
                         ret = trySockopt(socket, SOL_SOCKET, SO_SNDBUF, IO_BUFSIZE, "send buffersize");
-                        if(!ret)
+                        if(ret)
                             ret = trySockopt(socket, SOL_SOCKET, SO_RCVBUF, IO_BUFSIZE, "receive buffersize");
                     }
                 }
@@ -230,54 +230,87 @@ static bool showNetworkError(const char *err)
 // We're not using WUTs NNResult_IsSuccess() / NNResult_IsFailure() here as it's wrong
 static void resetNetwork()
 {
-    BOOL con;
-    NNResult nnres = ACIsApplicationConnected(&con);
-    if(nnres.value != 0 || con)
-        return;
-
     void *ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
 
     // Disconnect from network
     deinitDownloader();
     restartUdpLog1();
     socket_lib_finish();
-    NNResult cr;
+    NNResult nnres;
+    BOOL con;
 
 closeAgain:
-    nnres = ACClose();
-    do
-    {
-        cr = ACGetCloseStatus();
-        if(cr.value == -1) // FAILED
-        {
-            if(ovl)
-                removeErrorOverlay(ovl);
+    nnres = ACIsApplicationConnected(&con);
+    if(nnres.value != 0)
+        con = false;
 
-            if(showNetworkError(localise("Error closing network!")))
+    if(con)
+    {
+        ACClose();
+        uint32_t timeout = 5 * 1000 / 10;
+        do
+        {
+            nnres = ACGetCloseStatus();
+            if(nnres.value == 0) // SUCCESS
+                break;
+
+            if(nnres.value == -1 || !--timeout) // FAILED
             {
-                ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
-                goto closeAgain;
+                if(ovl)
+                    removeErrorOverlay(ovl);
+
+                if(showNetworkError(localise("Error closing network!")))
+                {
+                    if(!AppRunning(true))
+                        return;
+
+                    ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
+                    goto closeAgain;
+                }
+
+                goto exitApp;
             }
 
-            goto exitApp;
-        }
-    } while(cr.value != 0); // SUCCESS. A value of 1 means processing, so we're not handling it.
+            // A nnres.value of 1 means processing
+            OSSleepTicks(OSMillisecondsToTicks(10));
+        } while(AppRunning(true));
+    }
+
+    ACFinalize();
 
     // Connect to network
 reconnect:
-    nnres = ACConnect();
+    nnres = ACInitialize();
     if(nnres.value == 0)
     {
-        socket_lib_init();
-        set_multicast_state(true);
+        nnres = ACConnectAsync();
+        if(nnres.value == 0)
+        {
+            for(uint32_t i = 10 * 1000 / 10; i && AppRunning(true); --i)
+            {
+                nnres = ACIsApplicationConnected(&con);
+                if(nnres.value != 0)
+                    con = false;
 
-        restartUdpLog2();
-        initDownloader();
+                if(con)
+                {
+                    socket_lib_init();
+                    set_multicast_state(true);
 
-        if(ovl)
-            removeErrorOverlay(ovl);
+                    restartUdpLog2();
+                    initDownloader();
 
-        return;
+                    if(ovl)
+                        removeErrorOverlay(ovl);
+
+                    return;
+                }
+
+                OSSleepTicks(OSMillisecondsToTicks(10));
+            }
+
+            ACClose();
+        }
     }
 
     if(ovl)
@@ -285,7 +318,11 @@ reconnect:
 
     if(showNetworkError(localise("Error connecting to network!")))
     {
+        if(!AppRunning(true))
+            return;
+
         ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
+        ACFinalize();
         goto reconnect;
     }
 
@@ -303,7 +340,10 @@ bool initDownloader()
     if(blob.data == NULL)
         return false;
 
-    char pUrl[sizeof("http://") + 0x80 /* host */ + 0x40 /* user and pass */ + 5 /* port */ + 3 /* rest */] = "http://"; // TODO;
+    // Sized for the longest URL the code below can assemble:
+    // "http://" + username + ':' + password + '@' + host + ':' + port + NUL, with
+    // username and password clamped to the 0x20 usable bytes of their NetConf fields.
+    char pUrl[sizeof("http://") + 0x80 /* host */ + 0x40 /* user and pass */ + 5 /* port */ + 3 /* ':', '@' and ':' */] = "http://";
     char *pUrl2 = NULL;
 
     if(netconf_init() == 0)
@@ -318,13 +358,13 @@ bool initDownloader()
 
                 if(proxy.auth_type == NET_CONF_PROXY_AUTH_TYPE_BASIC_AUTHENTICATION)
                 {
-                    ss = strlen(proxy.username);
+                    ss = strnlen(proxy.username, 0x20); // Only 0x20 bytes usable
                     OSBlockMove(pUrl2, proxy.username, ss, false);
                     pUrl2 += ss;
 
                     *pUrl2 = ':';
 
-                    ss = strlen(proxy.password);
+                    ss = strnlen(proxy.password, 0x20); // Only 0x20 bytes usable
                     OSBlockMove(++pUrl2, proxy.password, ss, false);
                     pUrl2 += ss;
 
@@ -332,7 +372,7 @@ bool initDownloader()
                     ++pUrl2;
                 }
 
-                ss = strlen(proxy.host);
+                ss = strnlen(proxy.host, sizeof(proxy.host));
                 OSBlockMove(pUrl2, proxy.host, ss, false);
                 pUrl2 += ss;
 
@@ -456,7 +496,12 @@ static const char *translateCurlError(CURLcode err, const char *error)
         // libCURL is right here: CafeOS answered ENOPROTOOPT (92) to a WUT socket
         // call, so libCURL got an invalid argument. See issue #302.
         case CURLE_BAD_FUNCTION_ARGUMENT:
-            return "Internal WUT error"; // TODO: How to handle correctly?
+            // Why the socket died is never reported to the app: CafeOS destroys it
+            // itself on a network hiccup (only visible as "Received request to kill
+            // all sockets" in a serial log, see issue #302), so the errno above is
+            // all we get. downloadFile() reconnects instead of reusing the dead
+            // socket, the message there carries the issue link.
+            return "Internal WUT error";
         default:
             return error[0] == '\0' ? curl_easy_strerror(err) : error;
     }
@@ -469,8 +514,13 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
         float tmp = currentSize;
         tmp /= totalSize;
         barToFrame(line, 0, 29, tmp);
-        if(totalSize)
-            *eta = (totalSize - currentSize) / bps;
+        // A speed at or near zero makes the quotient infinite or larger than
+        // *eta can hold, and converting such a float to uint32_t is undefined.
+        if(totalSize && bps > 0.0f)
+        {
+            float secs = (totalSize - currentSize) / bps;
+            *eta = secs >= (float)UINT32_MAX ? UINT32_MAX : (uint32_t)secs;
+        }
     }
     else
         barToFrame(line, 0, 29, 0.0D);
@@ -483,8 +533,13 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
     humanize(totalSize, ptr);
     textToFrame(line, 30, toScreen);
 
-    secsToTime(*eta, toScreen);
-    textToFrame(line, ALIGNED_RIGHT, toScreen);
+    // UINT32_MAX means there is no usable estimate: either none has been taken
+    // yet, or the transfer is too slow to put a bound on.
+    if(*eta != UINT32_MAX)
+    {
+        secsToTime(*eta, toScreen);
+        textToFrame(line, ALIGNED_RIGHT, toScreen);
+    }
 }
 
 int downloadFile(const char *url, char *file, downloadData *data, FileType type, bool resume, QUEUE_DATA *queueData, RAMBUF *rambuf)
@@ -625,7 +680,15 @@ retry:
     char *argv[1] = { (char *)&cdata };
     OSThread *dlThread = startThread("NUSspli downloader", THREAD_PRIORITY_HIGH, STACKSIZE_BIG, dlThreadMain, 1, (char *)argv, OS_THREAD_ATTRIB_AFFINITY_CPU0);
     if(dlThread == NULL)
+    {
+        if(rambuf)
+            fclose((FILE *)fp);
+        else
+            addToIOQueue(NULL, 0, 0, (FSAFileHandle)fp);
+
+        debugPrintf("Error starting the download thread!");
         return 1;
+    }
 
     OSTick ts;
     OSTick lastTransfair = OSGetTick();
@@ -633,6 +696,7 @@ retry:
     size_t dlnow;
     size_t downloaded = 0;
     size_t tmp;
+    uint32_t fileEta = UINT32_MAX;
     float bps;
     float oldBps = 0.0D;
     int frames = 1;
@@ -722,7 +786,7 @@ retry:
                 getSpeedString(bps, toScreen);
                 textToFrame(line, ALIGNED_RIGHT, toScreen);
 
-                drawStatLine(++line, dltotal, dlnow, bps, &tmp);
+                drawStatLine(++line, dltotal, dlnow, bps, &fileEta);
             }
             else
             {
@@ -827,7 +891,7 @@ retry:
             case CURLE_PARTIAL_FILE:
                 sprintf(toScreen, "%s:\n\t%s\n\n%s", "Network error", te, "check the network settings and try again");
                 break;
-            case CURLE_BAD_FUNCTION_ARGUMENT: // Killed socket, see above - TODO: Why did it kill the socket? "see above" is not really an answer. Also how to handle correctly?
+            case CURLE_BAD_FUNCTION_ARGUMENT: // The socket was killed by CafeOS behind libCURLs back (why is up to the OS, see the comment above and issue #302) - handled by reconnecting instead of reusing it
                 sprintf(toScreen, "%s:\n\t%s\n\n%s", localise("Internal WUT error"), te, "See https://github.com/V10lator/NUSspli/issues/302#issuecomment-2108134284");
                 break;
             case CURLE_PEER_FAILED_VERIFICATION:
@@ -964,17 +1028,19 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
     strcat(downloadUrl, "/");
 
     if(folderName[0] == '\0')
+    {
         for(size_t i = 0; i < strlen(titleEntry->name); ++i)
             folderName[i] = isAllowedInFilename(titleEntry->name[i]) ? titleEntry->name[i] : '_';
 
-    strcpy(folderName + strlen(titleEntry->name), " [");
-    strcat(folderName, tid);
-    strcat(folderName, "]");
+        strcpy(folderName + strlen(titleEntry->name), " [");
+        strcat(folderName, tid);
+        strcat(folderName, "]");
 
-    if(strlen(titleVer) > 0)
-    {
-        strcat(folderName, " v");
-        strcat(folderName, titleVer);
+        if(strlen(titleVer) > 0)
+        {
+            strcat(folderName, " v");
+            strcat(folderName, titleVer);
+        }
     }
 
     char installDir[FS_MAX_PATH];
@@ -1111,6 +1177,7 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
                 tikBuf->size = 0;
                 break;
             case 0:
+                data.dltotal += tikBuf->size; // dlnow already includes the ticket bytes
                 fp = openFile(installDir, "w", tikBuf->size);
                 if(fp == 0)
                 {
@@ -1145,7 +1212,10 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
         freeRamBuf(tikBuf);
     }
     else
+    {
         addToScreenLog("title.tik skipped!");
+        ++data.dcontent; // The ticket is already there, count it as done
+    }
 
     if(!AppRunning(true))
         return false;

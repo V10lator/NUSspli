@@ -79,28 +79,18 @@ const char *tid2name(const char *tid)
 
 bool name2tid(const char *name, char *out)
 {
-    size_t lower = 0;
-    size_t upper = getTitleEntriesSize(TITLE_CATEGORY_ALL);
-    size_t current = upper >> 1;
-    int strret;
-
+    size_t size = getTitleEntriesSize(TITLE_CATEGORY_ALL);
     const TitleEntry *titleEntry = getTitleEntries(TITLE_CATEGORY_ALL);
-    while(lower != upper)
-    {
-        strret = strcmp(titleEntry[current].name, name);
-        if(strret == 0)
+
+    // Linear search: the entries aren't sorted in strcmp order (they're sorted
+    // case-insensitively with symbols first), so a binary search both misses
+    // matches and could loop forever.
+    for(size_t i = 0; i < size; ++i)
+        if(strcmp(titleEntry[i].name, name) == 0)
         {
-            hex(titleEntry[current].tid, 16, out);
+            hex(titleEntry[i].tid, 16, out);
             return true;
         }
-
-        if(strret < 0)
-            upper = current;
-        else
-            lower = current;
-
-        current = ((upper - lower) >> 1) + lower;
-    }
 
     return false;
 }

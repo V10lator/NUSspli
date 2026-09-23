@@ -227,9 +227,22 @@ extern "C"
 
     static inline void *wrapLastEntry(LIST *list)
     {
-        // TODO
-        (void)list;
-        return NULL;
+        if(list->first == NULL)
+            return NULL;
+
+        if(list->first == list->last)
+            return list->first->content;
+
+        ELEMENT *beforeLast = list->first;
+        while(beforeLast->next != list->last)
+            beforeLast = beforeLast->next;
+
+        ELEMENT *last = list->last;
+        beforeLast->next = NULL;
+        list->last = beforeLast;
+        last->next = list->first;
+        list->first = last;
+        return last->content;
     }
 
     static inline void *wrapFirstEntry(LIST *list)

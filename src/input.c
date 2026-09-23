@@ -75,7 +75,8 @@ typedef struct
 
 static bool isUrl(char c)
 {
-    return isNumber(c) || isLowercase(c) || isUppercase(c) || c == '.' || c == '/' || c == ':' || c == '%' || c == '-' || c == '_'; // TODO
+    // RFC 3986: unreserved, sub-delims and gen-delims (minus the square brackets):
+    return isNumber(c) || isLowercase(c) || isUppercase(c) || c == '.' || c == '/' || c == ':' || c == '%' || c == '-' || c == '_' || c == '~' || c == '?' || c == '#' || c == '@' || c == '!' || c == '$' || c == '&' || c == '\'' || c == '(' || c == ')' || c == '*' || c == '+' || c == ',' || c == ';' || c == '=';
 }
 
 typedef bool (*checkingFunction)(char);
@@ -102,13 +103,16 @@ static void SWKBD_Render(SWKBD_Args *args, KeyboardChecks check)
     if(inputFormString != NULL)
     {
         size_t len = strlen(inputFormString);
-        if(len != 0 && check != CHECK_NONE && check != CHECK_NUMERICAL)
+        if(len != 0 && check != CHECK_NONE)
         {
             checkingFunction cf;
             switch(check)
             {
                 case CHECK_HEXADECIMAL:
                     cf = &isHexa;
+                    break;
+                case CHECK_NUMERICAL:
+                    cf = &isNumber;
                     break;
                 case CHECK_ALPHANUMERICAL:
                     cf = &isAllowedInFilename;
@@ -513,9 +517,10 @@ void readInput()
 
     if(vpad.trigger != 0)
     {
-        OSTime t = OSGetSystemTime() - lastButtonPress;
+        OSTime tmp = OSGetSystemTime();
+        OSTime t = tmp - lastButtonPress;
         addEntropy(&t, sizeof(OSTime));
-        lastButtonPress = t;
+        lastButtonPress = tmp;
     }
 
     if(!altCon && vError == VPAD_READ_INVALID_CONTROLLER)

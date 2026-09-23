@@ -252,6 +252,7 @@ static bool unzipUpdate(const RAMBUF *rambuf)
                 char *lastSlash;
                 FSAFileHandle file;
                 int extracted;
+                int zipRet = UNZ_OK;
                 ret = true;
 
                 do
@@ -332,7 +333,15 @@ static bool unzipUpdate(const RAMBUF *rambuf)
                         showUpdateError(localise("Error extracting zip"));
                         ret = false;
                     }
-                } while(ret && unzGoToNextFile(zip) == UNZ_OK);
+                } while(ret && (zipRet = unzGoToNextFile(zip)) == UNZ_OK);
+
+                // UNZ_END_OF_LIST_OF_FILE is the only clean way out of the loop above:
+                // any other error means we stopped early on a partial extraction
+                if(ret && zipRet != UNZ_END_OF_LIST_OF_FILE)
+                {
+                    showUpdateError(localise("Error extracting zip"));
+                    ret = false;
+                }
 
                 MEMFreeToDefaultHeap(buf);
             }
@@ -437,7 +446,9 @@ bool update(const char *newVersion, NUSSPLI_TYPE type)
             {
                 OSBlockMove(path, NUSDIR_SD, sizeof(NUSDIR_SD) - 1, false);
                 err = FSARemove(getFSAClient(), path);
-                OSSleepTicks(OSMillisecondsToTicks(200)); // TODO
+                // Deliberate pause after removing the old .wuhb file (df6bdcee) - the
+                // new bundle is renamed onto this path right afterwards.
+                OSSleepTicks(OSMillisecondsToTicks(200));
                 if(err != FS_ERROR_OK)
                 {
                     showUpdateErrorf("%s: %s", localise("Error removing file"), translateFSErr(err));

@@ -55,10 +55,19 @@ extern "C"
     const char *tid2name(const char *tid);
     bool name2tid(const char *name, char *out);
 
-#define isGame(tid)        (getTidHighFromTid(tid) == TID_HIGH_GAME)
-#define isDLC(tid)         (getTidHighFromTid(tid) == TID_HIGH_DLC)
-#define isUpdate(tid)      (getTidHighFromTid(tid) == TID_HIGH_UPDATE)
-#define isDemo(tid)        (getTidHighFromTid(tid) == TID_HIGH_DEMO)
+#define isGame(tid)   (getTidHighFromTid(tid) == TID_HIGH_GAME)
+#define isDLC(tid)    (getTidHighFromTid(tid) == TID_HIGH_DLC)
+#define isUpdate(tid) (getTidHighFromTid(tid) == TID_HIGH_UPDATE)
+#define isDemo(tid)   (getTidHighFromTid(tid) == TID_HIGH_DEMO)
+
+// Title IDs only ever differ in the nibble that marks game (0x0) / update (0xE) / DLC (0xC)
+#define TID_TO_BASE(tid)    (((uint64_t)(tid)) & 0xFFFFFFF0FFFFFFFFULL)
+#define BASE_TO_UPDATE(tid) (TID_TO_BASE(tid) | 0x0000000E00000000ULL)
+#define BASE_TO_DLC(tid)    (TID_TO_BASE(tid) | 0x0000000C00000000ULL)
+// Derive the main game's TID: the demo type sits in bits 32-35
+// (TID_HIGH_DEMO 0x00050002 vs TID_HIGH_GAME 0x00050000) and the
+// lowest nibble of a demo TID differs from the retail one as well.
+#define DEMO_TO_GAME(tid)  (((uint64_t)(tid)) & 0xFFFFFFF0FFFFFFF0ULL)
 
 #define getH3size(appSize) (ceil(((double)appSize) / 0x1000000D) * 0x14)
 

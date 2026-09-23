@@ -57,7 +57,7 @@ bool dirExists(const char *path)
 FSError removeDirectory(const char *path)
 {
     size_t len = strlen(path);
-    if(len >= FS_MAX_PATH)
+    if(len >= FS_MAX_PATH - 1) // Room for the appended '/' and its terminator
         return FS_ERROR_INVALID_PATH;
 
     char newPath[FS_MAX_PATH];
@@ -255,7 +255,7 @@ size_t getDirsize(const char *path)
 
         if(FSAOpenDir(getFSAClient(), path, &dir) == FS_ERROR_OK)
         {
-            while(ret == FS_ERROR_OK && FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
+            while(FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
             {
                 strcpy(newPath + start, entry.name);
                 ret += entry.info.flags & FS_STAT_DIRECTORY ? getDirsize(newPath) : entry.info.size;

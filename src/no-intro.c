@@ -83,7 +83,6 @@ void revertNoIntro(NO_INTRO_DATA *data)
     if(ret != FS_ERROR_OK)
         debugPrintf("Can't move %s to %s: %s", data->path, newPath, translateFSErr(ret));
 
-    // TODO: Rename .app files
     *dataP = '\0';
     FSADirectoryHandle dir;
     ret = FSAOpenDir(getFSAClient(), data->path, &dir);
@@ -98,7 +97,8 @@ void revertNoIntro(NO_INTRO_DATA *data)
 
             OSBlockMove(dataP, entry.name, 13, false);
             OSBlockMove(toP, entry.name, 8, false);
-            if(FSARename(getFSAClient(), data->path, newPath) != FS_ERROR_OK)
+            ret = FSARename(getFSAClient(), data->path, newPath);
+            if(ret != FS_ERROR_OK)
                 debugPrintf("Can't move %s to %s: %s", data->path, newPath, translateFSErr(ret));
         }
 

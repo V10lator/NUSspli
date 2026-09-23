@@ -216,8 +216,19 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall)
                 if(region & MCP_REGION_JAPAN)
                     return true;
                 break;
+            case MCP_REGION_CHINA:
+                if(region & MCP_REGION_CHINA)
+                    return true;
+                break;
+            case MCP_REGION_KOREA:
+                if(region & MCP_REGION_KOREA)
+                    return true;
+                break;
+            case MCP_REGION_TAIWAN:
+                if(region & MCP_REGION_TAIWAN)
+                    return true;
+                break;
             default:
-                // TODO: MCP_REGION_CHINA, MCP_REGION_KOREA, MCP_REGION_TAIWAN
                 debugPrintf("Unknwon region: %d", settings.game_region);
                 return true;
         }

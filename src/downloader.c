@@ -340,7 +340,10 @@ bool initDownloader()
     if(blob.data == NULL)
         return false;
 
-    char pUrl[sizeof("http://") + 0x80 /* host */ + 0x40 /* user and pass */ + 5 /* port */ + 3 /* rest */] = "http://"; // TODO;
+    // Sized for the longest URL the code below can assemble:
+    // "http://" + username + ':' + password + '@' + host + ':' + port + NUL, with
+    // username and password clamped to the 0x20 usable bytes of their NetConf fields.
+    char pUrl[sizeof("http://") + 0x80 /* host */ + 0x40 /* user and pass */ + 5 /* port */ + 3 /* ':', '@' and ':' */] = "http://";
     char *pUrl2 = NULL;
 
     if(netconf_init() == 0)
@@ -355,13 +358,13 @@ bool initDownloader()
 
                 if(proxy.auth_type == NET_CONF_PROXY_AUTH_TYPE_BASIC_AUTHENTICATION)
                 {
-                    ss = strlen(proxy.username);
+                    ss = strnlen(proxy.username, 0x20); // Only 0x20 bytes usable
                     OSBlockMove(pUrl2, proxy.username, ss, false);
                     pUrl2 += ss;
 
                     *pUrl2 = ':';
 
-                    ss = strlen(proxy.password);
+                    ss = strnlen(proxy.password, 0x20); // Only 0x20 bytes usable
                     OSBlockMove(++pUrl2, proxy.password, ss, false);
                     pUrl2 += ss;
 
@@ -369,7 +372,7 @@ bool initDownloader()
                     ++pUrl2;
                 }
 
-                ss = strlen(proxy.host);
+                ss = strnlen(proxy.host, sizeof(proxy.host));
                 OSBlockMove(pUrl2, proxy.host, ss, false);
                 pUrl2 += ss;
 

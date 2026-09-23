@@ -199,6 +199,14 @@ void shutdownIOThread()
     MEMFreeToDefaultHeap(queueEntries);
 }
 
+// Hands the slot activeReadBuffer points to over to the I/O thread and advances to the next one.
+static inline void commitIOEntry(WriteQueueEntry *entry, FSAFileHandle file)
+{
+    entry->file = file;
+    if(++activeReadBuffer == MAX_IO_QUEUE_ENTRIES)
+        activeReadBuffer = 0;
+}
+
 size_t addToIOQueue(const void *buf, size_t size, size_t n, FSAFileHandle file)
 {
     if(checkForQueueErrors())
@@ -244,10 +252,7 @@ retryAddingToQueue:
             OSBlockMove((void *)(entry->buf + entry->size), buf, ns, false);
             entry->size = IO_MAX_FILE_BUFFER;
 
-            // TODO: Deduplicate code
-            entry->file = file;
-            if(++activeReadBuffer == MAX_IO_QUEUE_ENTRIES)
-                activeReadBuffer = 0;
+            commitIOEntry(entry, file);
 
             size -= ns;
             const uint8_t *newPtr = buf;
@@ -263,17 +268,12 @@ retryAddingToQueue:
     }
     else if(entry->size != 0)
     {
-        // TODO: Deduplicate code
-        entry->file = file;
-        if(++activeReadBuffer == MAX_IO_QUEUE_ENTRIES)
-            activeReadBuffer = 0;
+        commitIOEntry(entry, file);
 
         entry = queueEntries + activeReadBuffer;
     }
 
-    entry->file = file;
-    if(++activeReadBuffer == MAX_IO_QUEUE_ENTRIES)
-        activeReadBuffer = 0;
+    commitIOEntry(entry, file);
 
     return n;
 }

@@ -606,11 +606,7 @@ naNedNa:
 
         if(isDemo(entry->tid))
         {
-            uint64_t t = entry->tid;
-            // Derive the main game's TID: the demo type sits in bits 32-35
-            // (TID_HIGH_DEMO 0x00050002 vs TID_HIGH_GAME 0x00050000) and the
-            // lowest nibble of a demo TID differs from the retail one as well.
-            t &= 0xFFFFFFF0FFFFFFF0;
+            uint64_t t = DEMO_TO_GAME(entry->tid);
             const TitleEntry *te = getTitleEntryByTid(t);
             if(te != NULL && te->key != TITLE_KEY_MAGIC)
             {
@@ -643,7 +639,7 @@ naNedNa:
         else if(!forcedInstDev && (isDLC(entry->tid) || isUpdate(entry->tid)))
         {
             MCPTitleListType tl __attribute__((__aligned__(0x40)));
-            uint64_t t = entry->tid & 0xFFFFFFF0FFFFFFFF;
+            uint64_t t = TID_TO_BASE(entry->tid);
             if(MCP_GetTitleInfo(mcpHandle, t, &tl) == 0)
             {
                 if(operation == OPERATION_DOWNLOAD_INSTALL)
@@ -732,7 +728,7 @@ naNedNa:
         }
         else if(isGame(entry->tid))
         {
-            uint64_t t = entry->tid | 0x0000000E00000000;
+            uint64_t t = BASE_TO_UPDATE(entry->tid);
             const TitleEntry *te = getTitleEntryByTid(t);
             if(te != NULL) // Update available
             {

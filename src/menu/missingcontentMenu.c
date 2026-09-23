@@ -47,11 +47,6 @@
 #define MAX_MC_LINES         (MAX_LINES - 3)
 #define DPAD_COOLDOWN_FRAMES 30 // half a second at 60 FPS
 
-// Title IDs only ever differ in the nibble that marks game (0x0) / update (0xE) / DLC (0xC)
-#define TID_TO_BASE(tid)    (((uint64_t)(tid)) & 0xFFFFFFF0FFFFFFFFULL)
-#define BASE_TO_UPDATE(tid) (TID_TO_BASE(tid) | 0x0000000E00000000ULL)
-#define BASE_TO_DLC(tid)    (TID_TO_BASE(tid) | 0x0000000C00000000ULL)
-
 typedef struct
 {
     const TitleEntry *entry;

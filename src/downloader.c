@@ -89,9 +89,25 @@
 // buffers let a stream start its next range while an earlier chunk is still
 // queued for the disk.
 #define DL_SLOTS (DL_STREAMS * 2)
+
+// The parallel modes pick their stream count at run time: the Auto ramp measures
+// its way up to the maximum and An starts there, so the arrays are sized for that
+// largest ask in every build, not just for the benchmark.
+#define DL_MAX_STREAMS 6
+#define DL_MAX_SLOTS   (DL_MAX_STREAMS * 2)
 // Below this the extra connections cost more than they win, and the .h3, ticket
 // and TMD files are tiny to begin with.
 #define DL_MIN_PARALLEL (2 * DL_CHUNKSIZE)
+
+// One Auto-ramp phase runs long enough and moves enough bytes for its rate to be
+// trusted against the gate below, and never past the cap - which is also what
+// bounds a stalled single stream whose eight megabytes would never arrive.
+#define RAMP_MIN_MS    5000
+#define RAMP_MAX_MS    15000
+#define RAMP_MIN_BYTES (8 * 1024 * 1024)
+// The first count whose rate beats the single-stream yardstick by this percent
+// is the one that wins the host.
+#define RAMP_GATE 115
 
 static bool initialised = false;
 static CURL *curl;
@@ -119,12 +135,27 @@ typedef struct
     volatile void *cdata;
 } dlJob;
 
-static dlChunk dlSlots[DL_SLOTS];
+static dlChunk dlSlots[DL_MAX_SLOTS];
+static int dlStreams = DL_STREAMS;
+static int dlSlotCount = DL_SLOTS;
 // One handle per buffer, so a free slot is always ready to be issued. How many
 // of them libCURL actually connects at once is its own business - see the
 // CURLMOPT_MAX_TOTAL_CONNECTIONS below.
-static CURL *dlHandles[DL_SLOTS];
+static CURL *dlHandles[DL_MAX_SLOTS];
 static bool parallelReady = false;
+
+// Point the engine at the stream count the next job should use: one pair of
+// slots per stream, capped by the arrays sized above.
+static void setStreamCount(int streams)
+{
+    if(streams < 1)
+        streams = 1;
+    if(streams > DL_MAX_STREAMS)
+        streams = DL_MAX_STREAMS;
+
+    dlStreams = streams;
+    dlSlotCount = streams * 2;
+}
 
 static size_t chunkWrite(const void *ptr, size_t size, size_t n, void *userdata);
 static void initParallel(void);
@@ -666,14 +697,14 @@ static void deinitParallel(void)
         multi = NULL;
     }
 
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < DL_MAX_SLOTS; ++i)
         if(dlHandles[i] != NULL)
         {
             curl_easy_cleanup(dlHandles[i]);
             dlHandles[i] = NULL;
         }
 
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < DL_MAX_SLOTS; ++i)
         if(dlSlots[i].buf != NULL)
         {
             MEMFreeToDefaultHeap(dlSlots[i].buf);
@@ -716,9 +747,9 @@ static void initParallel(void)
 
     // MAXCONNECTS only sizes that cache, so it is sized once for the largest the
     // session can ask for. How many of them may run at a time is per job.
-    curl_multi_setopt(multi, CURLMOPT_MAXCONNECTS, (long)DL_STREAMS);
+    curl_multi_setopt(multi, CURLMOPT_MAXCONNECTS, (long)DL_MAX_STREAMS);
 
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < DL_MAX_SLOTS; ++i)
     {
         dlSlots[i].buf = MEMAllocFromDefaultHeapEx(DL_CHUNKSIZE, 0x40);
         if(dlSlots[i].buf == NULL)
@@ -729,7 +760,7 @@ static void initParallel(void)
         }
     }
 
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < DL_MAX_SLOTS; ++i)
     {
         dlHandles[i] = curl_easy_duphandle(curl);
         if(dlHandles[i] == NULL)
@@ -781,7 +812,7 @@ static bool rangeMatches(CURL *handle, const dlChunk *chunk)
 static curl_off_t chunkedProgress(curl_off_t written, curl_off_t start)
 {
     curl_off_t p = written - start;
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < dlSlotCount; ++i)
         p += dlSlots[i].filled;
 
     return p;
@@ -802,7 +833,7 @@ static int mdlThreadMain(int argc, const char **argv)
     // MAX_TOTAL_CONNECTIONS is what caps concurrency, queueing the rest
     // internally. Between it and the cache libCURL does the bookkeeping that
     // would otherwise be a busy array and a search.
-    curl_multi_setopt(multi, CURLMOPT_MAX_TOTAL_CONNECTIONS, (long)DL_STREAMS);
+    curl_multi_setopt(multi, CURLMOPT_MAX_TOTAL_CONNECTIONS, (long)dlStreams);
 
     CURLcode ret = CURLE_OK;
     curl_off_t issue = job->start; // next byte to hand to a stream
@@ -811,7 +842,7 @@ static int mdlThreadMain(int argc, const char **argv)
     int nextWrite = 0;
     char range[48];
 
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < dlSlotCount; ++i)
     {
         dlSlots[i].size = dlSlots[i].filled = 0;
         dlSlots[i].handle = NULL;
@@ -837,7 +868,7 @@ static int mdlThreadMain(int argc, const char **argv)
             chunk->size = (size_t)len;
             chunk->filled = 0;
 
-            if(curl_easy_setopt(dlHandles[nextIssue], CURLOPT_URL, job->url) != CURLE_OK || curl_easy_setopt(dlHandles[nextIssue], CURLOPT_RANGE, range) != CURLE_OK || curl_easy_setopt(dlHandles[nextIssue], CURLOPT_WRITEDATA, chunk) != CURLE_OK || curl_multi_add_handle(multi, dlHandles[nextIssue]) != CURLM_OK)
+            if(curl_easy_setopt(dlHandles[nextIssue], CURLOPT_URL, job->url) != CURLE_OK || curl_easy_setopt(dlHandles[nextIssue], CURLOPT_RANGE, range) != CURLE_OK || curl_easy_setopt(dlHandles[nextIssue], CURLOPT_WRITEDATA, chunk) != CURLE_OK || curl_easy_setopt(dlHandles[nextIssue], CURLOPT_XFERINFODATA, cdata) != CURLE_OK || curl_multi_add_handle(multi, dlHandles[nextIssue]) != CURLM_OK)
             {
                 ret = CURLE_FAILED_INIT;
                 break;
@@ -845,7 +876,7 @@ static int mdlThreadMain(int argc, const char **argv)
 
             chunk->handle = dlHandles[nextIssue];
             issue += len;
-            if(++nextIssue == DL_SLOTS)
+            if(++nextIssue == dlSlotCount)
                 nextIssue = 0;
         }
 
@@ -866,7 +897,7 @@ static int mdlThreadMain(int argc, const char **argv)
             if(msg->msg != CURLMSG_DONE)
                 continue;
 
-            for(int i = 0; i < DL_SLOTS; ++i)
+            for(int i = 0; i < dlSlotCount; ++i)
             {
                 if(dlSlots[i].handle != msg->easy_handle)
                     continue;
@@ -917,7 +948,7 @@ static int mdlThreadMain(int argc, const char **argv)
             written += chunk->size;
             chunk->size = chunk->filled = 0;
             chunk->full = false;
-            if(++nextWrite == DL_SLOTS)
+            if(++nextWrite == dlSlotCount)
                 nextWrite = 0;
         }
 
@@ -938,7 +969,7 @@ static int mdlThreadMain(int argc, const char **argv)
 
 #undef updateProgress
 
-    for(int i = 0; i < DL_SLOTS; ++i)
+    for(int i = 0; i < dlSlotCount; ++i)
         if(dlSlots[i].handle != NULL)
         {
             curl_multi_remove_handle(multi, dlSlots[i].handle);
@@ -1022,6 +1053,22 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
     }
 }
 
+// Peel scheme and path off a URL to get at the host, for the Auto ramp's
+// per-host pin: what six streams won on one mirror says nothing about the next.
+static void urlHost(const char *url, char *out, size_t len)
+{
+    const char *start = strstr(url, "://");
+    start = start != NULL ? start + 3 : url;
+
+    const char *end = strchr(start, '/');
+    size_t hostLen = end != NULL ? (size_t)(end - start) : strlen(start);
+    if(hostLen >= len)
+        hostLen = len - 1;
+
+    memcpy(out, start, hostLen);
+    out[hostLen] = '\0';
+}
+
 int downloadFile(const char *url, char *file, downloadData *data, FileType type, bool resume, QUEUE_DATA *queueData, RAMBUF *rambuf)
 {
     // Results: 0 = OK | 1 = Error | 2 = No ticket aviable | 3 = Exit
@@ -1040,6 +1087,20 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     // would reissue the exact same requests and loop forever, truncating the
     // file on every pass.
     bool allowParallel = true;
+    const PARALLEL_MODE dlMode = getParallelMode();
+    // Streams for the next attempt: 0 = resolve it fresh, then held across
+    // retries and across the Auto ramp's phases.
+    int want = 0;
+    // -1 = no ramp in flight, 0..2 = a phase measuring, 3 = settled.
+    int rampPhase = -1;
+    curl_off_t rampR1 = 0;
+    OSTick phaseTick = 0;
+    bool phaseStop = false;
+    bool userCancelled = false;
+    // The Auto pin is measured once per host and kept for the session,
+    // 0 = not measured yet.
+    static int rampPinned = 0;
+    static char rampHost[64];
 
 retry:
     debugPrintf("Download URL: %s", url);
@@ -1114,10 +1175,48 @@ retry:
     };
     spinCreateLock((cdata.lock), SPINLOCK_FREE);
 
+transfer:;
     // Only content files are worth splitting: they are the big ones, their size is
     // known up front from the TMD, and they land straight on disk rather than in
     // a RAM buffer.
-    const bool parallel = allowParallel && parallelReady && !rambuf && data != NULL && data->cs != 0 && (curl_off_t)(data->cs - fileSize) >= DL_MIN_PARALLEL;
+    const bool eligible = allowParallel && parallelReady && !rambuf && data != NULL && data->cs != 0 && (curl_off_t)(data->cs - fileSize) >= DL_MIN_PARALLEL;
+
+    // Aus stays on one stream, An on the maximum. Auto measures which count
+    // actually pays: single first as the yardstick, then the maximum, then the
+    // middle - the first that beats the yardstick by RAMP_GATE keeps the host.
+    if(!eligible)
+        want = 1;
+    else if(want == 0)
+    {
+        if(dlMode == PARALLEL_MODE_ON)
+            want = DL_MAX_STREAMS;
+        else if(dlMode == PARALLEL_MODE_AUTO)
+        {
+            char host[64];
+            urlHost(url, host, sizeof(host));
+            if(rampPinned != 0 && strcmp(host, rampHost) != 0)
+            {
+                debugPrintf("Ramp: host changed from %s to %s, measuring again", rampHost, host);
+                rampPinned = 0;
+            }
+
+            if(rampPinned == 0)
+            {
+                strcpy(rampHost, host);
+                rampPhase = 0;
+                want = 1;
+            }
+            else
+                want = rampPinned;
+        }
+        else
+            want = 1;
+    }
+
+    const bool ramping = eligible && dlMode == PARALLEL_MODE_AUTO && rampPinned == 0 && rampPhase >= 0 && rampPhase <= 2;
+    debugPrintf("Stream plan: mode=%s want=%d phase=%d pinned=%d", getParallelString(dlMode), want, rampPhase, rampPinned);
+
+    const bool parallel = eligible && want > 1;
 
     CURLoption opt = CURLOPT_URL;
     CURLcode ret = CURLE_OK;
@@ -1169,13 +1268,18 @@ retry:
     }
 
     OSTime t = OSGetSystemTime();
+    phaseTick = OSGetTick();
+    phaseStop = false;
+    setStreamCount(want);
+    if(ramping)
+        debugPrintf("Ramp[phase=%d/streams=%d] begin at offset %u", rampPhase, want, (unsigned int)fileSize);
 
     dlJob job;
     char *argv[1];
     OSThread *dlThread;
     if(parallel)
     {
-        debugPrintf("Downloading %u bytes over %d streams", (unsigned int)(data->cs - fileSize), DL_STREAMS);
+        debugPrintf("Downloading %u bytes over %d streams", (unsigned int)(data->cs - fileSize), dlStreams);
         job.url = url;
         job.fp = (FSAFileHandle)fp;
         job.start = fileSize;
@@ -1227,6 +1331,17 @@ retry:
             dltotal = cdata.dltotal;
             dlnow = cdata.dlnow;
             spinReleaseLock(cdata.lock);
+
+            if(ramping && !phaseStop)
+            {
+                uint32_t ms = (uint32_t)OSTicksToMilliseconds(OSGetTick() - phaseTick);
+                if(ms >= RAMP_MAX_MS || (ms >= RAMP_MIN_MS && dlnow >= RAMP_MIN_BYTES))
+                {
+                    debugPrintf("Ramp[phase=%d] cap reached: bytes=%u ms=%u", rampPhase, (unsigned int)dlnow, ms);
+                    phaseStop = true;
+                    cdata.error = CURLE_ABORTED_BY_CALLBACK;
+                }
+            }
 
             bps = dlnow - downloaded;
             downloaded = dlnow;
@@ -1331,6 +1446,7 @@ retry:
         {
             if(vpad.trigger & VPAD_BUTTON_A)
             {
+                userCancelled = true;
                 cdata.error = CURLE_ABORTED_BY_CALLBACK;
                 closeCancelOverlay();
                 break;
@@ -1348,6 +1464,66 @@ retry:
         closeCancelOverlay();
 
     debugPrintf("curl_easy_perform() returned: %d", ret);
+
+    // A ramp phase that stopped on its own cap - not an error, not the user -
+    // scores the configuration just measured and hands over to the next one.
+    // Whoever wins re-enters above for the rest of the file; the handle below
+    // stays open across all of it.
+    if(ramping && phaseStop && !userCancelled && ret == CURLE_ABORTED_BY_CALLBACK && cdata.error == CURLE_ABORTED_BY_CALLBACK && AppRunning(true))
+    {
+        uint32_t ms = (uint32_t)OSTicksToMilliseconds(OSGetTick() - phaseTick);
+        if(ms == 0)
+            ms = 1;
+
+        curl_off_t got = cdata.dlnow;
+        curl_off_t rate = got * 1000 / ms;
+        debugPrintf("Ramp[phase=%d/streams=%d] result: bytes=%u ms=%u rate=%u", rampPhase, want, (unsigned int)got, ms, (unsigned int)rate);
+
+        if(rampPhase == 0)
+        {
+            rampR1 = rate;
+            rampPhase = 1;
+            want = DL_MAX_STREAMS;
+        }
+        else if(rate * 100 >= rampR1 * RAMP_GATE)
+        {
+            rampPinned = want;
+            debugPrintf("Ramp[pin=%d] beats single: %u vs %u B/s", rampPinned, (unsigned int)rate, (unsigned int)rampR1);
+            rampPhase = 3;
+            want = rampPinned;
+        }
+        else if(rampPhase == 1)
+        {
+            rampPhase = 2;
+            want = 3;
+        }
+        else
+        {
+            rampPinned = 1;
+            debugPrintf("Ramp[pin=1] single wins: %u vs %u B/s", (unsigned int)rate, (unsigned int)rampR1);
+            rampPhase = 3;
+            want = 1;
+        }
+
+        if((curl_off_t)fileSize + got >= (curl_off_t)data->cs)
+        {
+            // The phase carried the file over the line itself: nothing left to
+            // re-enter for, so fall through and let the code below account for
+            // it as the success it is.
+            debugPrintf("Ramp: file finished inside the phase");
+            ret = CURLE_OK;
+            cdata.error = CURLE_OK;
+        }
+        else
+        {
+            fileSize += (size_t)got;
+            cdata.running = true;
+            cdata.error = CURLE_OK;
+            cdata.dltotal = 0;
+            cdata.dlnow = 0;
+            goto transfer;
+        }
+    }
 
     if(rambuf)
         fclose((FILE *)fp);
@@ -1402,6 +1578,15 @@ retry:
                     allowParallel = false;
                 else
                     resume = false; // Sequential path failed too: no Range support.
+
+                // Ranges are what the ramp measures with: a host that refuses
+                // them cannot be parallel at all, so stop re-measuring it.
+                if(rampPhase >= 0 && rampPhase <= 2)
+                {
+                    rampPinned = 1;
+                    rampPhase = 3;
+                    debugPrintf("Ramp[pin=1] no Range support on this host");
+                }
 
                 // The close command is queued, not done: retrying before it lands
                 // would size the file short and resume from the wrong offset.

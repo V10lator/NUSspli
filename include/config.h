@@ -46,6 +46,16 @@ extern "C"
         NOTIF_METHOD_LED = 0x02,
     } NOTIF_METHOD;
 
+    // How big downloads pick their stream count: OFF (Aus) stays on one stream,
+    // ON (An) always uses the maximum, AUTO measures once per host which count
+    // actually wins.
+    typedef enum
+    {
+        PARALLEL_MODE_OFF = 0,
+        PARALLEL_MODE_AUTO = 1,
+        PARALLEL_MODE_ON = 2,
+    } PARALLEL_MODE;
+
     void initConfig();
     void saveConfig(bool force);
     bool updateCheckEnabled();
@@ -64,6 +74,9 @@ extern "C"
     void setDlToUSB(bool toUSB);
     NOTIF_METHOD getNotificationMethod();
     void setNotificationMethod(NOTIF_METHOD method);
+    PARALLEL_MODE getParallelMode();
+    void setParallelMode(PARALLEL_MODE mode);
+    const char *getParallelString(PARALLEL_MODE mode);
     Swkbd_LanguageType getMenuLanguage();
     void setMenuLanguage(Swkbd_LanguageType language);
 

@@ -70,6 +70,10 @@
 #define NOTIF_BOTH       "Rumble + LED"
 #define NOTIF_NONE       "None"
 
+#define PARALLEL_OFF     "Off"
+#define PARALLEL_AUTO    "Auto"
+#define PARALLEL_ON      "On"
+
 #define LOCALE_EXTENSION ".json"
 
 static bool changed = false;
@@ -81,6 +85,7 @@ static Swkbd_LanguageType menuLang = Swkbd_LanguageType__English;
 static bool dlToUSB = true;
 static MCPRegion regionSetting = MCP_REGION_EUROPE | MCP_REGION_USA | MCP_REGION_JAPAN;
 static NOTIF_METHOD notifSetting = NOTIF_METHOD_RUMBLE | NOTIF_METHOD_LED;
+static PARALLEL_MODE parallelMode = PARALLEL_MODE_AUTO;
 
 static inline void intSetMenuLanguage()
 {
@@ -297,6 +302,22 @@ void initConfig()
         changed = true;
     }
 
+    configEntry = json_object_get(json, "Parallel downloads");
+    if(configEntry != NULL && json_is_string(configEntry))
+    {
+        if(strcmp(json_string_value(configEntry), PARALLEL_AUTO) == 0)
+            parallelMode = PARALLEL_MODE_AUTO;
+        else if(strcmp(json_string_value(configEntry), PARALLEL_ON) == 0)
+            parallelMode = PARALLEL_MODE_ON;
+        else
+            parallelMode = PARALLEL_MODE_OFF;
+    }
+    else
+    {
+        addToScreenLog("Parallel downloads setting not found!");
+        changed = true;
+    }
+
     configEntry = json_object_get(json, "Seed");
     if(configEntry != NULL && json_is_integer(configEntry))
     {
@@ -371,6 +392,19 @@ const char *getNotificationString(NOTIF_METHOD method)
     }
 }
 
+const char *getParallelString(PARALLEL_MODE mode)
+{
+    switch((int)mode)
+    {
+        case PARALLEL_MODE_AUTO:
+            return PARALLEL_AUTO;
+        case PARALLEL_MODE_ON:
+            return PARALLEL_ON;
+        default:
+            return PARALLEL_OFF;
+    }
+}
+
 static inline bool setValue(json_t *config, const char *key, json_t *value)
 {
     if(value == NULL)
@@ -422,6 +456,8 @@ void saveConfig(bool force)
                                         value = json_integer(entropy);
                                         if(setValue(config, "Seed", value))
                                         {
+                                            value = json_string(getParallelString(getParallelMode()));
+                                            setValue(config, "Parallel downloads", value);
                                             char *json = json_dumps(config, JSON_INDENT(4));
                                             if(json != NULL)
                                             {
@@ -482,6 +518,20 @@ void setAutoResume(bool enabled)
         return;
 
     autoResume = enabled;
+    changed = true;
+}
+
+PARALLEL_MODE getParallelMode()
+{
+    return parallelMode;
+}
+
+void setParallelMode(PARALLEL_MODE mode)
+{
+    if(parallelMode == mode)
+        return;
+
+    parallelMode = mode;
     changed = true;
 }
 

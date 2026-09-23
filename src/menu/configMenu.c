@@ -35,7 +35,7 @@
 #include <coreinit/mcp.h>
 #pragma GCC diagnostic pop
 
-#define ENTRY_COUNT 4
+#define ENTRY_COUNT 5
 
 static int cursorPos = 0;
 
@@ -68,6 +68,11 @@ static void drawConfigMenu()
     strcat(toScreen, " ");
     strcat(toScreen, localise(getFormattedRegion(getRegion())));
     textToFrame(4, 4, toScreen);
+
+    strcpy(toScreen, localise("Parallel downloads:"));
+    strcat(toScreen, " ");
+    strcat(toScreen, localise(getParallelString(getParallelMode())));
+    textToFrame(5, 4, toScreen);
 
     lineToFrame(MAX_LINES - 2, SCREEN_COLOR_WHITE);
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, localise("Press " BUTTON_B " to return"));
@@ -241,6 +246,28 @@ static inline void switchRegion()
     setRegion(reg);
 }
 
+static inline void switchParallelMode()
+{
+    PARALLEL_MODE mode = getParallelMode();
+
+    if(vpad.trigger & VPAD_BUTTON_LEFT)
+    {
+        if(mode == PARALLEL_MODE_OFF)
+            mode = PARALLEL_MODE_ON;
+        else
+            mode = (PARALLEL_MODE)((int)mode - 1);
+    }
+    else
+    {
+        if(mode == PARALLEL_MODE_ON)
+            mode = PARALLEL_MODE_OFF;
+        else
+            mode = (PARALLEL_MODE)((int)mode + 1);
+    }
+
+    setParallelMode(mode);
+}
+
 void configMenu()
 {
     bool redraw = true;
@@ -282,6 +309,9 @@ void configMenu()
                     break;
                 case 4:
                     switchRegion();
+                    break;
+                case 5:
+                    switchParallelMode();
                     break;
             }
 

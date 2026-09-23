@@ -48,7 +48,17 @@
 
 #define PD_MENU_ENTRIES 5
 
-static int cursorPos = 15;
+typedef enum
+{
+    PD_LINE_INSTALL_DEVICE = 15,
+    PD_LINE_OPERATION = 16,
+    PD_LINE_DOWNLOAD_DEVICE = 17,
+    PD_LINE_KEEP_FILES = 18,
+    PD_LINE_TITLE_VERSION = 19,
+    PD_LINE_FOLDER_NAME = 20,
+} PD_LINE;
+
+static int cursorPos = PD_LINE_INSTALL_DEVICE;
 static OPERATION operation = OPERATION_DOWNLOAD_INSTALL;
 static bool keepFiles = true;
 static NUSDEV dlDev = NUSDEV_NONE;
@@ -488,25 +498,25 @@ naNedNa:
             {
                 switch(cursorPos)
                 {
-                    case 15: // TODO: Change hardcoded numbers to something prettier
+                    case PD_LINE_INSTALL_DEVICE:
                         if(operation == OPERATION_DOWNLOAD_INSTALL && forcedInstDev == NUSDEV_NONE)
                             switchInstallDevice();
                         break;
-                    case 16:
+                    case PD_LINE_OPERATION:
                         if(forcedInstDev == NUSDEV_NONE)
                             switchOperation();
                         break;
-                    case 17:
+                    case PD_LINE_DOWNLOAD_DEVICE:
                         switchDownloadDevice();
                         break;
-                    case 18:
+                    case PD_LINE_KEEP_FILES:
                         if(dlDev == NUSDEV_SD && operation == OPERATION_DOWNLOAD_INSTALL)
                             keepFiles = !keepFiles;
                         break;
-                    case 19:
+                    case PD_LINE_TITLE_VERSION:
                         changeTitleVersion(titleVer);
                         goto downloadTMD;
-                    case 20:
+                    case PD_LINE_FOLDER_NAME:
                         changeFolderName(folderName);
                         break;
                 }
@@ -515,15 +525,15 @@ naNedNa:
             }
             else if(vpad.trigger & VPAD_BUTTON_DOWN)
             {
-                if(++cursorPos == 21) // TODO: Change hardcoded numbers to something prettier
-                    cursorPos = 15;
+                if(++cursorPos == PD_LINE_FOLDER_NAME + 1)
+                    cursorPos = PD_LINE_INSTALL_DEVICE;
 
                 redraw = true;
             }
             else if(vpad.trigger & VPAD_BUTTON_UP)
             {
-                if(--cursorPos == 14) // TODO: Change hardcoded numbers to something prettier
-                    cursorPos = 20;
+                if(--cursorPos == PD_LINE_INSTALL_DEVICE - 1)
+                    cursorPos = PD_LINE_FOLDER_NAME;
 
                 redraw = true;
             }

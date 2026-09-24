@@ -261,6 +261,7 @@ static void SWKBD_Hide(SWKBD_Args *args)
         SWKBD_Render(args, CHECK_NONE);
 
     stopCalcThread(args->calcThread);
+    invalidateDrawState();
 }
 
 bool SWKBD_Init()

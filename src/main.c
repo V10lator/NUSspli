@@ -50,6 +50,8 @@
 #include <updater.h>
 #include <utils.h>
 
+#include <SDL2/SDL.h>
+
 #pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
 #include <coreinit/foreground.h>
@@ -64,8 +66,6 @@
 #include <mocha/mocha.h>
 #include <padscore/kpad.h>
 #include <padscore/wpad.h>
-#include <proc_ui/procui.h>
-#include <sysapp/launch.h>
 #pragma GCC diagnostic pop
 
 static void drawLoadingScreen(const char *toScreenLog, const char *loadingMsg)
@@ -101,6 +101,7 @@ static void innerMain()
     {
         if(initRenderer())
         {
+            initProcUICallbacks(); // ProcUI only runs once SDL claimed it
             readInput(); // bug #95
             char *lerr = NULL;
             if(cfwError == NULL)
@@ -150,6 +151,17 @@ static void innerMain()
                                                     drawByeFrame();
                                                     checkStacks("main");
                                                     debugPrintf("Deinitializing libraries...");
+
+                                                    if(app == APP_STATE_STOPPING)
+                                                    {
+                                                        // Power button: SDL deferred ProcUIDrawDoneRelease() into the
+                                                        // next pump so the background events can be processed first,
+                                                        // but the menu loop stopped pumping with APP_STATE_STOPPING.
+                                                        // Run the deferred step, else CafeOS never completes the
+                                                        // release handshake and never reports PROCUI_STATUS_EXITING
+                                                        // -- SDL_Quit() would wait for it forever.
+                                                        SDL_PumpEvents();
+                                                    }
                                                 }
                                                 else
                                                     drawByeFrame();
@@ -244,31 +256,27 @@ int main()
     shutdownDebug();
 #endif
 
-    if(app != APP_STATE_STOPPED)
+    if(launchingTitle() && app != APP_STATE_STOPPED)
     {
-        if(!launchingTitle())
-            SYSLaunchMenu();
-
-        if(app == APP_STATE_HOME)
+        // A title launch is pending: wait for CafeOS to report EXITING so the
+        // hand-off to the Wii U menu inside SDL_Quit() cannot cancel it.
+        SDL_Event event;
+        bool sdlQuit = false;
+        while(!sdlQuit)
         {
-            app = APP_STATE_RUNNING;
-            while(AppRunning(true))
-                ;
+            SDL_PumpEvents();
+            while(SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT))
+            {
+                if(event.type == SDL_QUIT)
+                    sdlQuit = true;
+            }
         }
-
-        if(app == APP_STATE_STOPPING)
-            ProcUIDrawDoneRelease();
-
-        int ps;
-        do
-        {
-            ps = ProcUIProcessMessages(true);
-            if(ps == PROCUI_STATUS_RELEASE_FOREGROUND)
-                ProcUIDrawDoneRelease();
-        } while(ps != PROCUI_STATUS_EXITING);
     }
 
+    // SDL claimed ProcUI while initializing the video driver: SDL_Quit() hands
+    // back to the Wii U menu, drains ProcUI until EXITING, tears GX2 down and
+    // shuts ProcUI down.
+    SDL_Quit();
     deinitState();
-    ProcUIShutdown();
     return 0;
 }

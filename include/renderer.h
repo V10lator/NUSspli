@@ -82,6 +82,7 @@ extern "C"
     void shutdownRenderer() __attribute__((__cold__));
     void pauseRenderer();
     void resumeRenderer();
+    void invalidateDrawState();
     void colorStartNewFrame(SCREEN_COLOR color);
     void showFrame() __attribute__((__hot__));
     void drawFrame();

@@ -28,6 +28,8 @@
 #include <state.h>
 #include <utils.h>
 
+#include <SDL2/SDL.h>
+
 #pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/energysaver.h>
 #include <coreinit/foreground.h>
@@ -124,7 +126,6 @@ uint32_t homeButtonCallback(void *dummy)
 
 void initState()
 {
-    ProcUIInit(&OSSavesDone_ReadyToRelease);
     OSTime t = OSGetTime();
 
     app = APP_STATE_RUNNING;
@@ -132,7 +133,6 @@ void initState()
     debugInit();
     debugPrintf("NUSspli " NUSSPLI_VERSION);
 
-    ProcUIRegisterCallback(PROCUI_CALLBACK_HOME_BUTTON_DENIED, &homeButtonCallback, (void *)false, 100);
     OSEnableHomeButtonMenu(false);
     ACPInitialize();
 
@@ -152,6 +152,13 @@ void initState()
     addEntropy(&t, sizeof(OSTime));
 }
 
+void initProcUICallbacks()
+{
+    // SDL claimed ProcUI while initializing the video driver, so the HOME
+    // button callback can only be registered once the renderer is up.
+    ProcUIRegisterCallback(PROCUI_CALLBACK_HOME_BUTTON_DENIED, &homeButtonCallback, (void *)false, 100);
+}
+
 void deinitState()
 {
     if(aroma)
@@ -167,20 +174,21 @@ void deinitState()
     ACPFinalize();
 }
 
-bool AppRunning(bool mainthread)
+static bool pumpEvents(void)
 {
-    if(app == APP_STATE_STOPPING || app == APP_STATE_HOME || app == APP_STATE_STOPPED)
-        return false;
+    // SDL pumps ProcUI for us, drain the events this pump produced
+    SDL_PumpEvents();
 
-    if(mainthread)
+    SDL_Event event;
+    while(SDL_PeepEvents(&event, 1, SDL_GETEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT))
     {
-        switch(ProcUIProcessMessages(true))
+        switch(event.type)
         {
-            case PROCUI_STATUS_EXITING:
+            case SDL_QUIT:
                 // Real exit request from CafeOS
                 app = APP_STATE_STOPPED;
                 return false;
-            case PROCUI_STATUS_RELEASE_FOREGROUND:
+            case SDL_APP_WILLENTERBACKGROUND:
                 // Exit with power button
                 app = APP_STATE_STOPPING;
                 drawByeFrame();
@@ -192,6 +200,32 @@ bool AppRunning(bool mainthread)
     }
 
     return true;
+}
+
+bool AppRunning(bool mainthread)
+{
+    // mainthread tells us whether the caller is the main thread and is
+    // taken as given: a worker passes false, only observes the state and
+    // never pumps, so no thread ID is checked here. Only the main thread
+    // may run the pump: SDL runs its ProcUI foreground release callback
+    // from inside it, and a worker pumping after the power button was
+    // pressed would hand the foreground back (GX2DrawDone, freeing the
+    // scan buffers, destroying the MEM1 heap) while the main thread still
+    // draws and wedge the GPU.
+    bool running = app != APP_STATE_STOPPING && app != APP_STATE_HOME && app != APP_STATE_STOPPED;
+
+    if(running && mainthread)
+        // SDL owns ProcUI now: the release callback frees the foreground GPU
+        // state from inside the event pump and the draw-done release is
+        // deferred into a later pump, so exactly one thread may run the pump
+        // at a time. Otherwise a thread can pass the state check above while
+        // the release is pending and hand the foreground back in the middle
+        // of the shutdown cleanup, cutting the network and the worker
+        // threads out from under it. This is ensured by the if(mainthread)
+        // above.
+        running = pumpEvents();
+
+    return running;
 }
 
 void launchTitle(MCPTitleListType *title)

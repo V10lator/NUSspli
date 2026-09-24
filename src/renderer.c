@@ -31,6 +31,7 @@
 #include <osdefs.h>
 #include <renderer.h>
 #include <romfs.h>
+#include <state.h>
 #include <swkbd_wrapper.h>
 #include <thread.h>
 #include <utils.h>
@@ -783,12 +784,12 @@ static inline void quitSDL()
         bgmBuffer = NULL;
     }
 
-    // TODO:
     if(TTF_WasInit())
         TTF_Quit();
     SDL_QuitSubSystem(SDL_INIT_AUDIO);
-    //	SDL_QuitSubSystem(SDL_INIT_VIDEO);
-    //	SDL_Quit();
+
+    // SDL_Quit() lives at the end of main(): its video shutdown runs the
+    // ProcUI exit handshake, which must not fire while files are still open.
 }
 
 bool initRenderer()
@@ -976,11 +977,17 @@ void showFrame()
     readInput();
 }
 
-#define predrawFrame()                   \
-    if(font == NULL)                     \
-        return;                          \
-                                         \
-    SDL_SetRenderTarget(renderer, NULL); \
+#define predrawFrame()                                                  \
+    if(font == NULL)                                                    \
+        return;                                                         \
+                                                                        \
+    /* Once we stop, SDL may have released the foreground already: */   \
+    /* the present path has no foreground guard and would write into */ \
+    /* the freed scan buffers. */                                       \
+    if(app == APP_STATE_STOPPING || app == APP_STATE_STOPPED)           \
+        return;                                                         \
+                                                                        \
+    SDL_SetRenderTarget(renderer, NULL);                                \
     SDL_RenderCopy(renderer, frameBuffer, NULL, NULL);
 
 #define postdrawFrame()                                     \
@@ -1000,7 +1007,27 @@ void drawFrame()
 
 void drawKeyboard(bool tv)
 {
-    predrawFrame();
+    if(font == NULL)
+        return;
+
+    if(app == APP_STATE_STOPPING || app == APP_STATE_STOPPED)
+        return;
+
+    SDL_SetRenderTarget(renderer, NULL);
+
+    // SDL batches the copy of the frame below and only runs it at
+    // SDL_RenderPresent(), which happens after Swkbd_DrawTV/DRC() --
+    // so without an explicit flush the keyboard was drawn over the
+    // stale buffer content (itself, two frames back) and the fresh
+    // frame only landed in the hidden buffer afterwards. On top of
+    // that nn::swkbd draws through GX2 directly and leaves its blend,
+    // viewport and scissor state behind while our cache still matches
+    // the queued copy, so the copy would be skipped: desync the cache
+    // first, then flush both into the buffer before the keyboard draws
+    // on top of them.
+    invalidateDrawState();
+    SDL_RenderCopy(renderer, frameBuffer, NULL, NULL);
+    SDL_RenderFlush(renderer);
 
     if(tv)
         Swkbd_DrawTV();
@@ -1009,6 +1036,28 @@ void drawKeyboard(bool tv)
 
     postdrawFrame();
     showFrame();
+}
+
+void invalidateDrawState()
+{
+    if(renderer == NULL)
+        return;
+
+    // nn::swkbd draws through GX2 directly and leaves its blend, viewport
+    // and scissor state behind. The wiiu renderer caches that state and
+    // skips re-applying it while its cache still matches the queued
+    // commands, so the first frame after the keyboard closed blended the
+    // new background over the old picture. Queue a harmless toggle of
+    // all three pieces; they run before the next real draw. While the
+    // keyboard is up the leftover state is what keeps it visible on top
+    // of the frame, so this must not run any earlier.
+    SDL_Rect fullscreen = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT };
+    SDL_RenderSetViewport(renderer, &fullscreen);
+    SDL_RenderSetViewport(renderer, NULL);
+    SDL_RenderSetClipRect(renderer, &fullscreen);
+    SDL_RenderSetClipRect(renderer, NULL);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_RenderDrawPoint(renderer, 0, 0);
 }
 
 uint32_t getSpaceWidth()

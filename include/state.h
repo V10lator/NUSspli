@@ -47,6 +47,7 @@ extern "C"
     extern volatile APP_STATE app;
 
     void initState() __attribute__((__cold__));
+    void initProcUICallbacks() __attribute__((__cold__));
     void deinitState() __attribute__((__cold__));
     void enableApd();
     void disableApd();

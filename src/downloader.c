@@ -430,9 +430,11 @@ static void resetNetwork()
 {
     void *ovl = addErrorOverlay(localise("Preparing. This might take some time. Please be patient."));
 
-    // Disconnect from network. deinitDownloader() ends the socket library on its
-    // way out, so there is nothing left to finish here.
-    restartUdpLog1();
+    // Disconnect from network. deinitDownloader() cleans up curl and releases
+    // the socket pool, and releaseSocketPool() brackets socket_lib_finish()
+    // with the UDP log restart itself, so there is nothing left to finish or
+    // restart here; the reconnect below re-donates the pool through
+    // initDownloader().
     deinitDownloader();
     NNResult nnres;
     BOOL con;
@@ -492,10 +494,7 @@ reconnect:
 
                 if(con)
                 {
-                    socket_lib_init();
                     set_multicast_state(true);
-
-                    restartUdpLog2();
                     initDownloader();
 
                     if(ovl)
@@ -651,18 +650,25 @@ bool initDownloader()
 // somemopt(SOMEMOPT_REQUEST_INIT) does not return until the socket library is
 // shut down, so the donating thread stays parked - and the title cannot unload -
 // until socket_lib_finish() runs. The UDP log holds a socket of its own on the
-// same library, so it goes first, and the thread is joined once it is unparked.
+// same library, so it goes down first and comes back once the library does, and
+// that bracket is exactly what restartUdpLog1() holds the debug lock over.
+// stopThread() therefore runs after restartUdpLog2() released it again: its
+// STACK line goes through debugPrintf(), which takes the very same
+// non-recursive lock and would spin forever with it held.
 static void releaseSocketPool(void)
 {
     if(socketPoolThread == NULL)
         return;
 
-    shutdownDebug();
+    restartUdpLog1();
     socket_lib_finish();
+    socket_lib_init();
+    restartUdpLog2();
     stopThread(socketPoolThread, NULL);
     socketPoolThread = NULL;
     socketPoolDonated = false;
 }
+
 void deinitDownloader()
 {
     if(!initialised)
@@ -679,8 +685,6 @@ void deinitDownloader()
     curl_global_cleanup();
     debugPrintf("curl closed");
 
-    // Last, as it takes the socket library with it: every handle above still had
-    // a keep-alive connection to close.
     releaseSocketPool();
     initialised = false;
 }

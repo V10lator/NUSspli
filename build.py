@@ -66,8 +66,6 @@ cDownload("https://curl.se/ca/cacert.pem", "data/ca-certs.pem");
 checkAndDeleteDir("NUStmp")
 checkAndDeleteDir("out")
 
-os.system(f"SDL2/setup.sh")
-
 editionList = ["-DEBUG", ""]
 extList = [".rpx", ".zip", ".wuhb"]
 pkgList = ["Aroma", "Channel"]

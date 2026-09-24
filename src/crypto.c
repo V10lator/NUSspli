@@ -25,6 +25,7 @@
 
 #include <crypto.h>
 #include <thread.h>
+#include <utils.h>
 
 #include <mbedtls/aes.h>
 
@@ -113,6 +114,11 @@ bool initCrypto()
     reseed();
     spinCreateLock(rngLock, SPINLOCK_FREE);
     return true;
+}
+
+void deinitCrypto()
+{
+    debugPrintf("Crypto closed");
 }
 
 bool encryptAES(void *data, int data_len, const unsigned char *key, unsigned char *iv, void *encrypted)

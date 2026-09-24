@@ -144,7 +144,7 @@ static const UIScreen mainScreen = {
 
 void mainMenu()
 {
-    // The main menu is the root screen: uiRun is THE loop of the app.
+    // The main menu is the root screen: the boot screen pushes it once
+    // the steps are done. The one loop of the app lives in main.c.
     uiPush(&mainScreen, NULL);
-    uiRun();
 }

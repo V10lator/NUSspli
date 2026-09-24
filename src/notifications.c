@@ -94,6 +94,7 @@ void deinitNotifications()
         OSSendMessage(&rumble_queue, &msg, OS_MESSAGE_FLAGS_BLOCKING);
         stopThread(rumbleThread, NULL);
     }
+    debugPrintf("Notification system closed");
 }
 
 void startNotification()

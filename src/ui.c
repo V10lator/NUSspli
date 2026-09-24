@@ -123,10 +123,10 @@ void uiRun()
     running = true;
     while(running)
     {
-        // A flow that ran before the loop (the update check during boot) left
-        // its frame behind and never reached the frame end that normally
-        // clears the marker. Take it over here: no engine code is below this
-        // loop, so the screen below has to be rebuilt again.
+        // A flow may leave its frame behind when it ends outside the frame
+        // that started it, so the marker never reaches the frame end that
+        // normally clears it. Take it over here: no engine code is below
+        // this loop, the screen below has to be rebuilt again.
         if(engineFlow)
         {
             engineFlow = false;

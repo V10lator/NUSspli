@@ -30,6 +30,7 @@
 #include <coreinit/time.h>
 #pragma GCC diagnostic pop
 
+#include <config.h>
 #include <crypto.h>
 #include <file.h>
 #include <filesystem.h>
@@ -164,21 +165,24 @@ bool checkForQueueErrors()
 
 void shutdownIOThread()
 {
-    if(!ioRunning)
-        return;
+    if(ioRunning)
+    {
+        saveConfig(false);
+        flushIOQueue();
 
-    flushIOQueue();
-
-    ioRunning = false;
+        ioRunning = false;
 #ifdef NUSSPLI_DEBUG
-    int ret;
-    stopThread(ioThread, &ret);
-    debugPrintf("I/O thread returned: %d", ret);
+        int ret;
+        stopThread(ioThread, &ret);
+        debugPrintf("I/O thread returned: %d", ret);
 #else
-    stopThread(ioThread, NULL);
+        stopThread(ioThread, NULL);
 #endif
-    MEMFreeToDefaultHeap((void *)queueEntries[0].buf);
-    MEMFreeToDefaultHeap(queueEntries);
+        MEMFreeToDefaultHeap((void *)queueEntries[0].buf);
+        MEMFreeToDefaultHeap(queueEntries);
+    }
+
+    debugPrintf("I/O thread closed");
 }
 
 // Hands the slot activeReadBuffer points to over to the I/O thread and advances to the next one.

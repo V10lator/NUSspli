@@ -46,6 +46,10 @@ extern "C"
      * lives on a stack. Navigation happens by pushing screens; modal dialogs
      * block their caller through uiModal, which runs the very same frame.
      *
+     * Boot is the first screen of that loop instead of a pyramid of calls
+     * before it: its steps run one per frame, so the loading screen has the
+     * same frame cadence as every other screen and can animate one day.
+     *
      * The engine must not include renderer.h. It talks to the UI through this
      * header only: uiWaitWhile for blocking work (with an optional frame
      * callback implemented on the UI side), uiShowOverlay/uiHideOverlay for

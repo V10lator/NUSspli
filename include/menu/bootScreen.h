@@ -1,7 +1,7 @@
 /***************************************************************************
  * This file is part of NUSspli.                                           *
- * Copyright (c) 2021-2022 V10lator <v10lator@myway.de>                    *
- * Copyright (c) 2022 Xpl0itU <DaThinkingChair@protonmail.com>             *
+ * Copyright (c) 2019-2020 Pokes303                                        *
+ * Copyright (c) 2020-2024 V10lator <v10lator@myway.de>                    *
  *                                                                         *
  * This program is free software; you can redistribute it and/or modify    *
  * it under the terms of the GNU General Public License as published by    *
@@ -21,21 +21,23 @@
 
 #include <wut-fixups.h>
 
-#include <stdbool.h>
-#include <stddef.h>
-
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-    bool initCrypto();
-    void deinitCrypto();
-    void addEntropy(void *e, size_t len) __attribute__((__hot__));
-    int NUSrng(void *data, unsigned char *out, size_t outlen);
-    bool encryptAES(void *data, int data_len, const unsigned char *key, unsigned char *iv, void *encrypted);
+    // Pushes the boot screen. main() then waits in uiRun() for the boot to
+    // hand over to the menu or to leave the app, and reads the result
+    // through the three functions below (see src/menu/bootScreen.c).
+    void pushBootScreen();
 
-#define osslBytes(buf, num) NUSrng(NULL, (unsigned char *)buf, num)
+    // Message of the boot step that stopped the boot, NULL when the boot
+    // ran through. Only meaningful once uiRun() returned.
+    const char *bootError();
+
+    // Tears the steps down again that ran, backwards over the table - the
+    // equivalent of unwinding the pyramid of calls of the old boot.
+    void undoBootSteps();
 
 #ifdef __cplusplus
 }

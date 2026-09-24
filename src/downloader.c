@@ -224,24 +224,24 @@ static int socketPoolThreadMain(int argc, const char **argv)
     (void)argc;
     (void)argv;
 
+    int ret = -1;
     void *socketPool = MEMAllocFromDefaultHeapEx(SOCKET_POOL_SIZE, 0x40);
     if(socketPool == NULL)
-    {
         debugPrintf("socketPoolThread: Out of memory");
-        return -1;
+    else
+    {
+        // BIG_BUFFERS splits the donation 50-50 between small and big buffers
+        // instead of 80-20. Receive buffers are what we are here for, so the big
+        // half is the half that matters.
+        ret = somemopt(SOMEMOPT_REQUEST_INIT, socketPool, SOCKET_POOL_SIZE, SOMEMOPT_FLAGS_BIG_BUFFERS);
+        MEMFreeToDefaultHeap(socketPool);
     }
 
-    // BIG_BUFFERS splits the donation 50-50 between small and big buffers instead
-    // of 80-20. Receive buffers are what we are here for, so the big half is the
-    // half that matters.
-    int ret = somemopt(SOMEMOPT_REQUEST_INIT, socketPool, SOCKET_POOL_SIZE, SOMEMOPT_FLAGS_BIG_BUFFERS);
-
-    // A request that never took never signals either, and initDownloader() is
-    // sitting in WAIT_FOR_INIT on the thread that draws the screen.
+    // Nothing to donate and nothing that took never signals either, and
+    // initSocketPool() is sitting in WAIT_FOR_INIT on the thread that draws the
+    // screen.
     if(ret < 0)
         somemopt(SOMEMOPT_REQUEST_CANCEL_WAIT, NULL, 0, SOMEMOPT_FLAGS_NONE);
-
-    MEMFreeToDefaultHeap(socketPool);
 
     return ret;
 }
@@ -260,6 +260,9 @@ static void initSocketPool()
     if(socketPoolDonated)
         return;
 
+    // somemopt() does not return until the socket library shuts down, so this
+    // thread sits in the call for the life of the app and releaseSocketPool() is
+    // what lets it out again.
     socketPoolThread = startThread("NUSspli socket pool", THREAD_PRIORITY_LOW, STACKSIZE_SMALL, socketPoolThreadMain, 0, NULL, AFFINITY_CPU12);
     if(socketPoolThread == NULL)
     {
@@ -267,16 +270,17 @@ static void initSocketPool()
         return;
     }
 
-    // From here the thread is parked inside somemopt() until the socket library
-    // ends, so the pool counts as ours whatever the donation turned out to be.
-    socketPoolDonated = true;
-
     // Donating is asynchronous, and a socket created before it lands would get a
     // default-sized buffer anyway, so wait it out. Returns the bytes now in use.
 #ifdef NUSSPLI_DEBUG
-    int used = somemopt(SOMEMOPT_REQUEST_WAIT_FOR_INIT, NULL, 0, SOMEMOPT_FLAGS_NONE);
-    debugPrintf("initSocketPool: %d bytes donated", used);
+    int used =
 #endif
+        somemopt(SOMEMOPT_REQUEST_WAIT_FOR_INIT, NULL, 0, SOMEMOPT_FLAGS_NONE);
+    debugPrintf("initSocketPool: %d bytes donated", used);
+
+    // From here the thread is parked inside somemopt() until the socket library
+    // ends, so the pool counts as ours whatever the donation turned out to be.
+    socketPoolDonated = true;
 }
 
 // All the socket options we set below are pure performance tweaks, so a failure

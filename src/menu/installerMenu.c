@@ -68,7 +68,11 @@ static int addToOpQueue(const TitleEntry *entry, const char *dir, const TMD *tmd
 
     // 2 = already queued for install, 3 = already queued for download: not an error
     if(ret == 2 || ret == 3)
-        addToScreenLog("\"%s\" is already queued", entry->name);
+    {
+        // A folder that is not in the database has no name: say what the
+        // browser showed instead of feeding NULL to the format string.
+        addToScreenLog("\"%s\" is already queued", entry == NULL ? prettyDir(dir) : entry->name);
+    }
 
     return ret;
 }

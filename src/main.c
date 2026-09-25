@@ -218,7 +218,7 @@ static void innerMain()
                 drawErrorFrame(lerr, ANY_RETURN);
                 showFrame();
 
-                while(!(vpad.trigger))
+                while(!(vpad.trigger) && AppRunning(true))
                     showFrame();
 
                 drawByeFrame();

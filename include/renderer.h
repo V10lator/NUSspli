@@ -98,6 +98,7 @@ extern "C"
     // lines only and cannot reach the pixels in between.
     void rectToFrame(int x, int y, int w, int h, SCREEN_COLOR color);
     void boxToFrame(int lineStart, int lineEnd);
+    // Progress bar of width cells, centered when the column is ALIGNED_CENTER
     void barToFrame(int line, int column, uint32_t width, float progress);
     void arrowToFrame(int line, int column);
     void checkmarkToFrame(int line, int column);

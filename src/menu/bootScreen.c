@@ -45,6 +45,11 @@
 static const char *bootFailure; // message of the step that stopped the boot
 static int bootStep; // number of the step that runs next
 static bool bootShown; // the loading message of bootStep reached the screen
+static UiAnim bootBar; // progress bar of the boot, glides with the steps
+
+// Bar lengths per second the progress bar glides with: slow enough to be
+// seen, fast enough to reach its target before the boot leaves.
+#define BOOT_BAR_RATE 1.5f
 
 // One boot step of the table below: loading is on screen while run
 // executes, done is the screen log line it leaves behind and error the
@@ -98,10 +103,16 @@ static void enterBootScreen(void *param)
     bootFailure = NULL;
     bootStep = 0;
     bootShown = false;
+    bootBar.value = 0.0f;
+    bootBar.target = 0.0f;
 }
 
 static void updateBootScreen()
 {
+    // The bar glides between the steps, so this frame is rebuilt every
+    // time instead of only when a step changed something.
+    uiInvalidate();
+
     if(bootStep < NUM_BOOT_STEPS)
     {
         // The frame after a step paints its successor, so wait for that
@@ -122,12 +133,18 @@ static void updateBootScreen()
 
         ++bootStep;
         bootShown = false;
-        uiInvalidate(); // the next loading message replaces this one
         return;
     }
 
-    // Everything is up: this is where the old boot ran the update check
-    // before entering the menu.
+    // Everything is up, but the bar is still gliding: hold the hand over
+    // until it reached the end, the network of the update check would
+    // freeze it halfway. A clock that stopped ticking must not block the
+    // boot, so only a frame that really moved the bar is worth waiting for.
+    if(bootBar.value < 1.0f && uiDeltaMs() != 0)
+        return;
+
+    // This is where the old boot ran the update check before entering the
+    // menu.
     checkStacks("main()");
     if(updateCheck())
     {
@@ -152,6 +169,13 @@ static void renderBootScreen()
     startNewFrame();
     textToFrame(0, 0, step->loading);
     writeScreenLog(1);
+
+    // The bar sits on the middle of the screen under the message and the
+    // log: its target is the step count, the glide fills the gap in
+    // between so the boot shows how much is left instead of jumping.
+    uiAnimTo(&bootBar, (float)bootStep / (float)NUM_BOOT_STEPS);
+    barToFrame(MAX_LINES - 3, ALIGNED_CENTER, 40, uiAnimStep(&bootBar, BOOT_BAR_RATE));
+
     bootShown = true;
 }
 

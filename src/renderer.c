@@ -362,10 +362,14 @@ void barToFrame(int line, int column, uint32_t width, float progress)
             return;
     }
 
-    rect[0]->x = FONT_SIZE + (column * spaceWidth);
-    rect[0]->y = ((++line) * FONT_SIZE) - 2;
     rect[0]->w = ((int)width) * spaceWidth;
+    rect[0]->y = ((++line) * FONT_SIZE) - 2;
     rect[0]->h = FONT_SIZE;
+    // The column is a text column or ALIGNED_CENTER. The middle of the
+    // screen is the middle of the text area as well, so a centered bar
+    // lines up with the messages around it on its own.
+    rect[0]->x = column == ALIGNED_CENTER ? (SCREEN_WIDTH - rect[0]->w) / 2
+                                          : FONT_SIZE + (column * spaceWidth);
 
     SDL_Color co = SCREEN_COLOR_GRAY;
     SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
@@ -396,7 +400,13 @@ void barToFrame(int line, int column, uint32_t width, float progress)
     SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, 64);
     SDL_RenderFillRect(renderer, rect[2]);
 
-    textToFrame(--line, column + (width >> 1) - (strlen(text) >> 1), text);
+    // A centered bar carries its label on the screen middle too, which the
+    // text renderer measures in pixels instead of counting cells.
+    --line;
+    if(column == ALIGNED_CENTER)
+        textToFrame(line, ALIGNED_CENTER, text);
+    else
+        textToFrame(line, column + (width >> 1) - (strlen(text) >> 1), text);
 }
 
 void arrowToFrame(int line, int column)

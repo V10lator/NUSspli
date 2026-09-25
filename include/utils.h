@@ -66,10 +66,13 @@ extern "C"
 {
 #endif
 
+    // The MCP callback writes both fields from its own context while the
+    // polling loop reads them, so they have to stay visible: without
+    // volatile the loop is free to hoist the read of processing out of it.
     typedef struct
     {
-        bool processing;
-        MCPError err;
+        volatile bool processing;
+        volatile MCPError err;
     } McpData;
 
     extern int mcpHandle;

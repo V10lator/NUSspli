@@ -66,9 +66,10 @@ accident (`git status` must show only what you actually changed).
 
 - `.github/workflows/master.yml` runs on every push to `master`,
   `.github/workflows/pr.yaml` on pull requests. Both run two jobs:
-  1. **clang-format** over `./src` and `./include`, excluding the generated
-     `src/gtitles.c` and the vendored `src/SDL_FontCache.c` /
-     `include/SDL_FontCache.h`.
+  1. **clang-format** over `./src` and `./include` with the command shown
+     below. The generated `src/gtiles.c` and the vendored
+     `src/SDL_FontCache.c` / `include/SDL_FontCache.h` are listed in
+     `.clang-format-ignore`, so the formatter skips them on its own.
   2. **Build** via `python3 build.py` inside the image built from the
      `Dockerfile` (Docker layer cache keyed on it), uploading the Aroma and
      Channel artifacts.

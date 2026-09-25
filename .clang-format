@@ -5,6 +5,7 @@ DerivePointerAlignment: false
 PointerAlignment: Right
 SpaceBeforeParens: Never
 IndentCaseLabels: true
+LineEnding: LF
 ForEachMacros:
   - foreach
   - forEachListEntry

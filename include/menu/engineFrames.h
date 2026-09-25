@@ -27,6 +27,7 @@
 #include <downloader.h>
 #include <menu/utils.h>
 #include <queue.h>
+#include <ui.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -55,6 +56,7 @@ extern "C"
         uint64_t sizeTotal;
         float ratio;
         const char *speed;
+        UiAnim bar; // what the frame draws, it glides towards ratio
     } McpProgressView;
     void drawMcpProgressFrame(void *ctx);
 
@@ -68,6 +70,7 @@ extern "C"
         float bps;
         uint32_t fileEta;
         bool preparing;
+        UiAnim bars[3]; // file, queue and title bar, see drawDownloadProgressFrame
     } DLProgressView;
     void drawDownloadProgressFrame(void *ctx);
 

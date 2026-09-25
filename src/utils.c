@@ -204,7 +204,10 @@ void showMcpProgress(McpData *data, const char *game, bool inst)
     char speedBuf[32];
     speedBuf[0] = '\0';
     void *ovl = NULL;
-    McpProgressView view;
+    // The view survives this function as well: the bar keeps gliding
+    // from the job before instead of running its way up from zero on
+    // every title.
+    static McpProgressView view = { 0 };
 
     while(data->processing)
     {

@@ -1273,7 +1273,12 @@ transfer:;
     float bps;
     float oldBps = 0.0D;
     int frames = 1;
-    DLProgressView view;
+    // The view survives this function: the queue and title bars grow
+    // over the files of a title, so their animations keep gliding from
+    // where the last file left them instead of starting over on every
+    // file. Everything else in the view is rewritten below before the
+    // first pump.
+    static DLProgressView view = { 0 };
     view.data = data;
     view.queueData = queueData;
     view.name = name;
@@ -1382,10 +1387,12 @@ transfer:;
             view.dlnow = dlnow;
             view.dltotal = dltotal;
             view.bps = bps;
-            uiPump(drawDownloadProgressFrame, &view);
         }
-        else
-            uiPump(NULL, NULL);
+
+        // The sampler runs once a second, the frame does not: redrawing it
+        // on every pump is what lets the bars glide towards the new sample
+        // instead of jumping with it.
+        uiPump(drawDownloadProgressFrame, &view);
 
         if(cancelOverlay == NULL)
         {

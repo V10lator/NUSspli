@@ -32,6 +32,26 @@
 #include <ui.h>
 #include <utils.h>
 
+// The bars chase their target instead of jumping with every sample. A
+// finished bar snaps so the last frame of a download cannot be left
+// behind, and a target behind the value on screen snaps as well: that is
+// a bar starting over - the file bar with its next file - and gliding
+// down would drag it backwards through a download that is already done.
+// Everything else glides at two bar lengths per second, which turns a
+// sampler step into a movement the eye can follow.
+static float glideBar(UiAnim *anim, float target)
+{
+    if(target >= 1.0f || target < anim->value)
+    {
+        anim->value = target;
+        anim->target = target;
+        return target;
+    }
+
+    uiAnimTo(anim, target);
+    return uiAnimStep(anim, 2.0f);
+}
+
 void showStatusFrame(const char *line0, const char *line1, bool bar, int logLine)
 {
     startNewFrame();
@@ -56,7 +76,7 @@ void drawMcpProgressFrame(void *ctx)
     strcat(toScreen, " ");
     strcat(toScreen, view->game);
     textToFrame(0, 0, toScreen);
-    barToFrame(1, 0, 40, view->ratio);
+    barToFrame(1, 0, 40, glideBar(&view->bar, view->ratio));
     humanize(view->sizeProgress, toScreen);
     strcat(toScreen, " / ");
     humanize(view->sizeTotal, toScreen + strlen(toScreen));
@@ -68,7 +88,7 @@ void drawMcpProgressFrame(void *ctx)
     writeScreenLog(2);
 }
 
-static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize, float bps, uint32_t *eta)
+static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize, float bps, uint32_t *eta, UiAnim *anim)
 {
     if(currentSize)
     {
@@ -81,7 +101,7 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
             tmp = currentSize;
             tmp /= totalSize;
         }
-        barToFrame(line, 0, 29, tmp);
+        barToFrame(line, 0, 29, glideBar(anim, tmp));
         // A speed at or near zero makes the quotient infinite or larger than
         // *eta can hold, and converting such a float to uint32_t is undefined.
         if(totalSize && bps > 0.0f)
@@ -91,7 +111,7 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
         }
     }
     else
-        barToFrame(line, 0, 29, 0.0D);
+        barToFrame(line, 0, 29, glideBar(anim, 0.0D));
 
     char toScreen[256];
     humanize(currentSize, toScreen);
@@ -130,10 +150,10 @@ void drawDownloadProgressFrame(void *ctx)
         else
             line = textToFrameMultiline(0, ALIGNED_CENTER, data->name, MAX_CHARS);
 
-        drawStatLine(line++, data->dltotal, data->dlnow + view->dlnow, view->bps, &data->eta);
+        drawStatLine(line++, data->dltotal, data->dlnow + view->dlnow, view->bps, &data->eta, &view->bars[0]);
 
         if(queueData != NULL)
-            drawStatLine(line++, queueData->dlSize, queueData->downloaded + view->dlnow, view->bps, &queueData->eta);
+            drawStatLine(line++, queueData->dlSize, queueData->downloaded + view->dlnow, view->bps, &queueData->eta, &view->bars[1]);
 
         lineToFrame(line++, SCREEN_COLOR_WHITE);
 
@@ -153,7 +173,7 @@ void drawDownloadProgressFrame(void *ctx)
         getSpeedString(view->bps, toScreen);
         textToFrame(line, ALIGNED_RIGHT, toScreen);
 
-        drawStatLine(++line, view->dltotal, view->dlnow, view->bps, &view->fileEta);
+        drawStatLine(++line, view->dltotal, view->dlnow, view->bps, &view->fileEta, &view->bars[2]);
     }
     else
     {

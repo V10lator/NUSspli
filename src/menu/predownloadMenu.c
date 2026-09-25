@@ -712,7 +712,7 @@ runPost:
     textToFrame(0, 0, localise("Preparing the download of"));
     textToFrame(1, 3, pdEntry->name);
     writeScreenLog(2);
-    presentFrame();
+    drawFrame();
 
     saveConfig(false);
 

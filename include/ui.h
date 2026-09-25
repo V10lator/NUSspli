@@ -24,7 +24,9 @@
 #include <stdint.h>
 
 // Frame rate of the whole loop. The display refreshes at 60 Hz and
-// presentFrame() waits one interrupt per frame at 60 and two at 30. Frame
+// drawFrame() waits one interrupt per frame at 60 and two at 30 before it
+// presents, so that wait sets the pace; the swap itself runs at a vblank
+// anyway as the renderer is created with SDL_RENDERER_PRESENTVSYNC. Frame
 // based timers (the download redraw throttle, the countdown in
 // showNetworkError) count in these units, and everything that waits
 // instead of presenting follows it too: UI_WAIT_TICKS in ui.c (uiYield)
@@ -168,7 +170,7 @@ extern "C"
     // One frame for engine code that cannot draw itself: drain posted
     // errors, read input, let the UI side fill the frame through the
     // optional callback and present it. frame == NULL keeps the retained
-    // picture and just paces the wait, like the old showFrame(). The first
+    // picture and just paces the loop. The first
     // pump of a flow marks the frame as engine owned until the flow is back
     // in the frame that started it, so a dialog popping in between does not
     // flash the stale screen below it.

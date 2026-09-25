@@ -559,7 +559,11 @@ bool showKeyboard(KeyboardLayout layout, KeyboardType type, char *output, Keyboa
 
         while(AppRunning(true))
         {
-            showFrame();
+            // Nothing presents in this loop, so present the retained error
+            // frame again: the vblank wait lives in the present and keeps
+            // the loop on the frame pace.
+            drawFrame();
+            readInput();
             if(vpad.trigger)
                 break;
         }

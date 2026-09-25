@@ -63,7 +63,7 @@ void showStatusFrame(const char *line0, const char *line1, bool bar, int logLine
     if(logLine >= 0)
         writeScreenLog(logLine);
     drawFrame();
-    showFrame();
+    readInput();
 }
 
 void drawMcpProgressFrame(void *ctx)

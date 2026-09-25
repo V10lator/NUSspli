@@ -417,7 +417,7 @@ void uiFrame()
         return;
     }
 
-    presentFrame();
+    drawFrame();
 }
 
 void uiWaitKey()
@@ -430,7 +430,7 @@ void uiWaitKey()
         if(vpad.trigger)
             break;
 
-        presentFrame();
+        drawFrame();
     }
 
     uiInvalidate(); // whatever the caller does next sees a fresh picture
@@ -455,7 +455,7 @@ void uiWaitWhile(volatile bool *condition, UiWaitFrame frame, void *ctx)
 
         stepTransition(frame != NULL);
 
-        presentFrame();
+        drawFrame();
     }
 
     uiInvalidate(); // the engine content is gone, redraw the screen below
@@ -475,7 +475,7 @@ void uiPump(UiWaitFrame frame, void *ctx)
 
     stepTransition(frame != NULL);
 
-    presentFrame();
+    drawFrame();
 }
 
 void uiPauseRenderer()

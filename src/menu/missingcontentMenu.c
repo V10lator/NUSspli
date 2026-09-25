@@ -246,7 +246,7 @@ static inline void drawQFrame()
     startNewFrame();
     textToFrame(0, 0, localise("Queueing missing content..."));
     writeScreenLog(1);
-    presentFrame();
+    drawFrame();
 }
 
 // The summary stays on screen until any button is pressed. It sits on top
@@ -523,7 +523,7 @@ void missingContentMenu()
 entry:
     startNewFrame();
     textToFrame(0, ALIGNED_CENTER, localise("Searching for missing content..."));
-    presentFrame();
+    drawFrame();
 
     if(!scanForMissingContent())
     {

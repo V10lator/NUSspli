@@ -81,9 +81,11 @@ extern "C"
     void resumeRenderer();
     void invalidateDrawState();
     void colorStartNewFrame(SCREEN_COLOR color);
-    void showFrame() __attribute__((__hot__));
-    void presentFrame() __attribute__((__hot__));
-    void drawFrame();
+    // Presents the frame at the frame pace: the queued drawing is
+    // submitted, the loop waits for the vblank and the swap happens inside
+    // the blanking interval (one interrupt per frame at FRAMERATE 60, two at
+    // FRAMERATE 30), so nothing tears and nothing runs faster behind our back.
+    void drawFrame() __attribute__((__hot__));
     // Start of a screen transition: takeSnapshot() keeps the picture that
     // is on screen, blendSnapshot() lays it over the frame that is being
     // drawn with the given opacity. False without a picture to keep.

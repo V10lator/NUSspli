@@ -964,7 +964,16 @@ bool initRenderer()
             window = SDL_CreateWindow(NULL, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 0, 0, SDL_WINDOW_FULLSCREEN_DESKTOP);
             if(window)
             {
-                renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+                // The swap interval of one: the Wii U driver of SDL hands it
+                // to GX2 during SDL_CreateRenderer(), the app is in the
+                // foreground from SDL_Init() on, so SDL_RenderPresent()
+                // queues its swap for the next vblank instead of running it
+                // at once. Without the flag the driver set the interval to
+                // zero and the flip raced the copy into the scan buffer: the
+                // display showed half the old and half the new picture
+                // (seen on every picture that changes every frame, like a
+                // progress bar).
+                renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
                 if(renderer)
                 {
                     frameBuffer = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -1124,42 +1133,19 @@ void colorStartNewFrame(SCREEN_COLOR color)
 }
 
 // The fixed frame pace: a 60 Hz display shows every picture for one
-// interrupt at FRAMERATE 60 and for two at FRAMERATE 30. Contrary to VSync
-// enabled SDL we use GX2WaitForVsync() directly instead of
-// WHBGFX WHBGfxBeginRender() for VSync as WHBGfxBeginRender() produces
-// frames way shorter than 16 ms sometimes, confusing frame counting timers.
+// interrupt at FRAMERATE 60 and for two at FRAMERATE 30. The present does not
+// pace us: with the swap interval of SDL_RENDERER_PRESENTVSYNC it queues
+// the swap and GX2 flips at the next vblank after the call returned (whb-
+// gfx has to wait for that flip itself in WHBGfxBeginRender()). So the
+// interrupts are taken here, right before the present, which is also the
+// earliest moment the flip of the previous frame has landed: the swap
+// queue is empty and the present never has to wait for it.
 static void waitForFrame()
 {
     GX2WaitForVsync();
 #if FRAMERATE == 30
     GX2WaitForVsync();
 #endif
-}
-
-// Counterpart to presentFrame for the paths that present themselves first
-// (the software keyboard, the status frames): wait the frame out, then read
-// the input like the old VSync coupled loop did. Same FRAMERATE pacing as
-// presentFrame, so nothing runs at 60 FPS behind our back anymore.
-void showFrame()
-{
-    if(font == NULL)
-        return;
-
-    waitForFrame();
-    readInput();
-}
-
-// Presents the retained frame and waits for the next VSync. This is the
-// fixed frame rate of the main loop: one present per frame, independent
-// of whether the picture changed. Input is handled by the loop itself,
-// not here anymore.
-void presentFrame()
-{
-    if(font == NULL)
-        return;
-
-    drawFrame();
-    waitForFrame();
 }
 
 #define predrawFrame()                                                  \
@@ -1175,12 +1161,27 @@ void presentFrame()
     SDL_SetRenderTarget(renderer, NULL);                                \
     SDL_RenderCopy(renderer, frameBuffer, NULL, NULL);
 
-#define postdrawFrame()          \
-    presentOverlays();           \
-                                 \
-    SDL_RenderPresent(renderer); \
+#define postdrawFrame()                                                    \
+    presentOverlays();                                                     \
+                                                                           \
+    /* Hand the queued drawing to GX2 and take the vblank before the */    \
+    /* present: the present copies into the scan buffer and queues the */  \
+    /* swap, GX2 runs that swap at a vblank as the renderer was created */ \
+    /* with SDL_RENDERER_PRESENTVSYNC. With the interval at zero it */     \
+    /* swapped immediately and the flip landed while the copy was still */ \
+    /* running, so half of both pictures was shown. */                     \
+    SDL_RenderFlush(renderer);                                             \
+    waitForFrame();                                                        \
+    SDL_RenderPresent(renderer);                                           \
     SDL_SetRenderTarget(renderer, frameBuffer);
 
+// Presents the retained frame: the queued drawing is submitted, the loop
+// waits for the vblank (one interrupt per frame at FRAMERATE 60, two at
+// FRAMERATE 30) and the present queues the swap, which GX2 runs at a vblank
+// because the renderer was created with SDL_RENDERER_PRESENTVSYNC, so
+// nothing tears. The wait is the fixed frame rate of the whole loop: one
+// present per frame, independent of whether the picture changed. Input is
+// read by the loop itself, not here.
 // We need to draw the DRC before the TV, else the DRC is always one frame behind
 void drawFrame()
 {
@@ -1260,7 +1261,7 @@ void drawKeyboard(bool tv)
         Swkbd_DrawDRC();
 
     postdrawFrame();
-    showFrame();
+    readInput();
 }
 
 void invalidateDrawState()

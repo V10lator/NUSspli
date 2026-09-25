@@ -78,17 +78,20 @@ accident (`git status` must show only what you actually changed).
   console or in an emulator, and check the release build still compiles.
 
 Run the formatter yourself before committing. The first command is the check
-the CI job runs (no `-i`: it prints the diffs and exits non-zero when anything
-is unformatted), the second one rewrites the files in place:
+the CI job runs (`--dry-run --Werror`, no `-i`: it prints the diffs and exits
+non-zero when anything is unformatted), the second one rewrites the files in
+place:
 
 ```sh
-docker run --rm -v ${PWD}:/src wiiuenv/clang-format:13.0.0-2 \
-  -e ./src/gtitles.c -e ./src/SDL_FontCache.c -e ./include/SDL_FontCache.h \
-  -r ./src ./include
+docker run --rm -v ${PWD}:/src xianpengshen/clang-tools:22 \
+  clang-format --dry-run --Werror \
+  $(find src include -type f \( -name "*.c" -o -name "*.cpp" \
+  -o -name "*.h" -o -name "*.hpp" \))
 
-docker run --rm -v ${PWD}:/src wiiuenv/clang-format:13.0.0-2 \
-  -e ./src/gtitles.c -e ./src/SDL_FontCache.c -e ./include/SDL_FontCache.h \
-  -i -r ./src ./include
+docker run --rm -v ${PWD}:/src xianpengshen/clang-tools:22 \
+  clang-format -i \
+  $(find src include -type f \( -name "*.c" -o -name "*.cpp" \
+  -o -name "*.h" -o -name "*.hpp" \))
 ```
 
 ## Code style
@@ -100,11 +103,6 @@ docker run --rm -v ${PWD}:/src wiiuenv/clang-format:13.0.0-2 \
   the file you touch.
 - Compile warning free under the `-Wall -Wextra -Wundef -Wshadow
   -Wpointer-arith -Wcast-align` set of the `Makefile`.
-- **Line endings are mixed on purpose.** Check with `file <path>` before you
-  rewrite a file: CRLF files stay CRLF (among them `src/menu/configMenu.c`,
-  `downloadMenu.c`, `installerMenu.c`, `logsMenu.c`, `mainMenu.c`,
-  `queueMenu.c`, `updateMenu.c`, `src/state.c`, `src/input.c` and the matching
-  headers), everything else stays LF.
 - UI strings are English source text passed through `localise()`, so keep them
   plain and translatable.
 - Code comments are written in **English**, too: they explain why something
@@ -177,9 +175,10 @@ ask for a review:
 ```sh
 # 1. clang-format job: exits 0 and prints nothing when everything is formatted
 git submodule update --init --recursive
-docker run --rm -v ${PWD}:/src wiiuenv/clang-format:13.0.0-2 \
-  -e ./src/gtitles.c -e ./src/SDL_FontCache.c -e ./include/SDL_FontCache.h \
-  -r ./src ./include
+docker run --rm -v ${PWD}:/src xianpengshen/clang-tools:22 \
+  clang-format --dry-run --Werror \
+  $(find src include -type f \( -name "*.c" -o -name "*.cpp" \
+  -o -name "*.h" -o -name "*.hpp" \))
 
 # 2. build job: same image and script the CI job uses (see Building)
 docker build -t nussplibuilder .

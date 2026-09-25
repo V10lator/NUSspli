@@ -780,7 +780,7 @@ static void initParallel(void)
         }
 
 #pragma GCC diagnostic ignored "-Wcast-function-type"
-        CURLcode wf = curl_easy_setopt(dlHandles[i], CURLOPT_WRITEFUNCTION, (size_t(*)(const void *, size_t, size_t, FILE *))chunkWrite);
+        CURLcode wf = curl_easy_setopt(dlHandles[i], CURLOPT_WRITEFUNCTION, (size_t (*)(const void *, size_t, size_t, FILE *))chunkWrite);
 #pragma GCC diagnostic pop
 
         if(wf != CURLE_OK
@@ -1249,7 +1249,7 @@ transfer:;
             {
                 opt = CURLOPT_WRITEFUNCTION;
 #pragma GCC diagnostic ignored "-Wcast-function-type"
-                ret = curl_easy_setopt(curl, opt, rambuf ? fwrite : (size_t(*)(const void *, size_t, size_t, FILE *))addToIOQueue);
+                ret = curl_easy_setopt(curl, opt, rambuf ? fwrite : (size_t (*)(const void *, size_t, size_t, FILE *))addToIOQueue);
 #pragma GCC diagnostic pop
                 if(ret == CURLE_OK)
                 {

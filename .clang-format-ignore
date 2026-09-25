@@ -1,0 +1,3 @@
+src/gtitles.c
+src/SDL_FontCache.c
+include/SDL_FontCache.h

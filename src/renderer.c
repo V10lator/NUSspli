@@ -524,7 +524,7 @@ void *addErrorOverlay(const char *err)
                 SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
                 SDL_RenderFillRect(renderer, rect);
 
-                SDL_Rect * or = rect;
+                SDL_Rect *or = rect;
                 ++rect;
                 rect->x = or->x + 2;
                 rect->y = or->y + 2;

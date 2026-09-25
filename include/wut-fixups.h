@@ -21,9 +21,9 @@
 
 #pragma once
 
-//#ifndef FD_SETSIZE
+// #ifndef FD_SETSIZE
 #define FD_SETSIZE 32
-//#endif
+// #endif
 
 #ifdef __cplusplus
 extern "C"

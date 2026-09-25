@@ -16,7 +16,7 @@ jobs:
       - name: clang-format
         run: |
           git submodule update --init --recursive
-          docker run --rm -v ${PWD}:/src wiiuenv/clang-format:13.0.0-2 -e ./src/gtitles.c -e ./src/SDL_FontCache.c -e ./include/SDL_FontCache.h -r ./src ./include
+          docker run --rm -v ${PWD}:/src xianpengshen/clang-tools:22 clang-format --dry-run --Werror $(find src include -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" \))
   build-binary:
     name: Build binary
     runs-on: ubuntu-24.04

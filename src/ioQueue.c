@@ -270,7 +270,12 @@ retryAddingToQueue:
     {
         commitIOEntry(entry, file);
 
-        entry = queueEntries + activeReadBuffer;
+        // The close needs a slot of its own and the commit above moved on to
+        // the next one. Taking that slot without the wait above would happen
+        // exactly when the ring is full: the entry still in it would be
+        // overwritten, its data would end up in the file closed here and the
+        // file behind it would never be closed.
+        goto retryAddingToQueue;
     }
 
     commitIOEntry(entry, file);

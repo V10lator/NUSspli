@@ -57,10 +57,17 @@
 #define MAX_OVERLAYS 8
 #define SDL_RECTS    512
 
+// One popup on screen: its texture is the finished box, the fade only
+// changes its opacity, see presentOverlays().
+#define OVERLAY_FADE_MS 200
+
 typedef struct
 {
     SDL_Texture *tex;
     SDL_Rect rect[2];
+    OSTick lastTick; // clock of the fade, taken on every drawn frame
+    int alpha; // opacity of the fade in, 0 to 255
+    bool closing; // fading out, removeErrorOverlay() waits for zero
 } ErrorOverlay;
 
 static SDL_Window *window = NULL;
@@ -504,10 +511,46 @@ void tabToFrame(int line, int column, const char *label, bool active)
     FC_DrawColor(font, renderer, column, line, SCREEN_COLOR_WHITE_TRANSP, "%s", label);
 }
 
+// The popups fade in over a fifth of a second when they are shown and
+// out again when they are taken down, so they open and close instead of
+// cutting. The clock lives here and not in the UI loop because the
+// overlays are presented by drawFrame() itself, even for a frame the
+// loop kept without rebuilding it.
+static void presentOverlays()
+{
+    ErrorOverlay *overlay;
+    OSTick now = OSGetTick();
+
+    forEachListEntry(errorOverlayList, overlay)
+    {
+        if(now > overlay->lastTick)
+        {
+            uint64_t ms = OSTicksToMilliseconds(now - overlay->lastTick);
+            int step = ms >= (uint64_t)OVERLAY_FADE_MS ? 255 : (int)((ms * 255) / (uint64_t)OVERLAY_FADE_MS);
+
+            if(overlay->closing)
+            {
+                overlay->alpha -= step;
+                if(overlay->alpha < 0)
+                    overlay->alpha = 0;
+            }
+            else
+            {
+                overlay->alpha += step;
+                if(overlay->alpha > 255)
+                    overlay->alpha = 255;
+            }
+        }
+
+        overlay->lastTick = now;
+
+        SDL_SetTextureAlphaMod(overlay->tex, (Uint8)overlay->alpha);
+        SDL_RenderCopy(renderer, overlay->tex, NULL, NULL);
+    }
+}
+
 void *addErrorOverlay(const char *err)
 {
-    OSTick t = OSGetTick();
-    addEntropy(&t, sizeof(OSTick));
     if(font == NULL)
         return NULL;
 
@@ -556,9 +599,33 @@ void *addErrorOverlay(const char *err)
 
                 FC_DrawBox(font, renderer, rec, "%s", err);
 
+                overlay->alpha = 0;
+                overlay->closing = false;
+                overlay->lastTick = OSGetTick();
+
                 SDL_SetRenderTarget(renderer, frameBuffer);
 
+                // The popup fades in, and a caller that blocks right after
+                // this would never see that: hold here until the fade is
+                // through instead of showing one dark frame. The deadline
+                // keeps a stalled clock from hanging the caller, the sleep
+                // keeps the wait from burning the core. It is a millisecond
+                // budget on a tick clock: OSGetTick() runs at busClock / 4,
+                // so the deadline has to be converted or it expires after a
+                // few microseconds and hands the caller a popup frozen at
+                // the first step of its fade.
                 drawFrame();
+                OSTick start = OSGetTick();
+                addEntropy(&start, sizeof(OSTick));
+                uint32_t delta = 0;
+                while(overlay->alpha < 255 && delta < (uint32_t)OSMillisecondsToTicks(OVERLAY_FADE_MS * 2) && AppRunning(false))
+                {
+                    OSSleepTicks(OSMillisecondsToTicks(16));
+                    drawFrame();
+                    delta = (uint32_t)(OSGetTick() - start);
+                    addEntropy(&delta, sizeof(delta));
+                }
+
                 return overlay;
             }
 
@@ -575,8 +642,23 @@ void removeErrorOverlay(void *overlay)
     if(font == NULL || overlay == NULL)
         return;
 
-    OSTick t = OSGetTick();
-    addEntropy(&t, sizeof(OSTick));
+    ErrorOverlay *entry = (ErrorOverlay *)overlay;
+
+    // Fade it out first: the popup closes instead of cutting away. The
+    // same sleep and deadline as in addErrorOverlay() keep the wait
+    // paced and bounded - deadline included, that one is a millisecond
+    // budget on the tick clock.
+    entry->closing = true;
+    OSTick start = OSGetTick();
+    addEntropy(&start, sizeof(OSTick));
+    uint32_t delta = 0;
+    while(entry->alpha > 0 && delta < (uint32_t)OSMillisecondsToTicks(OVERLAY_FADE_MS * 2) && AppRunning(false))
+    {
+        OSSleepTicks(OSMillisecondsToTicks(16));
+        drawFrame();
+        delta = (uint32_t)(OSGetTick() - start);
+        addEntropy(&delta, sizeof(delta));
+    }
 
     removeFromList(errorOverlayList, overlay);
     // A leave handler closes its overlay while the screens unwind after the
@@ -585,7 +667,8 @@ void removeErrorOverlay(void *overlay)
     // goodbye picture replaces it.
     if(AppRunning(false))
         drawFrame();
-    SDL_DestroyTexture(((ErrorOverlay *)overlay)->tex);
+
+    SDL_DestroyTexture(entry->tex);
     MEMFreeToDefaultHeap(overlay);
 }
 
@@ -1042,12 +1125,10 @@ void presentFrame()
     SDL_SetRenderTarget(renderer, NULL);                                \
     SDL_RenderCopy(renderer, frameBuffer, NULL, NULL);
 
-#define postdrawFrame()                                     \
-    ErrorOverlay *overlay;                                  \
-    forEachListEntry(errorOverlayList, overlay)             \
-        SDL_RenderCopy(renderer, overlay->tex, NULL, NULL); \
-                                                            \
-    SDL_RenderPresent(renderer);                            \
+#define postdrawFrame()          \
+    presentOverlays();           \
+                                 \
+    SDL_RenderPresent(renderer); \
     SDL_SetRenderTarget(renderer, frameBuffer);
 
 // We need to draw the DRC before the TV, else the DRC is always one frame behind

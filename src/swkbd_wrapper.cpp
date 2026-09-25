@@ -32,9 +32,9 @@
 static bool kbd_initialized = false;
 // Result buffer of Swkbd_GetInputFormString(): SWKBD_Show() enforces maxlength
 // as maxTextLength, the largest value passed to showKeyboard() is
-// FS_MAX_PATH - sizeof(INSTALL_DIR_USB1), plus one byte for the terminator.
-// The conversion below stops at the buffer end anyway.
-static char ifs[FS_MAX_PATH - sizeof(INSTALL_DIR_USB1) + 1];
+// MAX_FOLDER_NAME_LENGTH, plus one byte for the terminator. The conversion
+// below stops at the buffer end anyway.
+static char ifs[MAX_FOLDER_NAME_LENGTH + 1];
 
 uint32_t Swkbd_GetWorkMemorySize(uint32_t unk)
 {

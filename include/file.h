@@ -39,9 +39,15 @@
 #define INSTALL_DIR_USB1 NUSDIR_USB1 "install/"
 #define INSTALL_DIR_USB2 NUSDIR_USB2 "install/"
 #define INSTALL_DIR_MLC  NUSDIR_MLC "install/"
-#define IO_BUFSIZE       (128 * 1024) // 128 KB
 
-#define FS_ALIGN(x)      ((x + 0x3F) & ~(0x3F))
+// How much room a typed folder name may take: it is written below the
+// install prefix - USB1 is the longest of the four - and gets a
+// "/title.tmd" behind it, and prefix, folder and suffix share one
+// FS_MAX_PATH path with a single terminator.
+#define MAX_FOLDER_NAME_LENGTH (FS_MAX_PATH - sizeof(INSTALL_DIR_USB1) - (sizeof("/title.tmd") - 1))
+#define IO_BUFSIZE             (128 * 1024) // 128 KB
+
+#define FS_ALIGN(x)            ((x + 0x3F) & ~(0x3F))
 
 #ifdef __cplusplus
 extern "C"

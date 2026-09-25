@@ -130,10 +130,12 @@ static void drawInstallerMenuFrame(const char *name, NUSDEV dev, NUSDEV toDev, b
     strcpy(toFrame, localise("Keep downloaded files:"));
     strcat(toFrame, " ");
     strcat(toFrame, localise(keepFiles ? "Yes" : "No"));
+    // The parts are localised on their own: the composed line is not a key,
+    // so looking it up can never hit and would only return it unchanged.
     if(dev == NUSDEV_SD)
-        textToFrame(MAX_LINES - 4, 4, localise(toFrame));
+        textToFrame(MAX_LINES - 4, 4, toFrame);
     else
-        textToFrameColored(MAX_LINES - 4, 4, localise(toFrame), SCREEN_COLOR_WHITE_TRANSP);
+        textToFrameColored(MAX_LINES - 4, 4, toFrame, SCREEN_COLOR_WHITE_TRANSP);
 
     lineToFrame(MAX_LINES - 3, SCREEN_COLOR_WHITE);
 

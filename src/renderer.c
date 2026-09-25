@@ -95,12 +95,19 @@ static inline SDL_Rect *createRect()
     return NULL;
 }
 
+// Every FC_* text call below hands over a fixed "%s" format with the
+// text as an argument. FC_Draw(), FC_GetWidth() and friends are varargs
+// and run their text through vsnprintf(), so a title name, a path or a
+// translated message that contains a percent sign would be read as a
+// format string instead of text (%n would even write). The measurement
+// and the drawing see the same string this way, so truncation and
+// width stay what they were.
 #define internalTextToFrame(lineBuffer, bufSize)         \
     {                                                    \
         ++line;                                          \
         line *= FONT_SIZE;                               \
         line -= 7;                                       \
-        int w = FC_GetWidth(font, str);                  \
+        int w = FC_GetWidth(font, "%s", str);            \
                                                          \
         if(maxWidth != 0 && w > maxWidth)                \
         {                                                \
@@ -118,14 +125,14 @@ static inline SDL_Rect *createRect()
             *--tmp = '.';                                \
                                                          \
             char *tmp2;                                  \
-            w = FC_GetWidth(font, lineBuffer);           \
+            w = FC_GetWidth(font, "%s", lineBuffer);     \
             while(w > maxWidth && tmp > lineBuffer)      \
             {                                            \
                 tmp2 = tmp;                              \
                 *--tmp = '.';                            \
                 ++tmp2;                                  \
                 *++tmp2 = '\0';                          \
-                w = FC_GetWidth(font, lineBuffer);       \
+                w = FC_GetWidth(font, "%s", lineBuffer); \
             }                                            \
                                                          \
             if(tmp > lineBuffer && *--tmp == ' ')        \
@@ -158,7 +165,7 @@ void textToFrameCut(int line, int column, const char *str, int maxWidth)
 
     char lineBuffer[1024];
     internalTextToFrame(lineBuffer, sizeof(lineBuffer));
-    FC_Draw(font, renderer, column, line, str);
+    FC_Draw(font, renderer, column, line, "%s", str);
 }
 
 void textToFrameColoredCut(int line, int column, const char *str, SCREEN_COLOR color, int maxWidth)
@@ -168,7 +175,7 @@ void textToFrameColoredCut(int line, int column, const char *str, SCREEN_COLOR c
 
     char lineBuffer[1024];
     internalTextToFrame(lineBuffer, sizeof(lineBuffer));
-    FC_DrawColor(font, renderer, column, line, color, str);
+    FC_DrawColor(font, renderer, column, line, color, "%s", str);
 }
 
 int textToFrameMultiline(int x, int y, const char *text, size_t len)
@@ -176,7 +183,7 @@ int textToFrameMultiline(int x, int y, const char *text, size_t len)
     if(font == NULL || !len)
         return 0;
 
-    size_t fl = FC_GetWidth(font, text) / spaceWidth;
+    size_t fl = FC_GetWidth(font, "%s", text) / spaceWidth;
     if(fl <= len)
     {
         textToFrame(x, y, text);
@@ -201,7 +208,7 @@ int textToFrameMultiline(int x, int y, const char *text, size_t len)
         {
             o = *i;
             *i = '\0';
-            if(((size_t)FC_GetWidth(font, p) / spaceWidth) <= len)
+            if(((size_t)FC_GetWidth(font, "%s", p) / spaceWidth) <= len)
             {
                 t = strrchr(p, ' ');
                 if(t != NULL)
@@ -233,7 +240,7 @@ int textToFrameMultiline(int x, int y, const char *text, size_t len)
         if(!split) // Not even a single character fits, don't loop forever
             break;
 
-        fl = FC_GetWidth(font, p) / spaceWidth;
+        fl = FC_GetWidth(font, "%s", p) / spaceWidth;
     }
 
     textToFrame(x, y, p);
@@ -338,7 +345,10 @@ void barToFrame(int line, int column, uint32_t width, float progress)
     rect[2]->w = rect[0]->w - 4;
 
     char text[8];
-    snprintf(text, sizeof(text), "%d%%%%", (int)(progress * 100.0f));
+    // One percent sign only: the label reaches textToFrame() as text over
+    // the fixed "%s" format of the renderer, it is no longer read as a
+    // format itself, so the doubled sign would show up twice on screen.
+    snprintf(text, sizeof(text), "%d%%", (int)(progress * 100.0f));
 
     progress *= rect[2]->w;
     rect[1]->w = progress;
@@ -481,16 +491,16 @@ void tabToFrame(int line, int column, const char *label, bool active)
     SDL_QueryTexture(tabTex, NULL, NULL, &(curRect->w), &(curRect->h));
     SDL_RenderCopy(renderer, tabTex, NULL, curRect);
 
-    column = curRect->x + (curRect->w >> 1) - (FC_GetWidth(font, label) >> 1);
+    column = curRect->x + (curRect->w >> 1) - (FC_GetWidth(font, "%s", label) >> 1);
     line += 20 - (FONT_SIZE >> 1);
 
     if(active)
     {
-        FC_Draw(font, renderer, column, line, label);
+        FC_Draw(font, renderer, column, line, "%s", label);
         return;
     }
 
-    FC_DrawColor(font, renderer, column, line, SCREEN_COLOR_WHITE_TRANSP, label);
+    FC_DrawColor(font, renderer, column, line, SCREEN_COLOR_WHITE_TRANSP, "%s", label);
 }
 
 void *addErrorOverlay(const char *err)
@@ -504,8 +514,8 @@ void *addErrorOverlay(const char *err)
     if(overlay == NULL)
         return NULL;
 
-    SDL_Rect rec = { .w = FC_GetWidth(font, err) };
-    rec.h = FC_GetColumnHeight(font, rec.w, err);
+    SDL_Rect rec = { .w = FC_GetWidth(font, "%s", err) };
+    rec.h = FC_GetColumnHeight(font, rec.w, "%s", err);
     if(rec.w != 0 && rec.h != 0)
     {
         overlay->tex = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -543,7 +553,7 @@ void *addErrorOverlay(const char *err)
                 SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, co.a);
                 SDL_RenderFillRect(renderer, rect);
 
-                FC_DrawBox(font, renderer, rec, err);
+                FC_DrawBox(font, renderer, rec, "%s", err);
 
                 SDL_SetRenderTarget(renderer, frameBuffer);
 

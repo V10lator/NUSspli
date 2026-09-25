@@ -232,7 +232,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
                 sprintf(toScreen, "%s \"%s\" %s: %#010x", localise("Error getting info for"), path, localise("from MCP"), data.err);
         }
 
-        debugPrintf(toScreen);
+        debugPrintf("%s", toScreen);
         addToScreenLog("Installation failed!");
         showErrorFrame(toScreen);
 
@@ -283,7 +283,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
             revertNoIntro(noIntro);
 
         sprintf(toScreen, "%s \"%s\": %#010x", localise("Error starting async installation of"), path, err);
-        debugPrintf(toScreen);
+        debugPrintf("%s", toScreen);
         addToScreenLog("Installation failed!");
         showErrorFrame(toScreen);
         enableShutdown();

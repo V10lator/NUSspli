@@ -78,7 +78,7 @@ void addToScreenLog(const char *str, ...)
     vsnprintf(line, MAX_CHARS + 2, str, va);
     va_end(va);
 
-    debugPrintf(line);
+    debugPrintf("%s", line);
 }
 
 void clearScreenLog()

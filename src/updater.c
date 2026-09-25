@@ -194,6 +194,17 @@ static uLong ZCALLBACK nus_zread(voidpf opaque, voidpf stream, void *buf, uLong 
 {
     (void)opaque;
     ZIP_META *meta = (ZIP_META *)stream;
+
+    // The index comes out of the seeks inside the zip, so a broken zip can
+    // park it outside the buffer: hand back only what is really left there
+    // instead of copying past the end of the RAM buffer.
+    if(meta->index < 0 || (size_t)meta->index >= meta->rambuf->size)
+        return 0;
+
+    size_t left = meta->rambuf->size - (size_t)meta->index;
+    if(size > left)
+        size = (uLong)left;
+
     OSBlockMove(buf, meta->rambuf->buf + meta->index, size, false);
     meta->index += size;
     return size;

@@ -21,6 +21,7 @@
 
 #include <dirent.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
 #include <crypto.h>
@@ -35,6 +36,7 @@
 #include <queue.h>
 #include <renderer.h>
 #include <state.h>
+#include <utils.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/filesystem_fsa.h>
@@ -84,10 +86,7 @@ static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const s
     char *folder;
     TitleData *title;
     char fp[FS_MAX_PATH];
-    size_t i = strlen(path);
-    OSBlockMove(fp, path, i, false);
-    char *l = fp + i;
-    i = 0;
+    size_t i = 0;
     showQueue = false;
 
     forEachListEntry(folders, folder)
@@ -104,7 +103,11 @@ static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const s
         if(installMenu)
         {
             showQueue = false;
-            strcpy(l, folder);
+
+            // The full path decides the match, so build it in one bounded
+            // step: a folder that does not fit behind the current path is
+            // simply not matched instead of overflowing the buffer.
+            snprintf(fp, sizeof(fp), "%s%s", path, folder);
             forEachListEntry(getTitleQueue(), title)
             {
                 if(strcmp(fp, title->folderName) == 0)
@@ -246,7 +249,19 @@ char *fileBrowserMenu(bool installMenu, bool allowNoIntro)
                     }
                     else
                     {
-                        strcat(path, getContent(folders, cursor + pos));
+                        const char *folder = getContent(folders, cursor + pos);
+
+                        // "title.tmd" gets written behind the folder name to
+                        // test it, so both have to fit into the FS_MAX_PATH
+                        // buffer: a folder whose path does not fit is not
+                        // entered instead of running past the end of it.
+                        if(strlen(path) + strlen(folder) + sizeof("title.tmd") > FS_MAX_PATH)
+                        {
+                            debugPrintf("Path too long: %s%s", path, folder);
+                            goto refreshDirList;
+                        }
+
+                        strcat(path, folder);
                         pos = strlen(path);
                         strcpy(path + pos, "title.tmd");
                         redraw = fileExists(path);

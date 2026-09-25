@@ -342,6 +342,15 @@ gftEntry:
             drawFrame();
             showFrame();
 
+            // fileBrowserMenu() leaves room for exactly this behind the
+            // folder it hands out, so this only guards against a shorter way
+            // in later on: never write the two names past the buffer.
+            if(strlen(dir) + sizeof("title.cert") > FS_MAX_PATH)
+            {
+                debugPrintf("Path too long: %s", dir);
+                break;
+            }
+
             strcat(dir, "title.");
             char *ptr = dir + strlen(dir);
             strcpy(ptr, "cert");

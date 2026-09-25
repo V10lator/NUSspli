@@ -137,8 +137,22 @@ NO_INTRO_DATA *transformNoIntro(const char *path)
     }
 
     size_t s = strlen(path);
+    bool slash = s == 0 || path[s - 1] != '/';
+
+    // The prefix gets a slash and always the terminator, and both buffers
+    // hold FS_MAX_PATH bytes: a path of almost FS_MAX_PATH bytes used to get
+    // its terminator written one byte behind data->path and the copy into
+    // pathTo to run past both buffers.
+    if(s + (slash ? 2 : 1) > FS_MAX_PATH)
+    {
+        debugPrintf("Path too long: %s", path);
+        destroyNoIntroData(data);
+        MEMFreeToDefaultHeap(pathTo);
+        return NULL;
+    }
+
     OSBlockMove(data->path, path, s, false);
-    if(data->path[s - 1] != '/')
+    if(slash)
         data->path[s++] = '/';
 
     data->path[s] = '\0';

@@ -48,6 +48,9 @@
 #define UI_WAIT_TICKS   OSMillisecondsToTicks(1000 / FRAMERATE)
 #define UI_FRAME_MS     (1000 / FRAMERATE)
 #define UI_DELTA_MAX_MS (UI_FRAME_MS * 4)
+// Speed of the screen transition in units per second: a quarter second
+// from the picture of the screen that left to the one that arrived.
+#define UI_FADE_RATE 4.0f
 
 static const UIScreen *screenStack[UI_MAX_SCREENS];
 static int stackTop = -1;
@@ -57,6 +60,70 @@ static bool frameDirty = true;
 // Set by uiPump: the buffer holds a frame the engine filled and owns it
 // until the flow it belongs to is back in the frame that started it.
 static bool engineFlow = false;
+
+// The transition between two screens: how much of the new picture is up
+// (0 still shows the picture of the screen that left, 1 the arrived one).
+static UiAnim fade = { .value = 1.0f, .target = 1.0f };
+
+// Removes the top screen without a transition: the callers below unwind
+// a stack that has to be gone (an exiting app, the cleanup of a modal
+// loop), where a blend would only start a picture nothing shows.
+static void popNow()
+{
+    if(stackTop < 0)
+        return;
+
+    const UIScreen *screen = screenStack[stackTop];
+    screenStack[stackTop] = NULL;
+    --stackTop;
+
+    if(screen->leave != NULL)
+        screen->leave();
+
+    // An engine flow owns the frame (uiPump presented it): the screen
+    // below is stale and rebuilding it would flash up between two
+    // engine frames. The frame the flow ends in marks the picture dirty
+    // again, see uiFrame.
+    frameDirty = !engineFlow;
+}
+
+// Starts the transition over the picture that is on screen: that picture
+// is kept as the start of the blend and the new one takes over. Without
+// one to keep (the first screen of the app) the new picture simply
+// appears.
+static void startTransition()
+{
+    // A chain of pops shares the blend it starts with: the finished
+    // dialog, the queue screen and the menu behind them are gone within
+    // a few frames, and a restart per step would show a fade for every
+    // screen in between. The picture the running blend starts from is
+    // still the one on screen, so it stays and the chain lands in the
+    // screen it ends in.
+    if(fade.value < fade.target)
+        return;
+
+    fade.value = takeSnapshot() ? 0.0f : 1.0f;
+    uiAnimTo(&fade, 1.0f);
+}
+
+// One step of the screen transition: the kept picture lies over the new
+// frame and gets lighter every step, so the one turns into the other
+// without passing through black. fresh says whether the frame was
+// rebuilt, because only then the blend lands on a cleared picture: a
+// retained one would collect the old picture of every pass.
+static void stepTransition(bool fresh)
+{
+    if(fade.target >= 1.0f && fade.value >= 1.0f)
+        return;
+
+    float shown = uiAnimStep(&fade, UI_FADE_RATE);
+
+    if(fresh)
+        blendSnapshot((uint8_t)((1.0f - shown) * 255.0f));
+
+    // Keep the screen rebuilding until the transition is through.
+    frameDirty = true;
+}
 
 // Animation clock of the loop, see uiFrameCount/uiDeltaMs
 static uint32_t frameCount = 0;
@@ -143,9 +210,11 @@ void uiExit()
 
     // Screens are torn down in reverse order so leave handlers (saving,
     // closing overlays) run, and the frame the exiting screen left behind
-    // (the goodbye frame) stays what gets presented.
+    // (the goodbye frame) stays what gets presented. popNow() instead of
+    // uiPop(): a blend would start a picture that nothing presents any
+    // more, and the goodbye frame has to stay on screen.
     while(stackTop >= 0)
-        uiPop();
+        popNow();
 }
 
 void uiPush(const UIScreen *screen, void *param)
@@ -164,6 +233,8 @@ void uiPush(const UIScreen *screen, void *param)
     if(screen->enter != NULL)
         screen->enter(param);
 
+    startTransition();
+
     frameDirty = true;
 }
 
@@ -172,17 +243,12 @@ void uiPop()
     if(stackTop == -1)
         return;
 
-    const UIScreen *screen = screenStack[stackTop];
-    screenStack[stackTop] = NULL;
-    --stackTop;
+    // The picture of the screen that leaves is the start of the blend,
+    // the screen itself is gone at once: the one below takes the input
+    // right away and only its picture waits for the transition.
+    startTransition();
 
-    if(screen->leave != NULL)
-        screen->leave();
-
-    // An engine flow owns the frame (uiPump presented it): the screen below
-    // is stale and rebuilding it would flash up between two engine frames.
-    // The frame the flow ends in marks the picture dirty again, see uiFrame.
-    frameDirty = !engineFlow;
+    popNow();
 }
 
 bool uiTopIs(const UIScreen *screen)
@@ -209,9 +275,10 @@ int uiModal(const UIScreen *screen, void *param)
         uiFrame();
 
     // The app stopped while the dialog was up: unwind instead of leaving
-    // dangling screens below the caller.
+    // dangling screens below the caller, and without a transition (the
+    // picture below is not going to be drawn again).
     while(stackTop > base)
-        uiPop();
+        popNow();
 
     return modalResult;
 }
@@ -324,10 +391,15 @@ void uiFrame()
         if(stackTop != -1)
         {
             screen = screenStack[stackTop];
+            bool rebuilt = false;
             if(frameDirty && screen->render != NULL)
+            {
                 screen->render();
+                rebuilt = true;
+            }
 
             frameDirty = false;
+            stepTransition(rebuilt);
         }
     }
 
@@ -381,6 +453,8 @@ void uiWaitWhile(volatile bool *condition, UiWaitFrame frame, void *ctx)
         if(frame != NULL)
             frame(ctx);
 
+        stepTransition(frame != NULL);
+
         presentFrame();
     }
 
@@ -398,6 +472,8 @@ void uiPump(UiWaitFrame frame, void *ctx)
     readInput();
     if(frame != NULL)
         frame(ctx);
+
+    stepTransition(frame != NULL);
 
     presentFrame();
 }

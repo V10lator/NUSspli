@@ -79,6 +79,12 @@ static Mix_Music *backgroundMusic = NULL;
 static int32_t spaceWidth;
 
 static SDL_Texture *frameBuffer;
+// The picture a screen transition blends out of, see takeSnapshot()
+static SDL_Texture *snapshotTex = NULL;
+// Whether frameBuffer holds a picture that was on screen: a target
+// texture starts with undefined content, so it may only be copied after
+// the first present
+static bool pictureDrawn = false;
 static SDL_Texture *defaultTex = NULL;
 static SDL_Texture *arrowTex;
 static SDL_Texture *checkmarkTex;
@@ -632,16 +638,27 @@ void *addErrorOverlay(const char *err)
                 // so the deadline has to be converted or it expires after a
                 // few microseconds and hands the caller a popup frozen at
                 // the first step of its fade.
-                drawFrame();
-                OSTick start = OSGetTick();
-                addEntropy(&start, sizeof(OSTick));
-                uint32_t delta = 0;
-                while(overlay->alpha < 255 && delta < (uint32_t)OSMillisecondsToTicks(OVERLAY_FADE_MS * 2) && AppRunning(false))
+                //
+                // No frame yet means no picture to fade over: the frame
+                // buffer is still empty, so presenting it would flash an
+                // empty screen with the popup on top. That is the warm up
+                // call of showExitOverlay(false) in resumeRenderer(), which
+                // runs before any screen drew anything and would otherwise
+                // be seen as a black frame with an exit question before the
+                // boot screen.
+                if(pictureDrawn)
                 {
-                    OSSleepTicks(OSMillisecondsToTicks(16));
                     drawFrame();
-                    delta = (uint32_t)(OSGetTick() - start);
-                    addEntropy(&delta, sizeof(delta));
+                    OSTick start = OSGetTick();
+                    addEntropy(&start, sizeof(OSTick));
+                    uint32_t delta = 0;
+                    while(overlay->alpha < 255 && delta < (uint32_t)OSMillisecondsToTicks(OVERLAY_FADE_MS * 2) && AppRunning(false))
+                    {
+                        OSSleepTicks(OSMillisecondsToTicks(16));
+                        drawFrame();
+                        delta = (uint32_t)(OSGetTick() - start);
+                        addEntropy(&delta, sizeof(delta));
+                    }
                 }
 
                 return overlay;
@@ -665,7 +682,8 @@ void removeErrorOverlay(void *overlay)
     // Fade it out first: the popup closes instead of cutting away. The
     // same sleep and deadline as in addErrorOverlay() keep the wait
     // paced and bounded - deadline included, that one is a millisecond
-    // budget on the tick clock.
+    // budget on the tick clock. Before the first drawn frame alpha never
+    // left zero, so this loop stays empty there on its own.
     entry->closing = true;
     OSTick start = OSGetTick();
     addEntropy(&start, sizeof(OSTick));
@@ -679,11 +697,14 @@ void removeErrorOverlay(void *overlay)
     }
 
     removeFromList(errorOverlayList, overlay);
-    // A leave handler closes its overlay while the screens unwind after the
-    // exit was confirmed: repainting then would take the popup off a screen
-    // that is going away and put that screen up for the frame until the
-    // goodbye picture replaces it.
-    if(AppRunning(false))
+    // Repainting takes the popup off the picture that carried it - and
+    // there is no such picture before the first drawn frame, see the
+    // matching note in addErrorOverlay(). While the app is on its way out
+    // there is no picture worth taking it off either: a leave handler
+    // closes its overlay while the screens unwind, and the repaint would
+    // put a screen that is going away up for the frame until the goodbye
+    // picture replaces it.
+    if(pictureDrawn && AppRunning(false))
         drawFrame();
 
     SDL_DestroyTexture(entry->tex);
@@ -1068,6 +1089,7 @@ void shutdownRenderer()
 
     pauseRenderer();
 
+    SDL_DestroyTexture(snapshotTex);
     SDL_DestroyTexture(frameBuffer);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
@@ -1153,7 +1175,49 @@ void presentFrame()
 void drawFrame()
 {
     predrawFrame();
+
+    // The picture has been on screen now, so it is worth keeping as the
+    // start of a transition.
+    pictureDrawn = true;
+
     postdrawFrame();
+}
+
+// Keeps the picture that is on screen for a screen transition: it lives
+// in a texture of its own, because frameBuffer holds the new picture
+// while the old one fades away over it. Returns false when there is no
+// picture yet (the first screen of the app) or no memory for one, and
+// the caller then simply shows the new picture right away.
+bool takeSnapshot()
+{
+    if(!pictureDrawn)
+        return false;
+
+    if(snapshotTex == NULL)
+    {
+        snapshotTex = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, SCREEN_WIDTH, SCREEN_HEIGHT);
+        if(snapshotTex == NULL)
+            return false;
+    }
+
+    SDL_SetRenderTarget(renderer, snapshotTex);
+    SDL_RenderCopy(renderer, frameBuffer, NULL, NULL);
+    SDL_SetRenderTarget(renderer, frameBuffer);
+    return true;
+}
+
+// Lays the kept picture over the frame that is being drawn: alpha is
+// the opacity of the old picture, the new one shows through with the
+// rest, so one picture turns into the next without passing through
+// black. Only the rebuilt frames take part, see stepTransition().
+void blendSnapshot(uint8_t alpha)
+{
+    if(snapshotTex == NULL || alpha == 0)
+        return;
+
+    SDL_SetTextureAlphaMod(snapshotTex, alpha);
+    SDL_SetTextureBlendMode(snapshotTex, SDL_BLENDMODE_BLEND);
+    SDL_RenderCopy(renderer, snapshotTex, NULL, NULL);
 }
 
 void drawKeyboard(bool tv)

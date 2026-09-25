@@ -276,6 +276,24 @@ void lineToFrame(int column, SCREEN_COLOR color)
     SDL_RenderFillRect(renderer, rect);
 }
 
+void rectToFrame(int x, int y, int w, int h, SCREEN_COLOR color)
+{
+    if(font == NULL)
+        return;
+
+    SDL_Rect *rect = createRect();
+    if(rect == NULL)
+        return;
+
+    rect->x = x;
+    rect->y = y;
+    rect->w = w;
+    rect->h = h;
+
+    SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+    SDL_RenderFillRect(renderer, rect);
+}
+
 void boxToFrame(int lineStart, int lineEnd)
 {
     if(font == NULL)

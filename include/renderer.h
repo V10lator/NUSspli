@@ -89,6 +89,9 @@ extern "C"
     void textToFrameColoredCut(int line, int column, const char *str, SCREEN_COLOR color, int maxWidth);
     int textToFrameMultiline(int x, int y, const char *text, size_t len);
     void lineToFrame(int column, SCREEN_COLOR color);
+    // Filled rectangle in frame pixels: the helpers above work on whole
+    // lines only, and a fading picture needs the pixels in between.
+    void rectToFrame(int x, int y, int w, int h, SCREEN_COLOR color);
     void boxToFrame(int lineStart, int lineEnd);
     void barToFrame(int line, int column, uint32_t width, float progress);
     void arrowToFrame(int line, int column);

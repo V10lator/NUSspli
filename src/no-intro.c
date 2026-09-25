@@ -50,6 +50,19 @@ void revertNoIntro(NO_INTRO_DATA *data)
     }
 
     size_t s = strlen(data->path);
+
+    // Every rename below writes behind the prefix, the widest one turns an
+    // eight byte content id into "id.app": without the room for those 13
+    // bytes a folder that was too long to transform walks past both buffers
+    // on the way back.
+    if(s + 13 > FS_MAX_PATH)
+    {
+        debugPrintf("Path too long to revert: %s", data->path);
+        MEMFreeToDefaultHeap(newPath);
+        destroyNoIntroData(data);
+        return;
+    }
+
     OSBlockMove(newPath, data->path, s + 1, false);
     char *dataP = data->path + s;
     char *toP = newPath + s;
@@ -173,6 +186,11 @@ NO_INTRO_DATA *transformNoIntro(const char *path)
     char *fromP = data->path + --s;
     char *toP = pathTo + s;
 
+    // A rename widens an entry to "id.app", so the widest write behind the
+    // prefix is 12 bytes plus the terminator, and an unrenamed entry is
+    // copied there as it is. Take whichever of both is longer and skip an
+    // entry that does not fit: the renamed names are eight bytes or less,
+    // so no rename is lost to this check.
     data->hadTicket = false;
     data->tmdFound = false;
     data->ac = 0;
@@ -180,6 +198,13 @@ NO_INTRO_DATA *transformNoIntro(const char *path)
     while(FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
     {
         if(entry.info.flags & FS_STAT_DIRECTORY)
+            continue;
+
+        size_t n = strlen(entry.name);
+        if(n < 12) // "id.app"
+            n = 12;
+
+        if(s + n + 1 > FS_MAX_PATH)
             continue;
 
         strcpy(fromP, entry.name);

@@ -34,7 +34,6 @@
 #define NAPI_URL                   "https://napi.v10lator.de/v2/"
 #define NUSSPLI_COPYRIGHT          "© 2020-2026 V10lator <v10lator@myway.de>"
 
-#define CUSTOM_MCP_ERROR_EOM       ((int)0xDEAD0001)
 #define CUSTOM_MCP_ERROR_CANCELLED ((int)0xDEAD0002)
 
 // MCP install results, names ours - wut does not name them, values via the WUP installer lineage:

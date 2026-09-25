@@ -308,9 +308,10 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
         {
             case CUSTOM_MCP_ERROR_CANCELLED:
                 cleanupCancelledInstallation(dev, path, toUsb, keepFiles);
-                // The fallthrough here is by design, don't listen to the compiler!
-            case CUSTOM_MCP_ERROR_EOM:
-                return true;
+                // The MCP was aborted on request and the files are cleaned
+                // up above: that is no result the caller may hear as a
+                // success, so the queue does not keep running either.
+                return false;
             case MCP_INSTALL_ERR_MISSING_DEP:
                 if(hasDeps)
                 {

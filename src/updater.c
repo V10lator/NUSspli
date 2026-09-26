@@ -62,7 +62,14 @@
 
 #define MAX_ZIP_PATH_LENGTH 32
 
-#define UPDATE_AROMA_FILE   "NUSspli.wuhb"
+// The version comes out of the update JSON and lands in a 256 byte menu
+// line and twice in an FS_MAX_PATH download URL: from 210 characters on
+// for the line and 278 for the URL it runs over both. Our own versions
+// are of the shape "1.158-BETA1", so 16 bytes are room to spare and
+// anything longer is dropped instead of passed on.
+#define MAX_UPDATE_VERSION_LENGTH 16
+
+#define UPDATE_AROMA_FILE         "NUSspli.wuhb"
 
 #ifdef NUSSPLI_DEBUG
 #define NUSSPLI_DLVER "-DEBUG"
@@ -84,6 +91,18 @@ static void showUpdateErrorf(const char *msg, ...)
     vsnprintf(newMsg, 2048, msg, va);
     va_end(va);
     showUpdateError(newMsg);
+}
+
+static bool checkVersion(const char *version)
+{
+    size_t len = strlen(version);
+    if(len == 0 || len > MAX_UPDATE_VERSION_LENGTH)
+    {
+        debugPrintf("Ignoring an update version of %u bytes", (unsigned int)len);
+        return false;
+    }
+
+    return true;
 }
 
 bool updateCheck()
@@ -118,13 +137,13 @@ bool updateCheck()
                         break;
                     case 1: // Update
                         const char *newVer = json_string_value(json_object_get(json, "v"));
-                        ret = newVer != NULL;
+                        ret = newVer != NULL && checkVersion(newVer);
                         if(ret)
                             ret = updateMenu(newVer, !isChannel() ? NUSSPLI_TYPE_AROMA : NUSSPLI_TYPE_CHANNEL);
                         break;
                     case 2: // Type deprecated, update to what the server suggests
                         const char *nv = json_string_value(json_object_get(json, "v"));
-                        ret = nv != NULL;
+                        ret = nv != NULL && checkVersion(nv);
                         if(ret)
                         {
                             jsonObj = json_object_get(json, "t");

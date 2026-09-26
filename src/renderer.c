@@ -306,6 +306,15 @@ void barToFrame(int line, int column, uint32_t width, float progress)
     if(font == NULL)
         return;
 
+    // Callers derive the ratio from a total that can still be zero or from
+    // counters that run ahead of each other, and every one of them divides
+    // guarded: keep the result inside [0,1] so neither the fill width nor
+    // the percentage below can go out of range.
+    if(progress < 0.0f)
+        progress = 0.0f;
+    else if(progress > 1.0f)
+        progress = 1.0f;
+
     SDL_Rect *rect[3];
     for(int i = 0; i < 3; i++)
     {
@@ -329,7 +338,7 @@ void barToFrame(int line, int column, uint32_t width, float progress)
     rect[2]->w = rect[0]->w - 4;
 
     char text[8];
-    sprintf(text, "%d%%%%", (int)(progress * 100.0f));
+    snprintf(text, sizeof(text), "%d%%%%", (int)(progress * 100.0f));
 
     progress *= rect[2]->w;
     rect[1]->w = progress;

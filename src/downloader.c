@@ -1031,8 +1031,15 @@ static void drawStatLine(int line, curl_off_t totalSize, curl_off_t currentSize,
 {
     if(currentSize)
     {
-        float tmp = currentSize;
-        tmp /= totalSize;
+        // The ticket download reports bytes while the total is still unknown
+        // (dltotal == 0), and dividing by that would produce an infinity which
+        // then overflows the percentage buffer in barToFrame().
+        float tmp = 0.0f;
+        if(totalSize)
+        {
+            tmp = currentSize;
+            tmp /= totalSize;
+        }
         barToFrame(line, 0, 29, tmp);
         // A speed at or near zero makes the quotient infinite or larger than
         // *eta can hold, and converting such a float to uint32_t is undefined.

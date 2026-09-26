@@ -42,11 +42,14 @@
 
 static int cursorPos = MAX_LINES - 5;
 
-static bool addToOpQueue(const TitleEntry *entry, const char *dir, const TMD *tmd, NUSDEV fromDev, bool toUSB, bool keepFiles)
+// Returns what addToQueue() answered: 1 = the entry went to the queue
+// together with the TMD, 2 and 3 = the title is already queued and
+// nothing was taken over, 0 = the entry could not be allocated.
+static int addToOpQueue(const TitleEntry *entry, const char *dir, const TMD *tmd, NUSDEV fromDev, bool toUSB, bool keepFiles)
 {
     TitleData *titleInfo = MEMAllocFromDefaultHeap(sizeof(TitleData));
     if(titleInfo == NULL)
-        return false;
+        return 0;
 
     titleInfo->tmd = (TMD *)tmd;
     titleInfo->rambuf = NULL;
@@ -59,18 +62,15 @@ static bool addToOpQueue(const TitleEntry *entry, const char *dir, const TMD *tm
 
     int ret = addToQueue(titleInfo);
     if(ret == 1)
-        return true;
+        return ret;
 
     MEMFreeToDefaultHeap(titleInfo);
 
     // 2 = already queued for install, 3 = already queued for download: not an error
     if(ret == 2 || ret == 3)
-    {
         addToScreenLog("\"%s\" is already queued", entry->name);
-        return true;
-    }
 
-    return false;
+    return ret;
 }
 
 static void drawInstallerMenuFrame(const char *name, NUSDEV dev, NUSDEV toDev, bool usbMounted, bool keepFiles, MCPRegion region, const TMD *tmd)
@@ -220,8 +220,15 @@ refreshDir:
         }
         else if(vpad.trigger & VPAD_BUTTON_MINUS)
         {
-            if(!addToOpQueue(entry, dir, tmd, dev, toDev & NUSDEV_USB, keepFiles))
+            int ret = addToOpQueue(entry, dir, tmd, dev, toDev & NUSDEV_USB, keepFiles);
+            if(ret == 0)
                 break;
+
+            // The queue took the TMD over only with the entry: drop what is
+            // still ours here, right before jumping on to the next folder,
+            // the way the B path above drops it.
+            if(ret != 1)
+                MEMFreeToDefaultHeap((TMD *)tmd);
 
             goto grabNewDir;
         }

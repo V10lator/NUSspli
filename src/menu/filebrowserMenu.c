@@ -84,7 +84,6 @@ static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const s
     textToFrame(MAX_LINES - 1, ALIGNED_CENTER, toWrite);
 
     char *folder;
-    TitleData *title;
     char fp[FS_MAX_PATH];
     size_t i = 0;
     showQueue = false;
@@ -102,20 +101,11 @@ static void drawFBMenuFrame(const char *path, LIST *folders, size_t pos, const s
 
         if(installMenu)
         {
-            showQueue = false;
-
             // The full path decides the match, so build it in one bounded
             // step: a folder that does not fit behind the current path is
             // simply not matched instead of overflowing the buffer.
             snprintf(fp, sizeof(fp), "%s%s", path, folder);
-            forEachListEntry(getTitleQueue(), title)
-            {
-                if(strcmp(fp, title->folderName) == 0)
-                {
-                    showQueue = true;
-                    break;
-                }
-            }
+            showQueue = isQueued(fp);
         }
 
         if(showQueue)

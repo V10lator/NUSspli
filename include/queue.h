@@ -80,6 +80,8 @@ extern "C"
     void clearQueue();
     bool proccessQueue();
     LIST *getTitleQueue();
+    // Walks the queue and answers whether an entry with this name is in it.
+    bool isQueued(const char *name);
 
 #ifdef __cplusplus
 }

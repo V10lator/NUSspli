@@ -19,6 +19,8 @@
 
 #include <wut-fixups.h>
 
+#include <string.h>
+
 #include <downloader.h>
 #include <installer.h>
 #include <list.h>
@@ -197,4 +199,19 @@ void clearQueue()
 LIST *getTitleQueue()
 {
     return titleQueue;
+}
+
+// The argument is called name on purpose: it is the string every queued
+// entry is looked up by, the file browser passes a path today and a
+// caller from the title side can pass a name of the database.
+bool isQueued(const char *name)
+{
+    TitleData *title;
+    forEachListEntry(titleQueue, title)
+    {
+        if(strcmp(name, title->folderName) == 0)
+            return true;
+    }
+
+    return false;
 }

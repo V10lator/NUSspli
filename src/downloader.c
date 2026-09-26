@@ -371,8 +371,11 @@ static CURLcode ssl_ctx_init(CURL *cu, void *sslctx, void *parm)
 static bool showNetworkError(const char *err)
 {
     char toScreen[512];
-    if(toScreen != err)
-        strcpy(toScreen, err);
+    // The caller composes into FS_MAX_PATH + 64, so the text can be
+    // longer than this buffer: cut it instead of running over it. The
+    // old if() around the copy compared the local buffer against the
+    // pointer of the parameter, which can never be equal.
+    snprintf(toScreen, sizeof(toScreen), "%s", err);
 
     int os = 0;
     int frames = 0;
@@ -1625,7 +1628,11 @@ transfer:;
                 sprintf(toScreen, "%s:\n\t%s!\n\n%s", "SSL error", te, "check your Wii Us date and time settings");
                 break;
             default:
-                sprintf(toScreen, "%s:\n\t%d %s", te, ret, curlError);
+                // te is curlError itself as soon as libCURL filled the error
+                // buffer (DEBUG builds), so printing both carries the same
+                // 256 byte text twice - and curlError is empty whenever it is
+                // not the one printed. The full text goes to the debug log.
+                snprintf(toScreen, sizeof(toScreen), "%s:\n\t%d", te, ret);
                 break;
         }
 

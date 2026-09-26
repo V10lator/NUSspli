@@ -143,6 +143,14 @@ docker run --rm -v ${PWD}:/src xianpengshen/clang-tools:22 \
   change is needed. Do not use apostrophes in commit messages.
 - One commit per new function or bug fix: every commit carries a single
   focused change.
+- Format the commit header according to https://github.com/jaywcjlove/changelog-generator/blob/v2.4.0/README.md#getting-started
+  - Load that section instead of working from memory, it is the authority
+    and may change.
+  - Styling guideline only: the release notes are generated from the
+    headers between two tags, so a header outside of the format makes the
+    changelog of the next version look worse, but nothing breaks.
+  - Exception: the release commit `v<version>` keeps its plain subject,
+    else the release job does not fire.
 - Squash commits that belong together (bug fixes, follow ups, rework of your
   own commit) when that makes the history clearer and the commits are **not
   on `https://github.com/V10lator/NUSspli/commits/master/` yet**. While 

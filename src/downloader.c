@@ -172,6 +172,12 @@ typedef struct
     OSTick ts;
     curl_off_t dltotal;
     curl_off_t dlnow;
+    // Bytes handed to the I/O queue so far. dlnow counts what libCURL accepted,
+    // which runs ahead of the queue while a stream still holds bytes and can
+    // trail it until the next progress callback lands. A transfer continued in
+    // the middle has to resume at the queue count: the bytes between the two
+    // would land twice or not at all.
+    curl_off_t written;
 } curlProgressData;
 
 #define closeCancelOverlay()               \
@@ -740,6 +746,27 @@ static size_t chunkWrite(const void *ptr, size_t size, size_t n, void *userdata)
     return size;
 }
 
+// Target of a single stream transfer: where it writes and how much it handed
+// to the queue.
+typedef struct
+{
+    FSAFileHandle fp;
+    volatile curl_off_t *written;
+} dlWriteTarget;
+
+// The single stream path writes straight through the queue, so counting what
+// the queue took gives the offset a continued transfer resumes at. The figure
+// libCURL reports instead only lands with a progress callback, and the last
+// one can sit behind the last write: resuming there would ask for the bytes
+// in between again and append them a second time.
+static size_t sequentialWrite(const void *ptr, size_t size, size_t n, void *userdata)
+{
+    dlWriteTarget *target = (dlWriteTarget *)userdata;
+    size_t accepted = addToIOQueue(ptr, size, n, target->fp);
+    *target->written += (curl_off_t)size * accepted;
+    return accepted;
+}
+
 // Duplicating the configured handle keeps every stream on the same certificates,
 // user agent, socket options and timeouts without repeating the setup.
 static void initParallel(void)
@@ -988,6 +1015,11 @@ static int mdlThreadMain(int argc, const char **argv)
             dlSlots[i].handle = NULL;
         }
 
+    // Slots that still hold bytes are dropped when the next phase resets them,
+    // so the queue count is the only offset a continued transfer may resume at.
+    // Publishing it after the loop keeps it exact: while the transfer runs, the
+    // progress figure still counts the bytes sitting in those slots.
+    cdata->written = written - job->start;
     cdata->running = false;
     return ret;
 }
@@ -1116,6 +1148,9 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     OSTick phaseTick = 0;
     bool phaseStop = false;
     bool userCancelled = false;
+    // Where the single stream path writes to. It counts what the queue took,
+    // which is the offset a stopped phase continues this file at.
+    dlWriteTarget target;
     // The Auto pin is measured once per host and kept for the session,
     // 0 = not measured yet.
     static int rampPinned = 0;
@@ -1191,8 +1226,12 @@ retry:
         .error = CURLE_OK,
         .dlnow = 0.0D,
         .dltotal = 0.0D,
+        .written = 0,
     };
     spinCreateLock((cdata.lock), SPINLOCK_FREE);
+
+    target.fp = (FSAFileHandle)fp;
+    target.written = &cdata.written;
 
 transfer:;
     // Only content files are worth splitting: they are the big ones, their size is
@@ -1259,12 +1298,12 @@ transfer:;
             {
                 opt = CURLOPT_WRITEFUNCTION;
 #pragma GCC diagnostic ignored "-Wcast-function-type"
-                ret = curl_easy_setopt(curl, opt, rambuf ? fwrite : (size_t (*)(const void *, size_t, size_t, FILE *))addToIOQueue);
+                ret = curl_easy_setopt(curl, opt, rambuf ? fwrite : (size_t (*)(const void *, size_t, size_t, FILE *))sequentialWrite);
 #pragma GCC diagnostic pop
                 if(ret == CURLE_OK)
                 {
                     opt = CURLOPT_WRITEDATA;
-                    ret = curl_easy_setopt(curl, opt, (FILE *)fp);
+                    ret = curl_easy_setopt(curl, opt, rambuf ? (FILE *)fp : (FILE *)&target);
                     if(ret == CURLE_OK)
                     {
                         opt = CURLOPT_XFERINFODATA;
@@ -1494,9 +1533,15 @@ transfer:;
         if(ms == 0)
             ms = 1;
 
-        curl_off_t got = cdata.dlnow;
+        // What reached the I/O queue sets the offset and scores the
+        // configuration: a stopped phase still carries bytes in its slots and
+        // the next phase drops them, so a rate paid with bytes that do not
+        // survive the handover would rank a count above what it delivered.
+        // The received count stays in the log and shows how far ahead the
+        // slots ran - it is only read in a debug build.
+        curl_off_t got = cdata.written;
         curl_off_t rate = got * 1000 / ms;
-        debugPrintf("Ramp[phase=%d/streams=%d] result: bytes=%u ms=%u rate=%u", rampPhase, want, (unsigned int)got, ms, (unsigned int)rate);
+        debugPrintf("Ramp[phase=%d/streams=%d] result: bytes=%u queued=%u ms=%u rate=%u", rampPhase, want, (unsigned int)cdata.dlnow, (unsigned int)got, ms, (unsigned int)rate);
 
         if(rampPhase == 0)
         {
@@ -1526,7 +1571,7 @@ transfer:;
 
         if((curl_off_t)fileSize + got >= (curl_off_t)data->cs)
         {
-            // The phase carried the file over the line itself: nothing left to
+            // The phase queued the file over the line itself: nothing left to
             // re-enter for, so fall through and let the code below account for
             // it as the success it is.
             debugPrintf("Ramp: file finished inside the phase");
@@ -1540,6 +1585,7 @@ transfer:;
             cdata.error = CURLE_OK;
             cdata.dltotal = 0;
             cdata.dlnow = 0;
+            cdata.written = 0;
             goto transfer;
         }
     }

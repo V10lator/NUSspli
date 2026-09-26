@@ -3,4 +3,4 @@
 	url = https://github.com/madler/zlib.git
 [submodule "SDL_FontCache"]
 	path = SDL_FontCache
-	url = https://github.com/debevv/SDL_FontCache.git
+	url = https://github.com/sbplat/SDL_FontCache.git

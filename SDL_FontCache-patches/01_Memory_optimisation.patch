@@ -1,37 +1,8 @@
 diff --git a/SDL_FontCache.c b/SDL_FontCache.c
-index 5e3cac8..bd323ad 100644
+index 51acdb0..2f55bde 100644
 --- a/SDL_FontCache.c
 +++ b/SDL_FontCache.c
-@@ -73,7 +73,7 @@ __inline int c99_snprintf(char *outBuf, size_t size, const char *format, ...)
- { \
-     va_list lst; \
-     va_start(lst, start_args); \
--    vsnprintf(buffer, fc_buffer_size, start_args, lst); \
-+    vsnprintf(buffer, FC_BUFFER_SIZE, start_args, lst); \
-     va_end(lst); \
- }
-
-@@ -149,8 +149,8 @@ static char* replace_concat(char** a, const char* b)
- static const unsigned int fc_tab_width = 4;
- 
- // Shared buffer for variadic text
--static const unsigned int fc_buffer_size = 1024;
--static char fc_buffer[1024];
-+#define FC_BUFFER_SIZE 1024
-+static char fc_buffer[FC_BUFFER_SIZE];
- 
- static Uint8 fc_has_render_target_support = 0;
- 
-@@ -731,7 +731,7 @@ void FC_SetLoadingString(FC_Font* font, const char* string)
- 
- unsigned int FC_GetBufferSize(void)
- {
--    return fc_buffer_size;
-+    return FC_BUFFER_SIZE;
- }
- 
- 
-@@ -1023,17 +1023,8 @@ Uint8 FC_SetGlyphCacheLevel(FC_Font* font, int cache_level, FC_Image* cache_text
+@@ -1110,17 +1110,8 @@ Uint8 FC_SetGlyphCacheLevel(FC_Font* font, int cache_level, FC_Image* cache_text
          // Grow cache?
          if(font->glyph_cache_count > font->glyph_cache_size)
          {
@@ -49,22 +20,4 @@ index 5e3cac8..bd323ad 100644
 +            font->glyph_cache = realloc(font->glyph_cache, font->glyph_cache_count * sizeof(FC_Image*));
          }
      }
- 
-@@ -2651,7 +2642,7 @@ FC_Rect FC_GetBounds(FC_Font* font, float x, float y, FC_AlignEnum align, FC_Sca
-         return result;
- 
-     // Create a temp buffer while GetWidth and GetHeight use fc_buffer.
--    char* temp = (char*)malloc(fc_buffer_size);
-+    static char temp[FC_BUFFER_SIZE];
-     FC_EXTRACT_VARARGS(temp, formatted_text);
- 
-     result.w = FC_GetWidth(font, "%s", temp) * scale.x;
-@@ -2671,8 +2662,6 @@ FC_Rect FC_GetBounds(FC_Font* font, float x, float y, FC_AlignEnum align, FC_Sca
-             break;
-     }
- 
--    free(temp);
--
-     return result;
- }
  

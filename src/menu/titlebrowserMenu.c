@@ -19,7 +19,6 @@
 
 #include <wut-fixups.h>
 
-#include <ctype.h>
 #include <stdbool.h>
 #include <string.h>
 
@@ -49,6 +48,50 @@ static TitleEntry **filteredTitleEntries;
 static size_t filteredTitleEntrySize;
 static bool filterDirty;
 
+// tolower() folds ASCII only, so every non ASCII byte stays as it is: a
+// title with an accented capital keeps it while the search keeps its
+// lowercase form, and the strstr() below never sees a match. 10 of the
+// 3759 entries of the title database carry such a letter - POKKÉN
+// TOURNAMENT, Tsuppari Õzumõ, Kieta Õgon Kiseru - and were only findable
+// in the exact case typed.
+//
+// A Latin-1 capital is the two bytes LATIN1_CAPS_LEAD (the lead of
+// U+0080..U+00FF) and LATIN1_CAPS_FIRST (U+00C0) to LATIN1_CAPS_LAST
+// (U+00DE), without LATIN1_MULTIPLY (U+00D7), which has no lowercase
+// form. Adding 32 to the second byte folds them and keeps every sequence
+// two bytes long, so no name is turned into another one.
+enum
+{
+    LATIN1_CAPS_LEAD = 0xC3,
+    LATIN1_CAPS_FIRST = 0x80,
+    LATIN1_CAPS_LAST = 0x9E,
+    LATIN1_MULTIPLY = 0x97,
+};
+
+static void foldCase(char *str)
+{
+    unsigned char *s = (unsigned char *)str;
+
+    for(size_t i = 0; s[i] != '\0';)
+    {
+        if(s[i] < 0x80)
+        {
+            if(s[i] >= 'A' && s[i] <= 'Z')
+                s[i] += 32;
+
+            ++i;
+        }
+        else if(s[i] == LATIN1_CAPS_LEAD && s[i + 1] >= LATIN1_CAPS_FIRST && s[i + 1] <= LATIN1_CAPS_LAST
+            && s[i + 1] != LATIN1_MULTIPLY)
+        {
+            s[i + 1] += 32;
+            i += 2;
+        }
+        else
+            ++i;
+    }
+}
+
 static void updateFilter(const TITLE_CATEGORY tab, char *search)
 {
     filteredTitleEntrySize = getTitleEntriesSize(tab);
@@ -60,11 +103,8 @@ static void updateFilter(const TITLE_CATEGORY tab, char *search)
 
     if(search[0] != '\0')
     {
-        do
-            search[l] = tolower(search[l]);
-        while(search[l++]);
+        foldCase(search);
 
-        l = 0;
         char *ptr[2];
         bool found;
         char tmpName[MAX_TITLENAME_LENGTH];
@@ -73,11 +113,15 @@ static void updateFilter(const TITLE_CATEGORY tab, char *search)
             if(!(currentRegion & titleEntrys[i].region))
                 continue;
 
+            // The names are pointers into the generated table and none of
+            // them is longer than the buffer (158 bytes at most), so the
+            // copy only has to be folded afterwards.
             max = strlen(titleEntrys[i].name);
             for(j = 0; j < max; ++j)
-                tmpName[j] = tolower(titleEntrys[i].name[j]);
+                tmpName[j] = titleEntrys[i].name[j];
 
             tmpName[j] = '\0';
+            foldCase(tmpName);
             ptr[0] = search;
             ptr[1] = strstr(ptr[0], " ");
             while(true)

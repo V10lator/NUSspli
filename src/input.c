@@ -29,6 +29,7 @@
 #include <state.h>
 #include <swkbd_wrapper.h>
 #include <thread.h>
+#include <ui.h>
 #include <utils.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
@@ -309,7 +310,14 @@ bool SWKBD_Init()
         OSBlockSet(&appearArg, 0, sizeof(Swkbd_AppearArg));
         appearArg.keyboardArg.configArg.accessFlags = 0xFFFFFFFF;
         appearArg.keyboardArg.configArg.unk_0x14 = -1;
-        appearArg.keyboardArg.configArg.framerate = FRAMERATE_60FPS;
+        // The keyboard draws at the pace of our own loop: 30 and 60 are the
+        // two values it accepts, FRAMERATE picks which one is in use.
+        appearArg.keyboardArg.configArg.framerate =
+#if FRAMERATE <= 30
+            2;
+#else
+            1;
+#endif
         appearArg.keyboardArg.configArg.showCursor = true;
         appearArg.keyboardArg.configArg.unk_0xA4 = -1;
         appearArg.keyboardArg.configArg.disableNewLine = true;

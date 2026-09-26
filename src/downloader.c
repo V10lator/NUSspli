@@ -41,6 +41,7 @@
 #include <ticket.h>
 #include <titles.h>
 #include <tmd.h>
+#include <ui.h>
 #include <utils.h>
 
 #include <mbedtls/entropy.h>
@@ -1483,7 +1484,7 @@ transfer:;
                 if(!rambuf)
                     checkForQueueErrors();
 
-                frames = 60;
+                frames = FRAMERATE;
                 dltotal += fileSize;
 
                 strcpy(toScreen, localise("Downloading"));

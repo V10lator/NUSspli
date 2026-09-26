@@ -34,6 +34,7 @@
 #include <state.h>
 #include <swkbd_wrapper.h>
 #include <thread.h>
+#include <ui.h>
 #include <utils.h>
 
 #include <SDL2/SDL.h>
@@ -578,7 +579,12 @@ void removeErrorOverlay(void *overlay)
     addEntropy(&t, sizeof(OSTick));
 
     removeFromList(errorOverlayList, overlay);
-    drawFrame();
+    // A leave handler closes its overlay while the screens unwind after the
+    // exit was confirmed: repainting then would take the popup off a screen
+    // that is going away and put that screen up for the frame until the
+    // goodbye picture replaces it.
+    if(AppRunning(false))
+        drawFrame();
     SDL_DestroyTexture(((ErrorOverlay *)overlay)->tex);
     MEMFreeToDefaultHeap(overlay);
 }
@@ -984,16 +990,43 @@ void colorStartNewFrame(SCREEN_COLOR color)
     rectPoolIndex = 0;
 }
 
+// The fixed frame pace: a 60 Hz display shows every picture for one
+// interrupt at FRAMERATE 60 and for two at FRAMERATE 30. Contrary to VSync
+// enabled SDL we use GX2WaitForVsync() directly instead of
+// WHBGFX WHBGfxBeginRender() for VSync as WHBGfxBeginRender() produces
+// frames way shorter than 16 ms sometimes, confusing frame counting timers.
+static void waitForFrame()
+{
+    GX2WaitForVsync();
+#if FRAMERATE == 30
+    GX2WaitForVsync();
+#endif
+}
+
+// Counterpart to presentFrame for the paths that present themselves first
+// (the software keyboard, the status frames): wait the frame out, then read
+// the input like the old VSync coupled loop did. Same FRAMERATE pacing as
+// presentFrame, so nothing runs at 60 FPS behind our back anymore.
 void showFrame()
 {
     if(font == NULL)
         return;
 
-    // Contrary to VSync enabled SDL we use GX2WaitForVsync() directly instead of
-    // WHBGFX WHBGfxBeginRender() for VSync as WHBGfxBeginRender() produces frames
-    // way shorter than 16 ms sometimes, confusing frame counting timers
-    GX2WaitForVsync();
+    waitForFrame();
     readInput();
+}
+
+// Presents the retained frame and waits for the next VSync. This is the
+// fixed frame rate of the main loop: one present per VSync, independent of
+// whether the picture changed. Input is handled by the loop itself, not
+// here anymore.
+void presentFrame()
+{
+    if(font == NULL)
+        return;
+
+    drawFrame();
+    waitForFrame();
 }
 
 #define predrawFrame()                                                  \

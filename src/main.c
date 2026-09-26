@@ -47,6 +47,7 @@
 #include <thread.h>
 #include <ticket.h>
 #include <titles.h>
+#include <ui.h>
 #include <updater.h>
 #include <utils.h>
 
@@ -216,11 +217,7 @@ static void innerMain()
             if(lerr != NULL)
             {
                 drawErrorFrame(lerr, ANY_RETURN);
-                showFrame();
-
-                while(!(vpad.trigger) && AppRunning(true))
-                    showFrame();
-
+                uiWaitKey();
                 drawByeFrame();
             }
 

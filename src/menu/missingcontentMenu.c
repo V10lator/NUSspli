@@ -37,6 +37,7 @@
 #include <state.h>
 #include <titles.h>
 #include <tmd.h>
+#include <ui.h>
 #include <utils.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
@@ -44,8 +45,7 @@
 #include <coreinit/memdefaultheap.h>
 #pragma GCC diagnostic pop
 
-#define MAX_MC_LINES         (MAX_LINES - 3)
-#define DPAD_COOLDOWN_FRAMES 30 // half a second at 60 FPS
+#define MAX_MC_LINES (MAX_LINES - 3)
 
 typedef struct
 {

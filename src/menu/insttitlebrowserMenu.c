@@ -34,6 +34,7 @@
 #include <state.h>
 #include <thread.h>
 #include <titles.h>
+#include <ui.h>
 #include <utils.h>
 
 #pragma GCC diagnostic ignored "-Wundef"
@@ -45,7 +46,6 @@
 
 #define MAX_ITITLEBROWSER_LINES        (MAX_LINES - 3)
 #define MAX_ITITLEBROWSER_TITLE_LENGTH (MAX_TITLENAME_LENGTH >> 1)
-#define DPAD_COOLDOWN_FRAMES           30 // half a second at 60 FPS
 
 typedef struct
 {

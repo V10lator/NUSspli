@@ -549,11 +549,20 @@ naNedNa:
 
             if(installed && vpad.trigger & VPAD_BUTTON_Y)
             {
+                // Same guard as in insttitlebrowserMenu: nothing is
+                // removed while the app is on its way down. The answer of
+                // the confirmation dialogs comes from before them, so the
+                // deletion asks the state one more time right in front of
+                // itself.
                 if(checkSystemTitleFromListType(&titleList, true))
                 {
                     freeRamBuf(rambuf);
-                    saveConfig(false);
-                    deinstall(&titleList, entry->name, false, false);
+                    if(AppRunning(true))
+                    {
+                        saveConfig(false);
+                        deinstall(&titleList, entry->name, false, false);
+                    }
+
                     return false;
                 }
             }

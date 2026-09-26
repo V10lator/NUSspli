@@ -245,8 +245,8 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall)
     if(ovl == NULL)
         return false;
 
-    bool ret = true;
-    while(AppRunning(true))
+    bool ret = AppRunning(true);
+    while(ret)
     {
         showFrame();
 
@@ -257,9 +257,16 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall)
             ret = false;
             break;
         }
+
+        ret = AppRunning(true);
     }
 
     removeErrorOverlay(ovl);
+
+    // The loops above also end when the app stops, and ret is false
+    // then: no answer came, so a confirmation only counts as long as the
+    // app runs, and the dialogs that follow must not come up in the
+    // middle of a shutdown.
     if(ret)
     {
         sprintf(toFrame,
@@ -272,7 +279,7 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall)
         if(ovl == NULL)
             return false;
 
-        while(AppRunning(true))
+        while(ret)
         {
             showFrame();
 
@@ -283,6 +290,8 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall)
                 ret = false;
                 break;
             }
+
+            ret = AppRunning(true);
         }
         removeErrorOverlay(ovl);
     }
@@ -299,7 +308,7 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall)
         if(ovl == NULL)
             return false;
 
-        while(AppRunning(true))
+        while(ret)
         {
             showFrame();
 
@@ -310,10 +319,13 @@ bool checkSystemTitle(uint64_t tid, MCPRegion region, bool deinstall)
                 ret = false;
                 break;
             }
+
+            ret = AppRunning(true);
         }
         removeErrorOverlay(ovl);
     }
 
+    // The last loop can end the same way: a stopped app never said yes.
     return ret;
 }
 

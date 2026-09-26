@@ -1405,31 +1405,54 @@ transfer:;
             downloaded = dlnow;
             dlnow += fileSize;
 
-            // Calculate download speed
-            if(bps != 0.0f)
+            // Calculate download speed. Only a window the clock can divide
+            // gets a rate of its own. A window without a new tick passes the
+            // smoothing, a file that has published no byte yet has nothing
+            // to divide at all.
+            if(!dltotal)
+                bps = 0.0f; // no total yet, the screen reads Preparing then
+            else if(downloaded == 0)
             {
-                if(dltotal)
+                // The window up to here holds nothing but the setup of this
+                // file, so there is no rate of its own to measure. Keep the
+                // figure of this call instead - nothing at the start of a
+                // file, the rate before a ramp phase switch in the middle of
+                // one - and take the fresh tick as the reference, so the
+                // first bytes of the file are measured against it.
+                bps = oldBps;
+                lastTransfair = ts;
+            }
+            else
+            {
+                tmp = OSTicksToMilliseconds(ts - lastTransfair); // sample duration in milliseconds
+                if(tmp)
                 {
-                    tmp = OSTicksToMilliseconds(ts - lastTransfair); // sample duration in milliseconds
-                    if(tmp)
-                    {
-                        bps *= 1000.0f; // secs to ms.
-                        bps /= tmp; // byte/s
+                    bps *= 1000.0f; // secs to ms.
+                    bps /= tmp; // byte/s
 
-                        // Smoothing
-                        bps *= 1.0f - SMOOTHING_FACTOR;
-                        oldBps *= SMOOTHING_FACTOR;
-                        bps += oldBps;
-                        oldBps = bps;
-                    }
-                    else
-                        bps = 0.0f;
+                    // Smoothing
+                    bps *= 1.0f - SMOOTHING_FACTOR;
+                    oldBps *= SMOOTHING_FACTOR;
+                    bps += oldBps;
+                    oldBps = bps;
+
+                    // Only a window that could be divided becomes the
+                    // reference of the next one.
+                    lastTransfair = ts;
                 }
                 else
-                    bps = 0.0f;
+                {
+                    // No new tick since the last sample: the count is as old
+                    // as the tick, so there is no window to divide by. The
+                    // publisher of a finished chunk sits blocked behind the
+                    // disk while the transfer is alive, which is what leaves
+                    // such a window empty. Age the last figure by one
+                    // smoothing step instead of dropping it to zero.
+                    oldBps *= SMOOTHING_FACTOR;
+                    bps = oldBps;
+                }
             }
 
-            lastTransfair = ts;
             startNewFrame();
 
             if(data != NULL)

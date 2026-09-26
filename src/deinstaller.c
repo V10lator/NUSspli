@@ -19,6 +19,7 @@
 #include <wut-fixups.h>
 
 #include <stdbool.h>
+#include <stdio.h>
 
 #include <crypto.h>
 #include <deinstaller.h>
@@ -40,9 +41,10 @@ bool deinstall(MCPTitleListType *title, const char *name, bool channelHaxx, bool
 {
     startNewFrame();
     char toFrame[256];
-    strcpy(toFrame, localise("Uninstalling"));
-    strcat(toFrame, " ");
-    strcat(toFrame, name);
+    // For a folder that is not in the database this is a whole path
+    // (prettyDir(), see the queue), not just a title name: build the line
+    // in one bounded step instead of appending to it.
+    snprintf(toFrame, sizeof(toFrame), "%s %s", localise("Uninstalling"), name);
     textToFrame(0, 0, toFrame);
     textToFrame(1, 0, localise("Preparing..."));
     writeScreenLog(2);

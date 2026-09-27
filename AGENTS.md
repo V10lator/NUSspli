@@ -151,18 +151,49 @@ docker run --rm -v ${PWD}:/src xianpengshen/clang-tools:22 \
     changelog of the next version look worse, but nothing breaks.
   - Exception: the release commit `v<version>` keeps its plain subject,
     else the release job does not fire.
-- Squash commits that belong together (bug fixes, follow ups, rework of your
-  own commit) when that makes the history clearer and the commits are **not
-  on `https://github.com/V10lator/NUSspli/commits/master/` yet**. While 
-  squashing, update the commit message and the code comments if they no longer
-  describe the result.
+- Squash commits that belong together when that makes the history clearer and
+  the commits are **not on `https://github.com/V10lator/NUSspli/commits/master/`
+  yet**. Belong together means one thought: a follow up, a cleanup or a rework
+  of a detail of the change next to it, a second commit that only exists
+  because the first one was incomplete. Two commits stay separate when the
+  second one tells a story of its own - another bug, another user visible
+  behaviour - even when a not yet pushed commit of this same series introduced
+  that bug: the release notes are built from the headers between two tags, so a
+  fix folded into a `feat(...)` or a `refactor(...)` header vanishes from them.
+  While squashing, update the commit message and the code comments if they no
+  longer describe the result.
 - Never use `git stash`.
 - Never stage dirty submodules, generated files or unrelated untracked files.
 - If you are an AI agent: author commits with **your own identity**, not with
   the maintainer's name (for example `MiMo-V2.6-Flash <noreply@open-code.ai>`).
   Credit human contributors in `Co-Authored-By:` trailers instead of putting
-  them into the author field, and keep the original author when you rebase or
-  absorb somebody else's commit.
+  them into the author field. A commit you wrote on your own carries no such
+  trailer: it credits a contribution that was merged into that change, not the
+  report of the bug the change fixes.
+- When two commits are squashed into one, the author of the commit the change
+  lands in survives. The rule follows the direction of the squash, not the
+  identity of the two authors: the commit that gets folded away can be by the
+  maintainer, by a third party or by another AI.
+  - Folding an AI commit into another commit keeps the author of that other
+    commit with his `Signed-off-by:` untouched, the AI is added as
+    `Co-Authored-By:`.
+  - Folding another commit into an AI commit makes the AI the author, and
+    the other author moves out of the author field into `Co-Authored-By:`.
+    A `Signed-off-by:` he carried becomes that line - neither kept nor
+    added beside it. Without a sign-off there is nothing to replace, the
+    line is simply added. The AI adds no `Co-Authored-By:` for itself:
+    it is the author now.
+  - A plain rebase keeps every author and every trailer as it is.
+- Rewriting an existing commit moves the identity with it, not only the
+  message: whoever the commit belongs to afterwards sits in the author line,
+  and the name that comes out of that line goes into `Co-Authored-By:` - or
+  out of the message entirely when it is the AI, because an AI never credits
+  its own name on a commit it is the author of. Author and trailer may never
+  name the same identity, so a leftover `Co-Authored-By: <own name>` is
+  dropped when a header rewrite or a chain rebuild puts the AI into the
+  author field. Check a rewritten chain with
+  `git log --format='%h %an | %(trailers:key=Co-Authored-By,valueonly)' <range>`
+  and fix every line that repeats the author.
 
 ## Pull requests
 

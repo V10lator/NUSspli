@@ -1,0 +1,97 @@
+--- a/SDL_FontCache.c
++++ b/SDL_FontCache.c
+@@ -1379,7 +1379,6 @@
+     if(font == NULL || glyph_surface == NULL)
+         return 0;
+ 
+-    SDL_SetSurfaceBlendMode(glyph_surface, SDL_BLENDMODE_NONE);
+     FC_Image* dest = FC_GetGlyphCacheLevel(font, font->last_glyph.cache_level);
+     if(dest == NULL)
+         return 0;
+@@ -1402,42 +1401,55 @@
+     }
+     #else
+     {
+-        SDL_Renderer* renderer = font->renderer;
+-        SDL_Texture* img;
+-        SDL_Rect destrect;
+-        SDL_Texture* prev_target = SDL_GetRenderTarget(renderer);
+-        SDL_Rect prev_clip, prev_viewport;
+-        int prev_logicalw, prev_logicalh;
+-        Uint8 prev_clip_enabled;
+-        float prev_scalex, prev_scaley;
+-        // only backup if previous target existed (SDL will preserve them for the default target)
+-        if (prev_target) {
+-            prev_clip_enabled = has_clip(renderer);
+-            if (prev_clip_enabled)
+-                prev_clip = get_clip(renderer);
+-            SDL_RenderGetViewport(renderer, &prev_viewport);
+-            SDL_RenderGetScale(renderer, &prev_scalex, &prev_scaley);
+-            SDL_RenderGetLogicalSize(renderer, &prev_logicalw, &prev_logicalh);
++        // Upload the glyph pixels instead of render copying them. A copy switches
++        // the render target twice in the middle of a frame, and the frame that
++        // packs the glyph already sampled the cache texture, so the new cell may
++        // only become visible with the next frame. Uploading leaves the target and
++        // the render state alone, just like the preloading done at load time.
++        SDL_Rect destrect = font->last_glyph.rect;
++        SDL_Surface* upload = glyph_surface;
++        Uint32 cache_format;
++        Uint8 result = 1;
++
++        if(SDL_QueryTexture(dest, &cache_format, NULL, NULL, NULL) != 0)
++        {
++            FC_Log("SDL_FontCache: Could not query the glyph cache texture: %s\n", SDL_GetError());
++            return 0;
+         }
+ 
+-        img = SDL_CreateTextureFromSurface(renderer, glyph_surface);
+-
+-        destrect = font->last_glyph.rect;
+-        SDL_SetRenderTarget(renderer, dest);
+-        SDL_RenderCopy(renderer, img, NULL, &destrect);
+-        SDL_SetRenderTarget(renderer, prev_target);
+-        if (prev_target) {
+-            if (prev_clip_enabled)
+-                set_clip(renderer, &prev_clip);
+-            if (prev_logicalw && prev_logicalh)
+-                SDL_RenderSetLogicalSize(renderer, prev_logicalw, prev_logicalh);
+-            else {
+-                SDL_RenderSetViewport(renderer, &prev_viewport);
+-                SDL_RenderSetScale(renderer, prev_scalex, prev_scaley);
++        if(cache_format != glyph_surface->format->format)
++        {
++            upload = SDL_ConvertSurfaceFormat(glyph_surface, cache_format, 0);
++            if(upload == NULL)
++            {
++                FC_Log("SDL_FontCache: Could not convert a glyph to the cache format: %s\n", SDL_GetError());
++                return 0;
+             }
+         }
+ 
+-        SDL_DestroyTexture(img);
++        // The packed cell can be larger than the glyph, the rest of it stays empty.
++        if(upload->w < destrect.w)
++            destrect.w = upload->w;
++        if(upload->h < destrect.h)
++            destrect.h = upload->h;
++
++        if(SDL_MUSTLOCK(upload) && SDL_LockSurface(upload) != 0)
++            result = 0;
++        else
++        {
++            if(SDL_UpdateTexture(dest, &destrect, upload->pixels, upload->pitch) != 0)
++                result = 0;
++            if(SDL_MUSTLOCK(upload))
++                SDL_UnlockSurface(upload);
++        }
++
++        if(!result)
++            FC_Log("SDL_FontCache: Could not upload a glyph: %s\n", SDL_GetError());
++
++        if(upload != glyph_surface)
++            SDL_FreeSurface(upload);
++
++        return result;
+     }
+     #endif
+ 

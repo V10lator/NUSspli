@@ -205,7 +205,9 @@ static void updateFBMenu()
             // so both have to fit into the FS_MAX_PATH buffer: a folder
             // whose path does not fit is not entered instead of running
             // past the end of it.
-            if(strlen(fbPath) + strlen(folder) + sizeof("title.tmd") > FS_MAX_PATH)
+            size_t fbLen = strlen(fbPath);
+            size_t len = fbLen + strlen(folder);
+            if(len + sizeof("title.tmd") > FS_MAX_PATH)
             {
                 debugPrintf("Path too long: %s%s", fbPath, folder);
                 fbAction = FB_REFRESH_DIR;
@@ -213,9 +215,8 @@ static void updateFBMenu()
                 return;
             }
 
-            strcat(fbPath, folder);
-            size_t len = strlen(fbPath);
-            strcat(fbPath, "title.tmd");
+            strcpy(fbPath + fbLen, folder);
+            strcpy(fbPath + len, "title.tmd");
 
             bool found = fileExists(fbPath);
             fbPath[len] = '\0';
@@ -229,7 +230,8 @@ static void updateFBMenu()
 
             if(found)
             {
-                strcpy(presavedPath, fbPath);
+                OSBlockMove(presavedPath, fbPath, fbLen, false);
+                presavedPath[fbLen] = '\0';
                 destroyList(fbFolders, true);
                 fbFolders = NULL;
                 fbResult = fbPath;

@@ -154,6 +154,7 @@ static void updateBootScreen()
 
     // The boot screen is transient: hand the stack over to the root screen
     // instead of sitting below it for the rest of the app life.
+    initFSSpace();
     checkStacks("main");
     uiPop();
     mainMenu();

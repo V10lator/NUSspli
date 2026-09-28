@@ -153,15 +153,21 @@ docker run --rm -v ${PWD}:/src xianpengshen/clang-tools:22 \
     else the release job does not fire.
 - Squash commits that belong together when that makes the history clearer and
   the commits are **not on `https://github.com/V10lator/NUSspli/commits/master/`
-  yet**. Belong together means one thought: a follow up, a cleanup or a rework
-  of a detail of the change next to it, a second commit that only exists
-  because the first one was incomplete. Two commits stay separate when the
-  second one tells a story of its own - another bug, another user visible
-  behaviour - even when a not yet pushed commit of this same series introduced
-  that bug: the release notes are built from the headers between two tags, so a
-  fix folded into a `feat(...)` or a `refactor(...)` header vanishes from them.
-  While squashing, update the commit message and the code comments if they no
-  longer describe the result.
+  yet**. That link is the measure, never `origin/master`: an agent works in a
+  fork and its own `origin/master` can be anywhere it likes up to the PR.
+  Belong together means one thought: a follow up, a cleanup or a rework of a
+  detail of the change next to it, a second commit that only exists because the
+  first one was incomplete, and a fix for a feature that the same branch added -
+  as long as the branch has not reached that link, the repair belongs to the
+  feature and no fix header is needed for code that is not there. Two commits
+  stay separate when the second one tells a story of its own - another bug,
+  another user visible behaviour - and the first one is already on
+  `https://github.com/V10lator/NUSspli/commits/master/`: the release notes are
+  built from the headers between two tags, so a fix folded into a `feat(...)` or
+  a `refactor(...)` header vanishes from them. Whether a fix deserves its own
+  line in them is decided before the branch lands there, not afterwards. While
+  squashing, update the commit message and the code comments if they no longer
+  describe the result.
 - Never use `git stash`.
 - Never stage dirty submodules, generated files or unrelated untracked files.
 - If you are an AI agent: author commits with **your own identity**, not with

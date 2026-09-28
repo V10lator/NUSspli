@@ -101,9 +101,9 @@ static void innerMain()
             {
                 drawErrorFrame(lerr, ANY_RETURN);
                 uiWaitKey();
+                uiDrawByeFrame();
             }
 
-            drawByeFrame();
             checkStacks("main");
             debugPrintf("Deinitializing libraries...");
 

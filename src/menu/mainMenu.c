@@ -92,7 +92,7 @@ static void updateMainMenu()
     {
         if(showExitOverlay(true))
         {
-            drawByeFrame();
+            uiDrawByeFrame();
             uiExit();
         }
     }

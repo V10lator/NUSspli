@@ -118,6 +118,7 @@ uint32_t homeButtonCallback(void *dummy)
     if(((bool)dummy) || (shutdownEnabled && showExitOverlay(true)))
     {
         shutdownEnabled = false;
+        uiDrawByeFrame();
         app = APP_STATE_HOME;
     }
 
@@ -189,12 +190,8 @@ static bool pumpEvents(void)
                 app = APP_STATE_STOPPED;
                 return false;
             case SDL_APP_WILLENTERBACKGROUND:
-                // Exit with power button: the bye frame presents and shares
-                // the STOPPING guard with every other present, so it has to
-                // go out before the state changes. SDL defers the foreground
-                // release into a later pump (see the shutdown path in
-                // main()), so presenting here still has the foreground.
-                uiDrawByeFrame();
+                // The bye frame isn't visible when exiting with power button
+                // uiDrawByeFrame();
                 app = APP_STATE_STOPPING;
                 return false;
             default:

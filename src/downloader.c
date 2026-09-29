@@ -1837,7 +1837,8 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
             return false;
 
         data.cs = 0;
-        int tikRes = downloadFile(downloadUrl, installDir, &data, FILE_TYPE_TIK | FILE_TYPE_TORAM, false, queueData, tikBuf);
+        // Nothing is written to disk here, the path would only be shown.
+        int tikRes = downloadFile(downloadUrl, "title.tik", &data, FILE_TYPE_TIK | FILE_TYPE_TORAM, false, queueData, tikBuf);
         switch(tikRes)
         {
             case 2:

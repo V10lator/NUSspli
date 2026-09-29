@@ -68,18 +68,30 @@ typedef enum
     Swkbd_RegionType__Taiwan = 5,
 } Swkbd_RegionType;
 
+// Mirrors nn::swkbd::KeyboardLayout - which characters the keyboard offers.
 typedef enum
 {
-    Swkbd_LanguageType2__Japanese = 0,
-    Swkbd_LanguageType2__English = 1,
-    Swkbd_LanguageType2__French = 6,
-    Swkbd_LanguageType2__German = 7,
-    Swkbd_LanguageType2__Italian = 8,
-    Swkbd_LanguageType2__Spanish = 9,
-    Swkbd_LanguageType2__Dutch = 10,
-    Swkbd_LanguageType2__Portuguese = 11,
-    Swkbd_LanguageType2__Russian = 12,
-} Swkbd_LanguageType2;
+    Swkbd_KeyboardLayout__JPN_JP_QWERTY = 0,
+    Swkbd_KeyboardLayout__USA_EN_QWERTY = 1,
+    Swkbd_KeyboardLayout__USA_FR_QWERTY = 2,
+    Swkbd_KeyboardLayout__USA_ES_QWERTY = 3,
+    Swkbd_KeyboardLayout__USA_PT_QWERTY = 4,
+    Swkbd_KeyboardLayout__EUR_EN_QWERTY = 5,
+    Swkbd_KeyboardLayout__EUR_FR_AZERTY = 6,
+    Swkbd_KeyboardLayout__EUR_DE_QWERTZ = 7,
+    Swkbd_KeyboardLayout__EUR_IT_QWERTY = 8,
+    Swkbd_KeyboardLayout__EUR_ES_QWERTY = 9,
+    Swkbd_KeyboardLayout__EUR_NL_QWERTY = 10,
+    Swkbd_KeyboardLayout__EUR_PT_QWERTY = 11,
+    Swkbd_KeyboardLayout__EUR_RU_JCUKEN = 12,
+    Swkbd_KeyboardLayout__JPN_JP_Kana = 13,
+    Swkbd_KeyboardLayout__JPN_JP_Phone = 14,
+    Swkbd_KeyboardLayout__JPN_JP_Handwriting = 15,
+    Swkbd_KeyboardLayout__JPN_JP_Symbols = 16,
+    Swkbd_KeyboardLayout__USA_Special = 17, // also EUR_Special
+    Swkbd_KeyboardLayout__USA_Symbols = 18, // also EUR_Symbols
+    Swkbd_KeyboardLayout__LanguageDefault = 19,
+} Swkbd_KeyboardLayout;
 
 typedef enum
 {
@@ -93,12 +105,14 @@ typedef struct
 {
     Swkbd_LanguageType languageType;
     ControllerType controllerType;
-    KeyboardLayout keyboardMode;
+    KeyboardMode keyboardMode;
     uint32_t accessFlags;
-    Swkbd_LanguageType2 languageType2;
-    int32_t unk_0x14;
+    Swkbd_KeyboardLayout keyboardLayout;
+    int32_t keyboardTab;
     bool unk_0x18;
-    char16_t *str;
+    // Upstream types this const and calls it okString. We own the buffer and
+    // fill it from C, so keep it writable here - the layout is what matters.
+    char16_t *okString;
     char16_t numpadCharLeft;
     char16_t numpadCharRight;
     bool showWordSuggestions;
@@ -108,18 +122,18 @@ typedef struct
     uint8_t unk_0x2A;
     bool disableNewLine;
     WUT_UNKNOWN_BYTES(0x9C - 0x2C);
-    uint32_t framerate;
-    bool showCursor;
+    uint32_t unk_0x9C;
+    bool drawSysWiiPointer;
     int32_t unk_0xA4;
 } Swkbd_ConfigArg;
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x00, languageType);
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x04, controllerType);
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x08, keyboardMode);
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x0C, accessFlags);
-WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x10, languageType2);
-WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x14, unk_0x14);
+WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x10, keyboardLayout);
+WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x14, keyboardTab);
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x18, unk_0x18);
-WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x1C, str);
+WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x1C, okString);
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x20, numpadCharLeft);
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x22, numpadCharRight);
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x24, showWordSuggestions);
@@ -127,8 +141,8 @@ WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x28, unk_0x28);
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x29, unk_0x29);
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x2A, unk_0x2A);
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x2B, disableNewLine);
-WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x9C, framerate);
-WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0xA0, showCursor);
+WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0x9C, unk_0x9C);
+WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0xA0, drawSysWiiPointer);
 WUT_CHECK_OFFSET(Swkbd_ConfigArg, 0xA4, unk_0xA4);
 WUT_CHECK_SIZE(Swkbd_ConfigArg, 0xA8);
 

@@ -41,7 +41,7 @@ bool downloadMenu()
     char folderName[FS_MAX_PATH - 11];
     titleID[0] = titleVer[0] = folderName[0] = '\0';
 
-    if(showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_RESTRICTED, titleID, CHECK_HEXADECIMAL, 16, true, "00050000101", NULL))
+    if(showKeyboard(KEYBOARD_MODE_TID, KEYBOARD_TYPE_RESTRICTED, titleID, CHECK_HEXADECIMAL, 16, true, "00050000101", NULL))
     {
         if(!AppRunning(true))
             return true;

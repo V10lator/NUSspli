@@ -69,11 +69,14 @@ extern "C"
         KEYBOARD_TYPE_NORMAL
     } KeyboardType;
 
+    // Mirrors nn::swkbd::KeyboardMode: this is how the keyboard looks, not
+    // which characters it offers (that is nn::swkbd::KeyboardLayout, spelled
+    // Swkbd_KeyboardLayout in swkbd_wrapper.h).
     typedef enum
     {
-        KEYBOARD_LAYOUT_NORMAL = 0,
-        KEYBOARD_LAYOUT_TID = 2,
-    } KeyboardLayout;
+        KEYBOARD_MODE_NORMAL = 0,
+        KEYBOARD_MODE_TID = 2,
+    } KeyboardMode;
 
     typedef enum
     {
@@ -88,7 +91,7 @@ extern "C"
     void SWKBD_Shutdown() __attribute__((__cold__));
 
     void readInput() __attribute__((__hot__));
-    bool showKeyboard(KeyboardLayout layout, KeyboardType type, char *output, KeyboardChecks check, int maxlength, bool limit, const char *input, const char *okStr);
+    bool showKeyboard(KeyboardMode mode, KeyboardType type, char *output, KeyboardChecks check, int maxlength, bool limit, const char *input, const char *okStr);
 
 #ifdef __cplusplus
 }

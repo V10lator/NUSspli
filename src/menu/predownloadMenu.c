@@ -287,13 +287,13 @@ static void *drawPDUpdateFrame(const TitleEntry *entry)
 
 static inline void changeTitleVersion(char *buf)
 {
-    if(!showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_RESTRICTED, buf, CHECK_NUMERICAL, 5, false, buf, NULL))
+    if(!showKeyboard(KEYBOARD_MODE_TID, KEYBOARD_TYPE_RESTRICTED, buf, CHECK_NUMERICAL, 5, false, buf, NULL))
         buf[0] = '\0';
 }
 
 static inline void changeFolderName(char *buf)
 {
-    if(!showKeyboard(KEYBOARD_LAYOUT_TID, KEYBOARD_TYPE_NORMAL, buf, CHECK_ALPHANUMERICAL, MAX_FOLDER_NAME_LENGTH, false, buf, NULL))
+    if(!showKeyboard(KEYBOARD_MODE_TID, KEYBOARD_TYPE_NORMAL, buf, CHECK_ALPHANUMERICAL, MAX_FOLDER_NAME_LENGTH, false, buf, NULL))
         buf[0] = '\0';
 }
 

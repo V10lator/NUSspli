@@ -160,11 +160,11 @@ static inline void stopCalcThread(OSThread *calcThread)
     OSSendMessage(&swkbd_queue, &msg, OS_MESSAGE_FLAGS_BLOCKING);
     stopThread(calcThread, NULL);
 
-    if(appearArg.keyboardArg.configArg.str)
-        MEMFreeToDefaultHeap(appearArg.keyboardArg.configArg.str);
+    if(appearArg.keyboardArg.configArg.okString)
+        MEMFreeToDefaultHeap(appearArg.keyboardArg.configArg.okString);
 }
 
-static bool SWKBD_Show(SWKBD_Args *args, KeyboardLayout layout, KeyboardType type, int maxlength, bool limit, const char *okStr)
+static bool SWKBD_Show(SWKBD_Args *args, KeyboardMode mode, KeyboardType type, int maxlength, bool limit, const char *okStr)
 {
     debugPrintf("SWKBD_Show()");
     if(!Swkbd_IsHidden())
@@ -183,48 +183,48 @@ static bool SWKBD_Show(SWKBD_Args *args, KeyboardLayout layout, KeyboardType typ
     if(okStr)
     {
         size_t strLen = strlen(okStr);
-        appearArg.keyboardArg.configArg.str = MEMAllocFromDefaultHeap(sizeof(char16_t) * ++strLen);
-        if(appearArg.keyboardArg.configArg.str)
+        appearArg.keyboardArg.configArg.okString = MEMAllocFromDefaultHeap(sizeof(char16_t) * ++strLen);
+        if(appearArg.keyboardArg.configArg.okString)
             for(size_t i = 0; i < strLen; ++i)
-                appearArg.keyboardArg.configArg.str[i] = okStr[i];
+                appearArg.keyboardArg.configArg.okString[i] = okStr[i];
     }
     else
-        appearArg.keyboardArg.configArg.str = NULL;
+        appearArg.keyboardArg.configArg.okString = NULL;
 
     // Show the keyboard
     appearArg.keyboardArg.configArg.languageType = getKeyboardLanguage();
     switch(appearArg.keyboardArg.configArg.languageType)
     {
         case Swkbd_LanguageType__Japanese:
-            appearArg.keyboardArg.configArg.languageType2 = Swkbd_LanguageType2__Japanese;
+            appearArg.keyboardArg.configArg.keyboardLayout = Swkbd_KeyboardLayout__JPN_JP_QWERTY;
             break;
         case Swkbd_LanguageType__French:
-            appearArg.keyboardArg.configArg.languageType2 = Swkbd_LanguageType2__French;
+            appearArg.keyboardArg.configArg.keyboardLayout = Swkbd_KeyboardLayout__EUR_FR_AZERTY;
             break;
         case Swkbd_LanguageType__German:
-            appearArg.keyboardArg.configArg.languageType2 = Swkbd_LanguageType2__German;
+            appearArg.keyboardArg.configArg.keyboardLayout = Swkbd_KeyboardLayout__EUR_DE_QWERTZ;
             break;
         case Swkbd_LanguageType__Italian:
-            appearArg.keyboardArg.configArg.languageType2 = Swkbd_LanguageType2__Italian;
+            appearArg.keyboardArg.configArg.keyboardLayout = Swkbd_KeyboardLayout__EUR_IT_QWERTY;
             break;
         case Swkbd_LanguageType__Spanish:
-            appearArg.keyboardArg.configArg.languageType2 = Swkbd_LanguageType2__Spanish;
+            appearArg.keyboardArg.configArg.keyboardLayout = Swkbd_KeyboardLayout__EUR_ES_QWERTY;
             break;
         case Swkbd_LanguageType__Dutch:
-            appearArg.keyboardArg.configArg.languageType2 = Swkbd_LanguageType2__Dutch;
+            appearArg.keyboardArg.configArg.keyboardLayout = Swkbd_KeyboardLayout__EUR_NL_QWERTY;
             break;
         case Swkbd_LanguageType__Portuguese:
-            appearArg.keyboardArg.configArg.languageType2 = Swkbd_LanguageType2__Portuguese;
+            appearArg.keyboardArg.configArg.keyboardLayout = Swkbd_KeyboardLayout__EUR_PT_QWERTY;
             break;
         case Swkbd_LanguageType__Russian:
-            appearArg.keyboardArg.configArg.languageType2 = Swkbd_LanguageType2__Russian;
+            appearArg.keyboardArg.configArg.keyboardLayout = Swkbd_KeyboardLayout__EUR_RU_JCUKEN;
             break;
         default:
-            appearArg.keyboardArg.configArg.languageType2 = Swkbd_LanguageType2__English;
+            appearArg.keyboardArg.configArg.keyboardLayout = Swkbd_KeyboardLayout__USA_EN_QWERTY;
     }
 
     appearArg.keyboardArg.configArg.controllerType = lastUsedController;
-    appearArg.keyboardArg.configArg.keyboardMode = layout;
+    appearArg.keyboardArg.configArg.keyboardMode = mode;
 
     appearArg.inputFormArg.type = type;
     args->globalMaxlength = appearArg.inputFormArg.maxTextLength = maxlength;
@@ -309,16 +309,17 @@ bool SWKBD_Init()
     {
         OSBlockSet(&appearArg, 0, sizeof(Swkbd_AppearArg));
         appearArg.keyboardArg.configArg.accessFlags = 0xFFFFFFFF;
-        appearArg.keyboardArg.configArg.unk_0x14 = -1;
-        // The keyboard draws at the pace of our own loop: 30 and 60 are the
-        // two values it accepts, FRAMERATE picks which one is in use.
-        appearArg.keyboardArg.configArg.framerate =
+        appearArg.keyboardArg.configArg.keyboardTab = -1;
+        // wut leaves 0x9C unnamed, but by observation it is the frame pacing
+        // of the keyboard: 30 and 60 are the two values it accepts and
+        // FRAMERATE picks which one is in use (1 for 60, 2 for 30).
+        appearArg.keyboardArg.configArg.unk_0x9C =
 #if FRAMERATE <= 30
             2;
 #else
             1;
 #endif
-        appearArg.keyboardArg.configArg.showCursor = true;
+        appearArg.keyboardArg.configArg.drawSysWiiPointer = true;
         appearArg.keyboardArg.configArg.unk_0xA4 = -1;
         appearArg.keyboardArg.configArg.disableNewLine = true;
 
@@ -544,7 +545,7 @@ void readInput()
     };
 }
 
-bool showKeyboard(KeyboardLayout layout, KeyboardType type, char *output, KeyboardChecks check, int maxlength, bool limit, const char *input, const char *okStr)
+bool showKeyboard(KeyboardMode mode, KeyboardType type, char *output, KeyboardChecks check, int maxlength, bool limit, const char *input, const char *okStr)
 {
     debugPrintf("Initialising SWKBD");
 
@@ -553,7 +554,7 @@ bool showKeyboard(KeyboardLayout layout, KeyboardType type, char *output, Keyboa
 
     SWKBD_Args args;
 
-    if(!SWKBD_Show(&args, layout, type, maxlength, limit, okStr))
+    if(!SWKBD_Show(&args, mode, type, maxlength, limit, okStr))
     {
         drawErrorFrame("Error showing SWKBD:\nnn::swkbd::AppearInputForm failed", ANY_RETURN);
 

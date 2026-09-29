@@ -357,7 +357,7 @@ static void updateMCMenu()
 
     if(vpad.trigger & VPAD_BUTTON_A)
     {
-        if(!predownloadMenu(missingEntries[cursorPos + listPos].entry, missingEntries[cursorPos + listPos].toUSB ? NUSDEV_USB : NUSDEV_MLC))
+        if(!predownloadMenu(missingEntries[cursorPos + listPos].entry, missingEntries[cursorPos + listPos].toUSB ? getUSB() : NUSDEV_MLC))
         {
             rescan = true;
             uiPop();

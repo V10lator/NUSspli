@@ -44,7 +44,7 @@ CFLAGS		:=	$(MACHDEP) -O3 -ffast-math -flto=auto \
 				-Wno-implicit-fallthrough \
 				-D__WIIU__ -D__WUT__ -DIOAPI_NO_64 -D__unix__
 
-CXXFLAGS	:=	$(CFLAGS) -std=c++20 -fpermissive
+CXXFLAGS	:=	$(filter-out -Wno-pointer-sign,$(CFLAGS)) -std=c++20 -fpermissive
 ASFLAGS		:=	-g $(ARCH)
 LDFLAGS		:=	-g $(ARCH) $(RPXSPECS) $(CFLAGS) -Wl,--gc-sections -Wl,-Map,$(notdir $*.map)
 

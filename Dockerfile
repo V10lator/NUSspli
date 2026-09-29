@@ -119,7 +119,9 @@ RUN curl -LO https://curl.se/download/curl-$CURL_VER.tar.xz && \
  make -j$(nproc) install && \
  cd ../include && \
  make -j$(nproc) install && \
- cd ../.. && \
+ cd .. && \
+ install -D -m 644 libcurl.pc $DEVKITPRO/portlibs/wiiu/lib/pkgconfig/libcurl.pc && \
+ cd .. && \
  rm -rf curl curl-$CURL_VER.tar.xz /curl.patch
 
 RUN git config --global --add safe.directory /project && \

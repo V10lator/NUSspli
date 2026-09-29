@@ -523,8 +523,13 @@ const char *translateFSErr(FSError err)
             break;
     }
 
-    static char ret[1024];
-    sprintf(ret, "Unknown error: %s (%d)", FSAGetStatusStr(err), err);
+    // 39 is the longest message above and the format around the status string
+    // costs about 25 more, so this holds every case the switch names plus a
+    // status string of decent length. The callers format this into buffers of
+    // their own, and the unknown branch must not be the one that runs past
+    // them - which is also why the snprintf is here and not optional.
+    static char ret[64];
+    snprintf(ret, sizeof(ret), "Unknown error: %s (%d)", FSAGetStatusStr(err), err);
     return ret;
 }
 

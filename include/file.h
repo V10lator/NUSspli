@@ -41,10 +41,13 @@
 #define INSTALL_DIR_MLC  NUSDIR_MLC "install/"
 
 // How much room a typed folder name may take: it is written below the
-// install prefix - USB1 is the longest of the four - and gets a
-// "/title.tmd" behind it, and prefix, folder and suffix share one
-// FS_MAX_PATH path with a single terminator.
-#define MAX_FOLDER_NAME_LENGTH (FS_MAX_PATH - sizeof(INSTALL_DIR_USB1) - (sizeof("/title.tmd") - 1))
+// install prefix - USB1 is the longest of the four - and gets a suffix
+// behind it, and prefix, folder and suffix share one FS_MAX_PATH path
+// with a single terminator. "/title.tmd" was the longest suffix this was
+// sized for, but a content file writes its eight digit ID plus ".app"
+// behind the slash - three characters more, and those three ran behind
+// the end of the buffer at a folder name of the old maximum length.
+#define MAX_FOLDER_NAME_LENGTH (FS_MAX_PATH - sizeof(INSTALL_DIR_USB1) - (1 + 8 + 4)) // "/" + content ID + ".app"
 #define IO_BUFSIZE             (128 * 1024) // 128 KB
 
 #define FS_ALIGN(x)            ((x + 0x3F) & ~(0x3F))

@@ -97,7 +97,11 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
             deinstall(&titleEntry, game, false, true);
     }
 
-    char toScreen[256];
+    // game is a folder name that reaches FS_MAX_PATH (the queue hands over
+    // prettyDir() for the entries it knows nothing about), and the error
+    // cases below print path on top of a message: a message sized buffer
+    // was never enough for either.
+    char toScreen[FS_MAX_PATH + 256];
     strcpy(toScreen, localise("Installing"));
     strcat(toScreen, " ");
     strcat(toScreen, game);

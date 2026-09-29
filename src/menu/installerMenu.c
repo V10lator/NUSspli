@@ -153,7 +153,10 @@ static void renderInstallerFrame()
     startNewFrame();
     textToFrame(0, 0, localise("Name:"));
 
-    char toFrame[512];
+    // nd is prettyDir(dir) for a folder the title database knows nothing
+    // about, so it can be a full FS_MAX_PATH long and still carries the
+    // " [title ID]" behind it.
+    char toFrame[FS_MAX_PATH + 64];
     strcpy(toFrame, nd);
     char tid[17];
     hex(tmd->tid, 16, tid);

@@ -114,7 +114,7 @@ ioError:
     // visible here, so every later poll of checkForQueueErrors() finds both
     // - the message in the queue and the errno behind it. Whoever reaches a
     // frame next runs the dialog (uiDrainEvents).
-    sprintf(errMsg, "Write error:\n%s\n\nThis is an unrecoverable error!\nPress any button to exit.", translateFSErr(err));
+    snprintf(errMsg, sizeof(errMsg), "Write error:\n%s\n\nThis is an unrecoverable error!\nPress any button to exit.", translateFSErr(err));
     uiPostError(errMsg);
     fwriteErrno = err;
     return 1;

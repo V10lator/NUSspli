@@ -1071,7 +1071,9 @@ retry:
         name = file + haystack + 1;
     }
 
-    char toScreen[FS_MAX_PATH + 64];
+    // The HTTP error below prints prettyDir(file) on top of its message:
+    // a path and the text around it together need more than a path length.
+    char toScreen[FS_MAX_PATH + 256];
     void *fp;
     size_t fileSize;
     if(rambuf)
@@ -1641,11 +1643,14 @@ transfer:
         }
         else
         {
-            sprintf(toScreen, "%s: %ld\n%s: %s\n\n", localise("The download returned a result different to 200 (OK)"), resp, localise("File"), rambuf ? file : prettyDir(file));
+            snprintf(toScreen, sizeof(toScreen), "%s: %ld\n%s: %s\n\n", localise("The download returned a result different to 200 (OK)"), resp, localise("File"), rambuf ? file : prettyDir(file));
             if(resp == 400)
             {
-                strcat(toScreen, localise("Request failed. Try again"));
-                strcat(toScreen, "\n\n");
+                // The line goes behind the text above, which may already
+                // have reached the end of the buffer, so the append needs
+                // the room that is left instead of the whole array again.
+                size_t used = strlen(toScreen);
+                snprintf(toScreen + used, sizeof(toScreen) - used, "%s\n\n", localise("Request failed. Try again"));
             }
 
             if(showErrorDialog(toScreen, B_RETURN | Y_RETRY) & Y_RETRY)

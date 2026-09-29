@@ -69,7 +69,9 @@ void showStatusFrame(const char *line0, const char *line1, bool bar, int logLine
 void drawMcpProgressFrame(void *ctx)
 {
     McpProgressView *view = (McpProgressView *)ctx;
-    char toScreen[512];
+    // view->game is the folder name of an install, FS_MAX_PATH long at its
+    // worst, the label in front of it is only the shortest part of the line.
+    char toScreen[FS_MAX_PATH + 64];
 
     startNewFrame();
     strcpy(toScreen, localise(view->inst ? "Installing" : "Uninstalling"));
@@ -243,19 +245,29 @@ static const UIScreen networkRetryDialog = {
 
 bool showNetworkError(const char *err)
 {
-    // The caller composes into FS_MAX_PATH + 64, so the text can be longer
-    // than this buffer: cut it instead of running over it.
-    snprintf(networkRetryText, sizeof(networkRetryText), "%s", err);
     networkRetryDigit = NULL;
     networkRetryAutoResume = autoResumeEnabled();
     networkRetryFrames = 9 * FRAMERATE; // 9 seconds
     networkRetrySec = 9 * FRAMERATE;
 
+    // The caller composes into FS_MAX_PATH + 256, so the text can be longer
+    // than this buffer: cut it instead of running over it. The auto resume
+    // suffix below needs room as well, so reserve it up front.
+    size_t reserve = 0;
+    const char *pt = NULL;
     if(networkRetryAutoResume)
     {
+        pt = localise("Next try in _ seconds.");
+        reserve = 2 + strlen(pt) + 1;
+    }
+
+    if(!networkRetryAutoResume || reserve >= sizeof(networkRetryText))
+        snprintf(networkRetryText, sizeof(networkRetryText), "%s", err);
+    else
+    {
+        snprintf(networkRetryText, sizeof(networkRetryText) - reserve, "%s", err);
         strcat(networkRetryText, "\n\n");
         networkRetryDigit = networkRetryText + strlen(networkRetryText);
-        const char *pt = localise("Next try in _ seconds.");
         strcpy(networkRetryDigit, pt);
         const char *n = strchr(pt, '_');
         networkRetryDigit += n - pt;

@@ -1843,7 +1843,10 @@ bool downloadTitle(const TMD *tmd, size_t tmdSize, const TitleEntry *titleEntry,
         {
             case 2:
                 if(!generateTik(installDir, tmd))
+                {
+                    freeRamBuf(tikBuf);
                     return false;
+                }
 
                 addToScreenLog("Fake ticket created successfully");
                 tikBuf->size = 0;

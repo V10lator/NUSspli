@@ -1143,9 +1143,19 @@ retry:
     // a retry still starts a window of its own.
     OSTick lastTransfair = OSGetTick();
     size_t downloaded = 0;
-    float oldBps = 0.0D;
+    float oldBps = 0.0;
+    DLProgressView view = {
+        .data = data,
+        .queueData = queueData,
+        .name = name,
+        .dlnow = 0,
+        .dltotal = 0,
+        .fileEta = UINT32_MAX,
+        .bps = 0.0,
+        .preparing = true,
+    };
 
-transfer:;
+transfer:
     // Only content files are worth splitting: they are the big ones, their size is
     // known up front from the TMD, and they land straight on disk rather than in
     // a RAM buffer.
@@ -1277,25 +1287,9 @@ transfer:;
     }
 
     OSTick ts;
-    size_t dltotal; // We use size_t instead of curl_off_t as filesizes are limitted to 4 GB anyway,
-    size_t dlnow;
     size_t tmp;
     float bps;
     int frames = 1;
-    // The view survives this function: the queue and title bars grow
-    // over the files of a title, so their animations keep gliding from
-    // where the last file left them instead of starting over on every
-    // file. Everything else in the view is rewritten below before the
-    // first pump.
-    static DLProgressView view = { 0 };
-    view.data = data;
-    view.queueData = queueData;
-    view.name = name;
-    view.dlnow = 0;
-    view.dltotal = 0;
-    view.bps = 0.0f;
-    view.fileEta = UINT32_MAX;
-    view.preparing = true;
     while(cdata.running && AppRunning(true))
     {
         if(--frames == 0)
@@ -1307,30 +1301,30 @@ transfer:;
             }
 
             ts = cdata.ts;
-            dltotal = cdata.dltotal;
-            dlnow = cdata.dlnow;
+            view.dltotal = cdata.dltotal;
+            view.dlnow = cdata.dlnow;
             spinReleaseLock(cdata.lock);
 
             if(ramping && !phaseStop)
             {
                 uint32_t ms = (uint32_t)OSTicksToMilliseconds(OSGetTick() - phaseTick);
-                if(ms >= RAMP_MAX_MS || (ms >= RAMP_MIN_MS && dlnow >= RAMP_MIN_BYTES))
+                if(ms >= RAMP_MAX_MS || (ms >= RAMP_MIN_MS && view.dlnow >= RAMP_MIN_BYTES))
                 {
-                    debugPrintf("Ramp[phase=%d] cap reached: bytes=%u ms=%u", rampPhase, (unsigned int)dlnow, ms);
+                    debugPrintf("Ramp[phase=%d] cap reached: bytes=%u ms=%u", rampPhase, (unsigned int)view.dlnow, ms);
                     phaseStop = true;
                     cdata.error = CURLE_ABORTED_BY_CALLBACK;
                 }
             }
 
-            bps = dlnow - downloaded;
-            downloaded = dlnow;
-            dlnow += fileSize;
+            bps = view.dlnow - downloaded;
+            downloaded = view.dlnow;
+            view.dlnow += fileSize;
 
             // Calculate download speed. Only a window the clock can divide
             // gets a rate of its own. A window without a new tick passes the
             // smoothing, a file that has published no byte yet has nothing
             // to divide at all.
-            if(!dltotal)
+            if(!view.dltotal)
                 bps = 0.0f; // no total yet, the screen reads Preparing then
             else if(downloaded == 0)
             {
@@ -1378,13 +1372,13 @@ transfer:;
             // first because they can post their own overlay, then the sampled
             // values are handed over and the frame is filled and presented in
             // one go.
-            if(dltotal)
+            if(view.dltotal)
             {
                 if(!rambuf)
                     checkForQueueErrors();
 
                 frames = FRAMERATE;
-                dltotal += fileSize;
+                view.dltotal += fileSize;
                 view.preparing = false;
             }
             else
@@ -1393,8 +1387,6 @@ transfer:;
                 view.preparing = true;
             }
 
-            view.dlnow = dlnow;
-            view.dltotal = dltotal;
             view.bps = bps;
         }
 

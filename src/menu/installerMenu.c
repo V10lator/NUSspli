@@ -63,6 +63,20 @@ static int addToOpQueue(const TitleEntry *titleEntry, const char *folder, const 
     if(titleInfo == NULL)
         return 0;
 
+    // The folder comes from the file browser and may run to FS_MAX_PATH,
+    // while this field gives up its last eleven bytes for the "title.tmd"
+    // that gets appended to the name later on. Copying a path that long
+    // runs past the end of the field and into dlDev/toUSB/keepFiles behind
+    // it, so drop the entry the way a failed allocation does - the caller
+    // pops the menu, whose leave handler releases the TMD and the folder.
+    // This is the guard ticket.c keeps for the same path buffer.
+    if(strlen(folder) + 1 > sizeof(titleInfo->folderName))
+    {
+        debugPrintf("Path too long: %s", folder);
+        MEMFreeToDefaultHeap(titleInfo);
+        return 0;
+    }
+
     titleInfo->tmd = (TMD *)titleTmd;
     titleInfo->rambuf = NULL;
     titleInfo->operation = OPERATION_INSTALL;

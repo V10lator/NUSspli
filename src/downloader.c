@@ -1146,16 +1146,24 @@ retry:
     OSTick lastTransfair = OSGetTick();
     size_t downloaded = 0;
     float oldBps = 0.0;
-    DLProgressView view = {
-        .data = data,
-        .queueData = queueData,
-        .name = name,
-        .dlnow = 0,
-        .dltotal = 0,
-        .fileEta = UINT32_MAX,
-        .bps = 0.0,
-        .preparing = true,
-    };
+    // The view survives this function: the title and queue bars count the
+    // bytes of the files that are already finished, so their animations
+    // keep gliding over the files of a title instead of starting over on
+    // every file. Only the file bar begins at zero again, and glideBar()
+    // pulls it there as soon as its target drops. Everything else the
+    // frame shows is rewritten below before the first pump - which is also
+    // what keeps the ETA of the file before out of the picture - and the
+    // block stays above transfer: so the parallel chunks hand it over
+    // untouched, see the note on oldBps above.
+    static DLProgressView view;
+    view.data = data;
+    view.queueData = queueData;
+    view.name = name;
+    view.dlnow = 0;
+    view.dltotal = 0;
+    view.fileEta = UINT32_MAX;
+    view.bps = 0.0;
+    view.preparing = true;
 
 transfer:
     // Only content files are worth splitting: they are the big ones, their size is

@@ -1133,6 +1133,18 @@ retry:
     target.fp = (FSAFileHandle)fp;
     target.written = &cdata.written;
 
+    // The sample window of the speed readout sits above this label on
+    // purpose. A ramp phase hands over with a jump back to it, and a
+    // declaration below the label runs its initializer again with every
+    // phase: oldBps went back to zero there, so the fresh phase reported
+    // 0 b/s until its own bytes had been through a window. The branch
+    // that keeps the old figure for a window without bytes had nothing
+    // left to keep. Above the label the three survive the handover, while
+    // a retry still starts a window of its own.
+    OSTick lastTransfair = OSGetTick();
+    size_t downloaded = 0;
+    float oldBps = 0.0D;
+
 transfer:;
     // Only content files are worth splitting: they are the big ones, their size is
     // known up front from the TMD, and they land straight on disk rather than in
@@ -1265,13 +1277,10 @@ transfer:;
     }
 
     OSTick ts;
-    OSTick lastTransfair = OSGetTick();
     size_t dltotal; // We use size_t instead of curl_off_t as filesizes are limitted to 4 GB anyway,
     size_t dlnow;
-    size_t downloaded = 0;
     size_t tmp;
     float bps;
-    float oldBps = 0.0D;
     int frames = 1;
     // The view survives this function: the queue and title bars grow
     // over the files of a title, so their animations keep gliding from

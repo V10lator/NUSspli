@@ -1288,7 +1288,6 @@ transfer:
 
     OSTick ts;
     size_t tmp;
-    float bps;
     int frames = 1;
     while(cdata.running && AppRunning(true))
     {
@@ -1316,7 +1315,7 @@ transfer:
                 }
             }
 
-            bps = view.dlnow - downloaded;
+            view.bps = view.dlnow - downloaded;
             downloaded = view.dlnow;
             view.dlnow += fileSize;
 
@@ -1324,9 +1323,7 @@ transfer:
             // gets a rate of its own. A window without a new tick passes the
             // smoothing, a file that has published no byte yet has nothing
             // to divide at all.
-            if(!view.dltotal)
-                bps = 0.0f; // no total yet, the screen reads Preparing then
-            else if(downloaded == 0)
+            if(downloaded == 0)
             {
                 // The window up to here holds nothing but the setup of this
                 // file, so there is no rate of its own to measure. Keep the
@@ -1334,7 +1331,7 @@ transfer:
                 // file, the rate before a ramp phase switch in the middle of
                 // one - and take the fresh tick as the reference, so the
                 // first bytes of the file are measured against it.
-                bps = oldBps;
+                view.bps = oldBps;
                 lastTransfair = ts;
             }
             else
@@ -1342,14 +1339,14 @@ transfer:
                 tmp = OSTicksToMilliseconds(ts - lastTransfair); // sample duration in milliseconds
                 if(tmp)
                 {
-                    bps *= 1000.0f; // secs to ms.
-                    bps /= tmp; // byte/s
+                    view.bps *= 1000.0f; // secs to ms.
+                    view.bps /= tmp; // byte/s
 
                     // Smoothing
-                    bps *= 1.0f - SMOOTHING_FACTOR;
+                    view.bps *= 1.0f - SMOOTHING_FACTOR;
                     oldBps *= SMOOTHING_FACTOR;
-                    bps += oldBps;
-                    oldBps = bps;
+                    view.bps += oldBps;
+                    oldBps = view.bps;
 
                     // Only a window that could be divided becomes the
                     // reference of the next one.
@@ -1364,7 +1361,7 @@ transfer:
                     // such a window empty. Age the last figure by one
                     // smoothing step instead of dropping it to zero.
                     oldBps *= SMOOTHING_FACTOR;
-                    bps = oldBps;
+                    view.bps = oldBps;
                 }
             }
 
@@ -1382,12 +1379,7 @@ transfer:
                 view.preparing = false;
             }
             else
-            {
                 frames = 1;
-                view.preparing = true;
-            }
-
-            view.bps = bps;
         }
 
         // The sampler runs once a second, the frame does not: redrawing it

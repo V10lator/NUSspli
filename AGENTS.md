@@ -118,12 +118,15 @@ docker run --rm -v ${PWD}:/src xianpengshen/clang-tools:22 \
   SDL/ProcUI events and returns `false` once the app has to exit. Only the main
   thread calls it with `true`; workers pass `false` and merely observe the
   state.
-- Every menu is a `while(AppRunning(true))` loop with a `redraw` flag: rebuild
-  the frame when something changed, call `showFrame()` once per iteration
-  (VSync paced input), then react to `vpad.trigger`.
+- Every menu is a screen of the UI kernel (`include/ui.h`): `uiRun()` is the
+  one main loop instead of a loop per menu, a screen is a pair of update
+  (input and state) and render (drawing), pushed with `uiPush()` or opened
+  modally with `uiModal()`. `uiFrame()` runs one frame (events, input,
+  update, render when the picture is dirty, present, VSync), so reacting to
+  `vpad.trigger` in update is what replaced the old redraw flag.
 - Frame drawing goes through `include/renderer.h`: `startNewFrame()`,
   `textToFrame()` / `textToFrameColored()`, `lineToFrame()`, `barToFrame()`...
-  and finally `drawFrame()`; `showFrame()` presents the frame.
+  and finally `drawFrame()`, which presents the frame and keeps the pace.
 - Dialogs and status screens live in `src/menu/menuUtils.c`
   (`drawErrorFrame()`, `showErrorFrame()`, `showFinishedScreen()`, the screen
   log via `addToScreenLog()`). Prefer them over ad hoc drawing.

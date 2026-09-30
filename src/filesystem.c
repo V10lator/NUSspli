@@ -40,6 +40,10 @@ static FSAClientHandle handle;
 static NUSDEV usb = NUSDEV_NONE;
 static int64_t spaceMap[2] = { 0, 0 };
 static OSThread *spaceThread = NULL;
+// What checkSpaceThread() watches instead of the thread handle: OSJoinThread
+// blocks without a frame in between, so the join cannot be observed and the
+// overlay that is meant to cover it would never be drawn.
+static volatile bool spaceThreadDone = false;
 
 static int spaceThreadMain(int argc, const char **argv)
 {
@@ -51,11 +55,13 @@ static int spaceThreadMain(int argc, const char **argv)
     FSAGetFreeSpaceSize(getFSAClient(), NUSDIR_USB2, &freeSpace);
     FSAGetFreeSpaceSize(getFSAClient(), NUSDIR_MLC, &freeSpace);
     FSAGetFreeSpaceSize(getFSAClient(), NUSDIR_SD, &freeSpace);
+    spaceThreadDone = true;
     return 0;
 }
 
 void initFSSpace()
 {
+    spaceThreadDone = false;
     spaceThread = startThread("NUSspli FS Initialiser", THREAD_PRIORITY_MEDIUM, STACKSIZE_SMALL, spaceThreadMain, 0, NULL, AFFINITY_CPU12);
 }
 
@@ -102,6 +108,16 @@ void checkSpaceThread()
     if(spaceThread)
     {
         void *ovl = uiShowOverlay(localise("Preparing. This might take some time. Please be patient."));
+
+        // The overlay is a breadcrumb, so it only exists once a frame has
+        // been presented with it, and the join below is exactly what keeps
+        // the pump from ever drawing one. Present a frame per round while the
+        // thread reports that it is done, the way flushIOQueue() watches the
+        // ring: the present is VSync paced, so the loop paces itself and no
+        // busy wait is needed, and the fade of the message runs on its own.
+        while(!spaceThreadDone)
+            uiPresentFrame();
+
         stopThread(spaceThread, NULL);
         spaceThread = NULL;
         if(ovl != NULL)

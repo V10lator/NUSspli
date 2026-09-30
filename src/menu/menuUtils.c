@@ -536,6 +536,11 @@ bool showExitOverlay(bool really)
     return uiModal(&yesNoDialog, NULL) != 0;
 }
 
+bool dialogOpen()
+{
+    return yesNoOverlay != NULL;
+}
+
 void humanize(uint64_t size, char *out)
 {
     const char *m;

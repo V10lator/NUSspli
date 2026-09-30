@@ -66,6 +66,8 @@ extern "C"
     void humanize(uint64_t size, char *out);
     void getFreeSpaceString(NUSDEV dev, char *out);
     bool showExitOverlay(bool really);
+    // True while a yes/no question of the shared dialog is on screen.
+    bool dialogOpen();
 
 #ifdef __cplusplus
 }

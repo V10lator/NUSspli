@@ -115,7 +115,12 @@ bool isChannel()
 
 uint32_t homeButtonCallback(void *dummy)
 {
-    if(((bool)dummy) || (shutdownEnabled && showExitOverlay(true)))
+    // !dialogOpen() keeps HOME from opening a second question behind one that
+    // is already up: the yes/no dialog drives it through a modal that pumps
+    // this very callback, and both questions share the handle the dialog
+    // closes on pop, so the outer one would be stranded on screen. B does
+    // the same job. The forced exit passes true and is not held back by it.
+    if(((bool)dummy) || (shutdownEnabled && !dialogOpen() && showExitOverlay(true)))
     {
         shutdownEnabled = false;
         uiDrawByeFrame();

@@ -102,8 +102,8 @@ static int ioThreadMain(int argc, const char **argv)
         if(++asl == MAX_IO_QUEUE_ENTRIES)
             asl = 0;
 
-        activeWriteBuffer = asl;
         entry->file = 0;
+        activeWriteBuffer = asl;
         entry = queueEntries + asl;
     }
 

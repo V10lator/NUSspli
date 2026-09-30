@@ -589,6 +589,7 @@ runPost:
                 if(ans)
                 {
                     pdEntry = te;
+                    pdInstalled = isInstalled(pdEntry, &pdTitleList);
                     goto downloadTMD;
                 }
             }

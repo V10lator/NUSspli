@@ -214,13 +214,6 @@ retryAddingToQueue:
         if(checkForQueueErrors())
             return 0;
 
-        // One slice instead of a hot spin: the wait stops burning a core
-        // the way it used to. Nothing is shown here - the caller may be a
-        // worker, so the dialog of a posted message waits for a frame
-        // (uiDrainEvents) and this loop leaves through the detection above
-        // as soon as the queue is dead.
-        uiYield();
-
         goto retryAddingToQueue; // We use goto here instead of just calling addToIOQueue again to not overgrow the stack.
     }
 

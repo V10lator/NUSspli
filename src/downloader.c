@@ -1437,7 +1437,12 @@ transfer:
 
     t = OSGetSystemTime() - t;
     addEntropy(&t, sizeof(OSTime));
-    if(data == NULL && cancelOverlay != NULL)
+
+    // The loop leaves the breadcrumb up when the transfer ended on its own
+    // while the cancel question was still there. The guard used to be
+    // data == NULL, which is not that state: a content file or a title.tik
+    // with progress data asks the same question and outlives it the same way.
+    if(cancelOverlay != NULL)
         closeCancelOverlay();
 
     debugPrintf("curl_easy_perform() returned: %d", ret);

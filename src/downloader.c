@@ -1161,6 +1161,11 @@ retry:
     // a retry still starts a window of its own.
     OSTick lastTransfair = OSGetTick();
     size_t downloaded = 0;
+    // What the file bar has shown at its highest, and the total it divides by.
+    // Both are per file and not per ramp phase: the retry above re-enters
+    // before this, a phase handover jumps to transfer and keeps them.
+    curl_off_t shownFile = 0;
+    curl_off_t shownTotal = 0;
     float oldBps = 0.0;
     // The view survives this function: the title and queue bars count the
     // bytes of the files that are already finished, so their animations
@@ -1330,6 +1335,19 @@ transfer:
             view.dlnow = cdata.dlnow;
             spinReleaseLock(cdata.lock);
 
+            // The total belongs to the file and not to the phase: it is the same
+            // figure for every phase of it, and a phase that has just taken over
+            // reports none until libCURL has answered for its range. Keep the one
+            // the file already had - a bar that divides by nothing is what dropped
+            // to zero on every handover.
+            if(view.dltotal)
+            {
+                view.dltotal += fileSize;
+                shownTotal = view.dltotal;
+            }
+            else
+                view.dltotal = shownTotal;
+
             if(ramping && !phaseStop)
             {
                 uint32_t ms = (uint32_t)OSTicksToMilliseconds(OSGetTick() - phaseTick);
@@ -1344,6 +1362,17 @@ transfer:
             view.bps = view.dlnow - downloaded;
             downloaded = view.dlnow;
             view.dlnow += fileSize;
+
+            // A phase that took over starts its raw count at zero while the
+            // offset only grew by what the queue had taken, so the sum drops by
+            // the backlog. The file is that far behind, not in front: hold the
+            // figure the screen already showed and let the fresh phase climb on
+            // from there. The last sample of the file is its total, which is at
+            // or above every figure before it, so the clamp lets go in time.
+            if(view.dlnow < shownFile)
+                view.dlnow = shownFile;
+            else
+                shownFile = view.dlnow;
 
             // Calculate download speed. Only a window the clock can divide
             // gets a rate of its own. A window without a new tick passes the
@@ -1401,7 +1430,6 @@ transfer:
                     checkForQueueErrors();
 
                 frames = FRAMERATE;
-                view.dltotal += fileSize;
                 view.preparing = false;
             }
             else
@@ -1526,6 +1554,13 @@ transfer:
             cdata.dltotal = 0;
             cdata.dlnow = 0;
             cdata.written = 0;
+            // The sampler differences the raw count, and that count starts over
+            // here. Without a window of its own the first sample of the new phase
+            // measures its bytes against the ones of the old phase and comes out
+            // negative, which as an unsigned subtraction is a rate in the billions
+            // for as long as the smoothing takes to damp it.
+            downloaded = 0;
+            lastTransfair = OSGetTick();
             goto transfer;
         }
     }

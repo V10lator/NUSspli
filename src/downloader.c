@@ -379,6 +379,12 @@ static CURLcode ssl_ctx_init(CURL *cu, void *sslctx, void *parm)
 // We're not using WUTs NNResult_IsSuccess() / NNResult_IsFailure() here as it's wrong
 static void resetNetwork()
 {
+    // The two waits below present a frame per round instead of sleeping one,
+    // because a breadcrumb only exists in a presented frame: the teardown and
+    // the reconnect draw nothing else, so the message would sit at zero
+    // opacity for the whole wait and the hide at its end would drop it before
+    // it was ever seen. The close status alone can take 5 s and the connect
+    // loop 10 s, so the user is looking at this message for many seconds.
     void *ovl = uiShowOverlay(localise("Preparing. This might take some time. Please be patient."));
 
     // Disconnect from network. deinitDownloader() cleans up curl and releases
@@ -398,7 +404,10 @@ closeAgain:
     if(con)
     {
         ACClose();
-        uint32_t timeout = 5 * 1000 / 10;
+        // The budget counts frames now, not 10 ms steps: the present paces the
+        // loop at FRAMERATE, so milliseconds would stretch the 5 s into half
+        // a minute. FRAMERATE frames are one second.
+        uint32_t timeout = 5 * FRAMERATE;
         do
         {
             nnres = ACGetCloseStatus();
@@ -423,7 +432,7 @@ closeAgain:
             }
 
             // A nnres.value of 1 means processing
-            OSSleepTicks(OSMillisecondsToTicks(10));
+            uiPresentFrame();
         } while(AppRunning(true));
     }
 
@@ -437,7 +446,8 @@ reconnect:
         nnres = ACConnectAsync();
         if(nnres.value == 0)
         {
-            for(uint32_t i = 10 * 1000 / 10; i && AppRunning(true); --i)
+            // Frames, see the close loop above.
+            for(uint32_t i = 10 * FRAMERATE; i && AppRunning(true); --i)
             {
                 nnres = ACIsApplicationConnected(&con);
                 if(nnres.value != 0)
@@ -454,7 +464,7 @@ reconnect:
                     return;
                 }
 
-                OSSleepTicks(OSMillisecondsToTicks(10));
+                uiPresentFrame();
             }
 
             ACClose();

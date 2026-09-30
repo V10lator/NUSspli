@@ -147,6 +147,13 @@ extern "C"
     // Breadcrumbs: overlays are drawn on top of the retained frame.
     void *uiShowOverlay(const char *text);
     void uiHideOverlay(void *overlay);
+    // Presents the retained frame, overlays included, and returns. Not a pump:
+    // no events, no input, no transition step, so it is safe to call from a
+    // wait loop that owns its own condition. A breadcrumb only becomes
+    // visible in a presented frame, which is why a caller that shows one and
+    // then waits has to present here instead of only sleeping. Returns at once,
+    // so the wait it sits in stays a wait and not a stall.
+    void uiPresentFrame();
 
     // Thread-safe and one slot deep: hands the text over to the thread
     // running uiRun(), which shows the dialog in one of its next frames.

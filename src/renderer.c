@@ -67,7 +67,7 @@ typedef struct
     SDL_Rect rect[2];
     OSTick lastTick; // clock of the fade, taken on every drawn frame
     int alpha; // opacity of the fade in, 0 to 255
-    bool closing; // fading out, removeErrorOverlay() waits for zero
+    bool closing; // fading out, presentOverlays() frees it at zero
 } ErrorOverlay;
 
 static SDL_Window *window = NULL;
@@ -581,6 +581,29 @@ static void presentOverlays()
         SDL_SetTextureAlphaMod(overlay->tex, (Uint8)overlay->alpha);
         SDL_RenderCopy(renderer, overlay->tex, NULL, NULL);
     }
+
+    // Remove overlays that finished their fade-out. Done after the render
+    // loop so the list is not modified during iteration; the scan restarts
+    // after each removal, so any number of overlays can finish in one frame.
+    for(;;)
+    {
+        ErrorOverlay *done = NULL;
+        forEachListEntry(errorOverlayList, overlay)
+        {
+            if(overlay->closing && overlay->alpha == 0)
+            {
+                done = overlay;
+                break;
+            }
+        }
+
+        if(done == NULL)
+            break;
+
+        removeFromList(errorOverlayList, done);
+        SDL_DestroyTexture(done->tex);
+        MEMFreeToDefaultHeap(done);
+    }
 }
 
 void *addErrorOverlay(const char *err)
@@ -639,38 +662,9 @@ void *addErrorOverlay(const char *err)
 
                 SDL_SetRenderTarget(renderer, frameBuffer);
 
-                // The popup fades in, and a caller that blocks right after
-                // this would never see that: hold here until the fade is
-                // through instead of showing one dark frame. The deadline
-                // keeps a stalled clock from hanging the caller, the sleep
-                // keeps the wait from burning the core. It is a millisecond
-                // budget on a tick clock: OSGetTick() runs at busClock / 4,
-                // so the deadline has to be converted or it expires after a
-                // few microseconds and hands the caller a popup frozen at
-                // the first step of its fade.
-                //
-                // No frame yet means no picture to fade over: the frame
-                // buffer is still empty, so presenting it would flash an
-                // empty screen with the popup on top. That is the warm up
-                // call of showExitOverlay(false) in resumeRenderer(), which
-                // runs before any screen drew anything and would otherwise
-                // be seen as a black frame with an exit question before the
-                // boot screen.
-                if(pictureDrawn)
-                {
-                    drawFrame();
-                    OSTick start = OSGetTick();
-                    addEntropy(&start, sizeof(OSTick));
-                    uint32_t delta = 0;
-                    while(overlay->alpha < 255 && delta < (uint32_t)OSMillisecondsToTicks(OVERLAY_FADE_MS * 2) && AppRunning(false))
-                    {
-                        OSSleepTicks(OSMillisecondsToTicks(16));
-                        drawFrame();
-                        delta = (uint32_t)(OSGetTick() - start);
-                        addEntropy(&delta, sizeof(delta));
-                    }
-                }
-
+                // The fade runs in presentOverlays() from here on: the
+                // caller is not blocked and the UI keeps pumping while
+                // the popup becomes visible.
                 return overlay;
             }
 
@@ -689,36 +683,11 @@ void removeErrorOverlay(void *overlay)
 
     ErrorOverlay *entry = (ErrorOverlay *)overlay;
 
-    // Fade it out first: the popup closes instead of cutting away. The
-    // same sleep and deadline as in addErrorOverlay() keep the wait
-    // paced and bounded - deadline included, that one is a millisecond
-    // budget on the tick clock. Before the first drawn frame alpha never
-    // left zero, so this loop stays empty there on its own.
+    // The fade runs in presentOverlays() from here on: the caller is not
+    // blocked and the UI keeps pumping while the popup goes away. The
+    // overlay is removed from the list and destroyed once alpha reaches
+    // zero.
     entry->closing = true;
-    OSTick start = OSGetTick();
-    addEntropy(&start, sizeof(OSTick));
-    uint32_t delta = 0;
-    while(entry->alpha > 0 && delta < (uint32_t)OSMillisecondsToTicks(OVERLAY_FADE_MS * 2) && AppRunning(false))
-    {
-        OSSleepTicks(OSMillisecondsToTicks(16));
-        drawFrame();
-        delta = (uint32_t)(OSGetTick() - start);
-        addEntropy(&delta, sizeof(delta));
-    }
-
-    removeFromList(errorOverlayList, overlay);
-    // Repainting takes the popup off the picture that carried it - and
-    // there is no such picture before the first drawn frame, see the
-    // matching note in addErrorOverlay(). While the app is on its way out
-    // there is no picture worth taking it off either: a leave handler
-    // closes its overlay while the screens unwind, and the repaint would
-    // put a screen that is going away up for the frame until the goodbye
-    // picture replaces it.
-    if(pictureDrawn && AppRunning(false))
-        drawFrame();
-
-    SDL_DestroyTexture(entry->tex);
-    MEMFreeToDefaultHeap(overlay);
 }
 
 static inline void loadDefaultTexture()

@@ -289,11 +289,18 @@ void flushIOQueue()
             if(checkForQueueErrors())
                 break;
 
-            // The I/O thread has to empty the ring to get here: sleep one
-            // slice instead of spinning and leave through the detection
-            // above once the queue is dead (the overlay above stays on
-            // screen meanwhile).
-            uiYield();
+            // The I/O thread has to empty the ring to get here. Present a
+            // frame rather than sleeping one: a breadcrumb only exists in a
+            // presented frame, so the wait below is what carries the message
+            // onto the screen, and its fade runs on its own from there. The
+            // present is VSync paced, so the loop paces itself and no busy
+            // wait is needed. Up to MAX_IO_QUEUE_ENTRIES megabytes can be
+            // pending, which is why the wait is worth watching.
+            //
+            // Not uiPump(): that would drain posted errors and show a dialog
+            // in the middle of the flush, and the detection above is what is
+            // supposed to end this loop. See the note on checkForQueueErrors.
+            uiPresentFrame();
         }
 
         if(ovl != NULL)

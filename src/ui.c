@@ -511,6 +511,11 @@ void uiHideOverlay(void *overlay)
     removeErrorOverlay(overlay);
 }
 
+void uiPresentFrame()
+{
+    drawFrame();
+}
+
 void uiPostError(const char *text)
 {
     size_t len = strlen(text);

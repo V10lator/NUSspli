@@ -1468,6 +1468,16 @@ transfer:
             rampPhase = 1;
             want = DL_MAX_STREAMS;
         }
+        else if(rampR1 == 0)
+        {
+            // The single stream phase got no byte into the queue, so there is
+            // no yardstick and the gate below would read 0 >= 0. The cap needs
+            // no bytes to fire, so a stalled edge can leave the host unmeasured.
+            rampPinned = 1;
+            debugPrintf("Ramp[pin=1] single delivered nothing, nothing to compare against");
+            rampPhase = 3;
+            want = 1;
+        }
         else if(rate * 100 >= rampR1 * RAMP_GATE)
         {
             rampPinned = want;

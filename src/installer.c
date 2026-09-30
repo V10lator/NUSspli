@@ -49,6 +49,22 @@
 #define IMPORTDIR_USB2 (NUSDIR_USB2 "usr/import/")
 #define IMPORTDIR_MLC  (NUSDIR_MLC "usr/import/")
 
+// revertNoIntro() is the only thing that frees a transform, and it undoes the
+// renames on the way out. Undoing them is only wanted when the files stay
+// behind; freeing the structure is wanted either way, so the two have to come
+// apart for the installs that keep nothing - and keeping nothing is the
+// default for everything that is not on the SD card.
+static void releaseNoIntro(NO_INTRO_DATA *noIntro, bool keepFiles)
+{
+    if(noIntro == NULL)
+        return;
+
+    if(keepFiles)
+        revertNoIntro(noIntro);
+    else
+        destroyNoIntroData(noIntro);
+}
+
 static void cleanupCancelledInstallation(NUSDEV dev, const char *path, bool toUsb, bool keepFiles)
 {
     debugPrintf("Cleaning up...");
@@ -306,8 +322,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     // MCP thread finished. Let's see if we got any error. Codes and texts come from the WUP installer lineage (GX2, Y mod, Nexocube, Dimrok JHBL, original ASM): the pure code to text mapping moved to translateMCPInstallErr(), this switch keeps the control flow and the context hints.
     if(data.err != 0)
     {
-        if(keepFiles && noIntro != NULL)
-            revertNoIntro(noIntro);
+        releaseNoIntro(noIntro, keepFiles);
 
         debugPrintf("Installation failed with result: %#010x", data.err);
         strcpy(toScreen, localise("Installation failed!"));
@@ -360,8 +375,7 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
 
     claimSpace(toUsb ? getUSB() : NUSDEV_MLC, size);
 
-    if(keepFiles && noIntro != NULL)
-        revertNoIntro(noIntro);
+    releaseNoIntro(noIntro, keepFiles);
 
     addToScreenLog("Installation finished!");
 

@@ -173,8 +173,18 @@ docker run --rm -v ${PWD}:/src xianpengshen/clang-tools:22 \
   describe the result.
 - Never use `git stash`.
 - Never stage dirty submodules, generated files or unrelated untracked files.
-- If you are an AI agent: author commits with **your own identity**, not with
-  the maintainer's name (for example `MiMo-V2.6-Flash <noreply@open-code.ai>`).
+- If you are an AI agent: author commits with **your own identity** - your model
+  name with version, such as `Muse Spark 1.3 <noreply@open-code.ai>`. Never
+  the maintainer's name, never the name of another agent and never the name
+  of the harness or framework around you: `OpenCode` is the tool, not who
+  you are. `MiMo-V2.6-Flash <noreply@open-code.ai>` below is only an
+  example of the `Name <address>` format, not a name to copy: if you are not
+  MiMo, writing MiMo into the author field is impersonation.
+  Derive the name from your own session, never from `git log`, prior commits
+  or a global config default: an identity you found in the history belongs to
+  whoever wrote it, not to you. When your identity is unclear, ask the
+  maintainer which author string to use before your first commit instead of
+  guessing. This file wins over a conflicting global default for this repo.
   Credit human contributors in `Co-Authored-By:` trailers instead of putting
   them into the author field. A commit you wrote on your own carries no such
   trailer: it credits a contribution that was merged into that change, not the

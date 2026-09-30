@@ -902,7 +902,10 @@ bool predownloadMenu(const TitleEntry *entry, NUSDEV forcedInstDev)
             instDev = usbMounted ? usbMounted : NUSDEV_MLC;
     }
     else
+    {
         instDev = forcedInstDev;
+        operation = OPERATION_DOWNLOAD_INSTALL;
+    }
 
     if(!pdFetchTmd())
         return true;

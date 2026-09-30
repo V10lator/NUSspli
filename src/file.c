@@ -69,6 +69,10 @@ FSError removeDirectory(const char *path)
     }
 
     char *inSentence = newPath + len;
+    // What is left behind the path for the entry name. The guard above only
+    // kept room for the slash, and a name that does not fit would write past
+    // the array - and the delete would then act on a truncated path.
+    size_t room = sizeof(newPath) - (size_t)(inSentence - newPath);
     FSADirectoryHandle dir;
     OSTime t = OSGetTime();
     FSError ret = FSAOpenDir(getFSAClient(), newPath, &dir);
@@ -77,6 +81,12 @@ FSError removeDirectory(const char *path)
         FSADirectoryEntry entry;
         while(FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
         {
+            if(strlen(entry.name) + 1 > room)
+            {
+                ret = FS_ERROR_INVALID_PATH;
+                break;
+            }
+
             strcpy(inSentence, entry.name);
             if(entry.info.flags & FS_STAT_DIRECTORY)
                 ret = removeDirectory(newPath);

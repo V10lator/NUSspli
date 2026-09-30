@@ -1093,10 +1093,13 @@ retry:
     }
     else
     {
-        if(resume && fileExists(file))
+        if(resume)
         {
+            // One stat answers both questions. A path that is not there
+            // comes back as -1 and an empty file as 0, and the two end in
+            // the same open below, so nothing asks fileExists() as well.
             fileSize = getFilesize(file);
-            if(fileSize != 0)
+            if(fileSize != 0 && fileSize != (size_t)-1)
             {
                 if(data != NULL && data->cs)
                 {
@@ -1120,7 +1123,10 @@ retry:
                 fp = (void *)openFile(file, "a", 0);
             }
             else
+            {
                 fp = (void *)openFile(file, "w", data == NULL ? 0 : data->cs);
+                fileSize = 0;
+            }
         }
         else
         {

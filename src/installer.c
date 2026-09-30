@@ -274,6 +274,15 @@ bool install(const char *game, bool hasDeps, NUSDEV dev, const char *path, bool 
     // Start the installation process
     t = OSGetSystemTime();
     disableShutdown();
+
+    // The title.tik and the title.cert that transformNoIntro() wrote are still
+    // in the I/O queue, and MCP_InstallTitleAsync() reads both from the path
+    // it is handed. Nothing before this point has needed them: the checks
+    // above ask whether the target exists, and MCP_InstallGetInfo() only
+    // wants the TMD.
+    if(noIntro != NULL)
+        flushIOQueue();
+
     MCPError err = MCP_InstallTitleAsync(mcpHandle, path, &info);
 
     if(err != 0)

@@ -159,7 +159,7 @@ void uiDrainEvents()
     showErrorFrame(msg);
 
     if(AppRunning(true))
-        homeButtonCallback((void *)true);
+        exitToHome(false);
 }
 
 // Animation clock: how far the frames actually are apart. Ticked by
@@ -347,6 +347,11 @@ void uiFrame()
         return;
     if(app == APP_STATE_RETURNING)
         frameDirty = true;
+
+    // The exit question is a modal and the goodbye frame a present, so both
+    // belong into a frame here instead of into the pump the press arrived
+    // from, see homeButtonCallback().
+    exitOnHomePress();
 
     // Animation clock of every presented frame, see tickClock.
     tickClock();

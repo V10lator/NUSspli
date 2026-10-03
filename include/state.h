@@ -57,7 +57,8 @@ extern "C"
     bool isChannel();
 #endif
     bool AppRunning(bool mainthread) __attribute__((__hot__));
-    uint32_t homeButtonCallback(void *dummy);
+    void exitToHome(bool ask) __attribute__((__cold__));
+    void exitOnHomePress() __attribute__((__cold__));
     void launchTitle(MCPTitleListType *title) __attribute__((__cold__));
     void relaunch() __attribute__((__cold__));
     bool launchingTitle() __attribute__((__cold__));

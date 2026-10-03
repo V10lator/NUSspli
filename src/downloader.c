@@ -486,7 +486,7 @@ reconnect:
 
 exitApp:
     if(AppRunning(true))
-        homeButtonCallback((void *)true);
+        exitToHome(false);
 }
 
 bool initDownloader()

@@ -50,6 +50,9 @@ static bool aroma;
 static bool apdEnabled;
 static uint32_t apdDisabledCount = 0;
 static bool launching = false;
+// Noted by the callback, taken over by uiFrame(): both sides are the thread
+// that pumps the events, so a plain bool does - unlike app, read by the workers.
+static bool homePressed = false;
 
 void enableApd()
 {
@@ -113,21 +116,45 @@ bool isChannel()
     return channel;
 }
 
-uint32_t homeButtonCallback(void *dummy)
+// The ProcUI callback: SDL owns ProcUI, so this arrives from inside
+// SDL_PumpEvents() and must not run a modal or present a frame - both pump the
+// events again, and that deadlocked the console (see the footer). It only notes
+// the press, uiFrame() does the rest a frame later.
+//
+// !dialogOpen() keeps HOME from opening a second question behind one already
+// up: the yes/no dialog drives it through a modal that pumps this very callback,
+// and both share the handle the dialog closes on pop, so the outer one would be
+// stranded on screen. B does the same job.
+//
+// Returning 0 denies the HOME menu, which NUSspli always handles itself.
+static uint32_t homeButtonCallback(void *dummy)
 {
-    // !dialogOpen() keeps HOME from opening a second question behind one that
-    // is already up: the yes/no dialog drives it through a modal that pumps
-    // this very callback, and both questions share the handle the dialog
-    // closes on pop, so the outer one would be stranded on screen. B does
-    // the same job. The forced exit passes true and is not held back by it.
-    if(((bool)dummy) || (shutdownEnabled && !dialogOpen() && showExitOverlay(true)))
-    {
-        shutdownEnabled = false;
-        uiDrawByeFrame();
-        app = APP_STATE_HOME;
-    }
-
+    homePressed = ((bool)dummy) || (shutdownEnabled && !dialogOpen());
     return 0;
+}
+
+// The exit itself, whoever asked for it. ask is false for the forced exits of
+// the unrecoverable errors: those have answered their question already by
+// posting a message and do not get a second one.
+void exitToHome(bool ask)
+{
+    if(ask && !showExitOverlay(true))
+        return;
+
+    shutdownEnabled = false;
+    uiDrawByeFrame();
+    app = APP_STATE_HOME;
+}
+
+// exitToHome() for the press homeButtonCallback() noted. The flag carries the
+// decision it made, so nothing has to ask again whether the press was allowed.
+void exitOnHomePress()
+{
+    if(!homePressed)
+        return;
+
+    homePressed = false;
+    exitToHome(true);
 }
 
 void initState()

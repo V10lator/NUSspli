@@ -1227,9 +1227,7 @@ transfer:
         want = 1;
     else if(want == 0)
     {
-        if(dlMode == PARALLEL_MODE_ON)
-            want = DL_MAX_STREAMS;
-        else if(dlMode == PARALLEL_MODE_AUTO)
+        if(dlMode == PARALLEL_MODE_AUTO)
         {
             char host[64];
             urlHost(url, host, sizeof(host));
@@ -1249,7 +1247,7 @@ transfer:
                 want = rampPinned;
         }
         else
-            want = 1;
+            want = (int)dlMode;
     }
 
     const bool ramping = eligible && dlMode == PARALLEL_MODE_AUTO && rampPinned == 0 && rampPhase >= 0 && rampPhase < DL_MAX_STREAMS;

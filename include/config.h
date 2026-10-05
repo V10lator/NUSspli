@@ -46,14 +46,19 @@ extern "C"
         NOTIF_METHOD_LED = 0x02,
     } NOTIF_METHOD;
 
-    // How big downloads pick their stream count: OFF (Aus) stays on one stream,
-    // ON (An) always uses the maximum, AUTO measures once per host which count
-    // actually wins.
+    // How big downloads pick their stream count: OFF stays on one stream,
+    // AUTO measures every count once per host and keeps the best one, and the
+    // values from 2 to 6 use exactly that many streams. The number is the
+    // setting, so a file written in one menu language reads the same in another.
     typedef enum
     {
-        PARALLEL_MODE_OFF = 0,
-        PARALLEL_MODE_AUTO = 1,
-        PARALLEL_MODE_ON = 2,
+        PARALLEL_MODE_AUTO = 0,
+        PARALLEL_MODE_OFF = 1,
+        PARALLEL_MODE_2 = 2,
+        PARALLEL_MODE_3 = 3,
+        PARALLEL_MODE_4 = 4,
+        PARALLEL_MODE_5 = 5,
+        PARALLEL_MODE_6 = 6,
     } PARALLEL_MODE;
 
     void initConfig();

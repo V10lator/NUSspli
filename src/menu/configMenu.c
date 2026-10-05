@@ -255,20 +255,14 @@ static inline void switchParallelMode()
 {
     PARALLEL_MODE mode = getParallelMode();
 
+    // The automatic one first, then one step per count.
     if(vpad.trigger & VPAD_BUTTON_LEFT)
     {
-        if(mode == PARALLEL_MODE_OFF)
-            mode = PARALLEL_MODE_ON;
-        else
-            mode = (PARALLEL_MODE)((int)mode - 1);
+        if(--mode == (PARALLEL_MODE)-1)
+            mode = PARALLEL_MODE_6;
     }
-    else
-    {
-        if(mode == PARALLEL_MODE_ON)
-            mode = PARALLEL_MODE_OFF;
-        else
-            mode = (PARALLEL_MODE)((int)mode + 1);
-    }
+    else if(++mode == PARALLEL_MODE_6 + 1)
+        mode = PARALLEL_MODE_AUTO;
 
     setParallelMode(mode);
 }

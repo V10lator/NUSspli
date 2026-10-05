@@ -41,7 +41,7 @@
 #include <coreinit/userconfig.h>
 #pragma GCC diagnostic pop
 
-#define CONFIG_VERSION   2
+#define CONFIG_VERSION   3
 
 #define LANG_JAP         "Japanese"
 #define LANG_ENG         "English"
@@ -70,7 +70,6 @@
 #define NOTIF_BOTH       "Rumble + LED"
 #define NOTIF_NONE       "None"
 
-#define PARALLEL_OFF     "Off"
 #define PARALLEL_AUTO    "Auto"
 #define PARALLEL_ON      "On"
 
@@ -205,15 +204,51 @@ void initConfig()
     if(configEntry != NULL && json_is_integer(configEntry))
     {
         int v = json_integer_value(configEntry);
-        if(v < 2)
+        if(v < 3)
         {
             addToScreenLog("Old config file updating...");
+            changed = true;
+
+            // The stream count was the word the menu showed. PARALLEL_ON is what
+            // that word is for the maximum, which is 6 now, and it is read here
+            // and written nowhere.
+            configEntry = json_object_get(json, "Parallel downloads");
+            if(configEntry != NULL && json_is_string(configEntry))
+            {
+                const char *value = json_string_value(configEntry);
+
+                if(strcmp(value, PARALLEL_AUTO) == 0)
+                    parallelMode = PARALLEL_MODE_AUTO;
+                else if(strcmp(value, PARALLEL_ON) == 0)
+                    parallelMode = PARALLEL_MODE_6;
+                else
+                    parallelMode = PARALLEL_MODE_OFF;
+            }
+        }
+        else
+        {
+            // The count itself. The automatic mode is 0 and is as valid a setting as any
+            // other, so the range starts there and not at the one-stream step.
+            configEntry = json_object_get(json, "Parallel downloads");
+            if(configEntry != NULL && json_is_integer(configEntry))
+            {
+                int n = json_integer_value(configEntry);
+                parallelMode = (n >= PARALLEL_MODE_AUTO && n <= PARALLEL_MODE_6) ? (PARALLEL_MODE)n : PARALLEL_MODE_OFF;
+            }
+            else
+                changed = true;
+        }
+
+        // Version 2 split Language into the two keys below. From there on it is
+        // the two keys, and nothing after that touched them, so one test covers
+        // every file that has them.
+        if(v < 2)
+        {
             configEntry = json_object_get(json, "Language");
             if(configEntry != NULL && json_is_string(configEntry))
                 lang = stringToLanguageType(json_string_value(configEntry));
 
             menuLang = Swkbd_LanguageType__Invalid;
-            changed = true;
         }
         else
         {
@@ -302,22 +337,6 @@ void initConfig()
         changed = true;
     }
 
-    configEntry = json_object_get(json, "Parallel downloads");
-    if(configEntry != NULL && json_is_string(configEntry))
-    {
-        if(strcmp(json_string_value(configEntry), PARALLEL_AUTO) == 0)
-            parallelMode = PARALLEL_MODE_AUTO;
-        else if(strcmp(json_string_value(configEntry), PARALLEL_ON) == 0)
-            parallelMode = PARALLEL_MODE_ON;
-        else
-            parallelMode = PARALLEL_MODE_OFF;
-    }
-    else
-    {
-        addToScreenLog("Parallel downloads setting not found!");
-        changed = true;
-    }
-
     configEntry = json_object_get(json, "Seed");
     if(configEntry != NULL && json_is_integer(configEntry))
     {
@@ -392,17 +411,17 @@ const char *getNotificationString(NOTIF_METHOD method)
     }
 }
 
+static char parallelString[2] = "0";
+
 const char *getParallelString(PARALLEL_MODE mode)
 {
-    switch((int)mode)
-    {
-        case PARALLEL_MODE_AUTO:
-            return PARALLEL_AUTO;
-        case PARALLEL_MODE_ON:
-            return PARALLEL_ON;
-        default:
-            return PARALLEL_OFF;
-    }
+    if(mode == PARALLEL_MODE_AUTO)
+        return PARALLEL_AUTO;
+
+    // The count is its own name: 1 is one stream, 3 is three, and the number is
+    // what the setting is written as, so there is nothing to translate.
+    parallelString[0] = '0' + mode;
+    return parallelString;
 }
 
 static inline bool setValue(json_t *config, const char *key, json_t *value)
@@ -456,7 +475,7 @@ void saveConfig(bool force)
                                         value = json_integer(entropy);
                                         if(setValue(config, "Seed", value))
                                         {
-                                            value = json_string(getParallelString(getParallelMode()));
+                                            value = json_integer((int)getParallelMode());
                                             setValue(config, "Parallel downloads", value);
                                             char *json = json_dumps(config, JSON_INDENT(4));
                                             if(json != NULL)

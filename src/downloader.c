@@ -93,16 +93,16 @@
 // queued for the disk.
 #define DL_SLOTS (DL_STREAMS * 2)
 
-// The parallel modes pick their stream count at run time: the Auto ramp measures
-// its way up to the maximum and An starts there, so the arrays are sized for that
-// largest ask in every build, not just for the benchmark.
+// The parallel modes pick their stream count at run time: the automatic mode
+// measures its way up and a fixed count uses that many, so the arrays are sized
+// for the largest ask in every build, not just for the benchmark.
 #define DL_MAX_STREAMS 6
 #define DL_MAX_SLOTS   (DL_MAX_STREAMS * 2)
 // Below this the extra connections cost more than they win, and the .h3, ticket
 // and TMD files are tiny to begin with.
 #define DL_MIN_PARALLEL (2 * DL_CHUNKSIZE)
 
-// One Auto-ramp phase runs long enough and moves enough bytes for its rate to be
+// One ramp phase runs long enough and moves enough bytes for its rate to be
 // trusted against the gate below, and never past the cap - which is also what
 // bounds a stalled single stream whose eight megabytes would never arrive.
 #define RAMP_MIN_MS    5000
@@ -1033,7 +1033,7 @@ static const char *translateCurlError(CURLcode err, const char *error)
     }
 }
 
-// Peel scheme and path off a URL to get at the host, for the Auto ramp's
+// Peel scheme and path off a URL to get at the host, for the ramp's
 // per-host pin: what six streams won on one mirror says nothing about the next.
 static void urlHost(const char *url, char *out, size_t len)
 {
@@ -1069,11 +1069,16 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     bool allowParallel = true;
     const PARALLEL_MODE dlMode = getParallelMode();
     // Streams for the next attempt: 0 = resolve it fresh, then held across
-    // retries and across the Auto ramp's phases.
+    // retries and across the ramp's phases.
     int want = 0;
-    // -1 = no ramp in flight, 0..2 = a phase measuring, 3 = settled.
+    // -1 = no ramp in flight, 0..DL_MAX_STREAMS-1 = measuring that index plus
+    // one streams, DL_MAX_STREAMS = settled.
     int rampPhase = -1;
-    curl_off_t rampR1 = 0;
+    // One stream is the yardstick, every count is weighed against the best one
+    // seen so far and only the best one replaces the yardstick.
+    curl_off_t rampSingle = 0;
+    int rampBest = 1;
+    curl_off_t rampBestRate = 0;
     OSTick phaseTick = 0;
     bool phaseStop = false;
     bool userCancelled = false;
@@ -1084,7 +1089,7 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     // Where the single stream path writes to. It counts what the queue took,
     // which is the offset a stopped phase continues this file at.
     dlWriteTarget target;
-    // The Auto pin is measured once per host and kept for the session,
+    // The pin is measured once per host and kept for the session,
     // 0 = not measured yet.
     static int rampPinned = 0;
     static char rampHost[64];
@@ -1215,9 +1220,9 @@ transfer:
     // a RAM buffer.
     const bool eligible = allowParallel && parallelReady && !rambuf && data != NULL && data->cs != 0 && (curl_off_t)(data->cs - fileSize) >= DL_MIN_PARALLEL;
 
-    // Aus stays on one stream, An on the maximum. Auto measures which count
-    // actually pays: single first as the yardstick, then the maximum, then the
-    // middle - the first that beats the yardstick by RAMP_GATE keeps the host.
+    // A count of 1 is a single stream and 2 to 6 are that many streams, and the
+    // automatic mode measures every count from one to the maximum and keeps the
+    // best one, unless none of them beats a single stream by RAMP_GATE.
     if(!eligible)
         want = 1;
     else if(want == 0)
@@ -1247,7 +1252,7 @@ transfer:
             want = 1;
     }
 
-    const bool ramping = eligible && dlMode == PARALLEL_MODE_AUTO && rampPinned == 0 && rampPhase >= 0 && rampPhase <= 2;
+    const bool ramping = eligible && dlMode == PARALLEL_MODE_AUTO && rampPinned == 0 && rampPhase >= 0 && rampPhase < DL_MAX_STREAMS;
     debugPrintf("Stream plan: mode=%s want=%d phase=%d pinned=%d", getParallelString(dlMode), want, rampPhase, rampPinned);
 
     const bool parallel = eligible && want > 1;
@@ -1517,39 +1522,47 @@ transfer:
         curl_off_t rate = got * 1000 / ms;
         debugPrintf("Ramp[phase=%d/streams=%d] result: bytes=%u queued=%u ms=%u rate=%u", rampPhase, want, (unsigned int)cdata.dlnow, (unsigned int)got, ms, (unsigned int)rate);
 
+        // Phase 0 is the yardstick, the one every other count has to beat. From there
+        // on nothing is decided yet: each count is weighed against the best one
+        // so far and the search only ends with the maximum.
         if(rampPhase == 0)
+            rampSingle = rate;
+
+        if(rate > rampBestRate)
         {
-            rampR1 = rate;
-            rampPhase = 1;
-            want = DL_MAX_STREAMS;
+            rampBestRate = rate;
+            rampBest = want;
         }
-        else if(rampR1 == 0)
+        debugPrintf("Ramp[phase=%d/streams=%d] best so far: %d streams at %u B/s, single %u B/s", rampPhase, want, rampBest, (unsigned int)rampBestRate, (unsigned int)rampSingle);
+
+        if(rampSingle == 0)
         {
             // The single stream phase got no byte into the queue, so there is
             // no yardstick and the gate below would read 0 >= 0. The cap needs
             // no bytes to fire, so a stalled edge can leave the host unmeasured.
             rampPinned = 1;
             debugPrintf("Ramp[pin=1] single delivered nothing, nothing to compare against");
-            rampPhase = 3;
+            rampPhase = DL_MAX_STREAMS;
             want = 1;
         }
-        else if(rate * 100 >= rampR1 * RAMP_GATE)
+        else if(rampPhase + 1 < DL_MAX_STREAMS)
         {
-            rampPinned = want;
-            debugPrintf("Ramp[pin=%d] beats single: %u vs %u B/s", rampPinned, (unsigned int)rate, (unsigned int)rampR1);
-            rampPhase = 3;
-            want = rampPinned;
+            want = ++rampPhase + 1;
         }
-        else if(rampPhase == 1)
+        else if(rampBestRate * 100 >= rampSingle * RAMP_GATE)
         {
-            rampPhase = 2;
-            want = 3;
+            // The best count has to be worth the connections and the buffer
+            // memory it costs, not merely the fastest of a bad lot.
+            rampPinned = rampBest;
+            debugPrintf("Ramp[pin=%d] best of 1 to %d: %u vs %u B/s", rampPinned, DL_MAX_STREAMS, (unsigned int)rampBestRate, (unsigned int)rampSingle);
+            rampPhase = DL_MAX_STREAMS;
+            want = rampPinned;
         }
         else
         {
             rampPinned = 1;
-            debugPrintf("Ramp[pin=1] single wins: %u vs %u B/s", (unsigned int)rate, (unsigned int)rampR1);
-            rampPhase = 3;
+            debugPrintf("Ramp[pin=1] single wins: %u vs %u B/s", (unsigned int)rampBestRate, (unsigned int)rampSingle);
+            rampPhase = DL_MAX_STREAMS;
             want = 1;
         }
 
@@ -1637,10 +1650,10 @@ transfer:
 
                 // Ranges are what the ramp measures with: a host that refuses
                 // them cannot be parallel at all, so stop re-measuring it.
-                if(rampPhase >= 0 && rampPhase <= 2)
+                if(rampPhase >= 0 && rampPhase < DL_MAX_STREAMS)
                 {
                     rampPinned = 1;
-                    rampPhase = 3;
+                    rampPhase = DL_MAX_STREAMS;
                     debugPrintf("Ramp[pin=1] no Range support on this host");
                 }
 

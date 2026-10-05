@@ -1061,6 +1061,31 @@ void pauseRenderer()
     font = NULL;
 }
 
+// An overlay fades out in the frames that present it, so once the goodbye frame is
+// on there is nothing left to advance it and it freezes at whatever opacity it had
+// reached - the exit dialog stays up until the system brings its menu back.
+// Bounded by time so a stalled overlay cannot keep the exit hanging.
+static void drainOverlayFades()
+{
+    OSTick start = OSGetTick();
+
+    for(;;)
+    {
+        bool closing = false;
+        ErrorOverlay *overlay;
+        forEachListEntry(errorOverlayList, overlay)
+        {
+            if(overlay->closing)
+                closing = true;
+        }
+
+        if(!closing || OSTicksToMilliseconds(OSGetTick() - start) >= (uint64_t)(OVERLAY_FADE_MS * 4))
+            return;
+
+        drawFrame();
+    }
+}
+
 void drawByeFrame()
 {
     if(font == NULL)
@@ -1070,6 +1095,8 @@ void drawByeFrame()
     SDL_RenderCopy(renderer, byeTex, NULL, &byeRect);
     if(!Swkbd_IsReady() || Swkbd_IsHidden())
         drawFrame();
+
+    drainOverlayFades();
 }
 
 void shutdownRenderer()

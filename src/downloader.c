@@ -979,6 +979,67 @@ static int mdlThreadMain(int argc, const char **argv)
 
 #undef updateProgress
 
+    // A chunk that is still in flight when the loop ends is normally removed
+    // straight away, which is right for a failure and for a cancel. It is wrong
+    // at the end of a ramp phase: the phase stopped on its own cap while those
+    // chunks were mid-request, so removing them cuts the requests off inside the
+    // body, and the CDN answers that with an empty reply or a short one - which
+    // the next phase, issuing at once, meets on top of a cache full of
+    // connections that are not finished being opened.
+    //
+    // So on the cap they are drained first. Their bytes are dropped like the bytes
+    // of any chunk that was still in flight before: the phase already scored what
+    // it received and the next phase hands the same ranges out again.
+    //
+    // A cap is the only one of the three ways out of the loop that leaves the app
+    // running, so it is the only one where waiting for the requests pays: the two
+    // others lead to the exit, and nothing reads their bytes any more.
+    if(ret == CURLE_ABORTED_BY_CALLBACK && cdata->error == CURLE_ABORTED_BY_CALLBACK && AppRunning(false))
+    {
+        for(int round = 0; round < 200; ++round)
+        {
+            int pending = 0;
+            for(int i = 0; i < dlSlotCount; ++i)
+                if(dlSlots[i].handle != NULL)
+                    pending = 1;
+
+            if(!pending)
+                break;
+
+            int running = 0;
+            if(curl_multi_perform(multi, &running) != CURLM_OK)
+                break;
+
+            CURLMsg *msg;
+            int left;
+            while((msg = curl_multi_info_read(multi, &left)) != NULL)
+            {
+                if(msg->msg != CURLMSG_DONE)
+                    continue;
+
+                for(int i = 0; i < dlSlotCount; ++i)
+                {
+                    if(dlSlots[i].handle != msg->easy_handle)
+                        continue;
+
+                    if(msg->data.result != CURLE_OK)
+                        debugPrintf("Drained chunk %lld-%lld failed: %s (%d)", (long long)dlSlots[i].start, (long long)(dlSlots[i].start + dlSlots[i].size - 1), curl_easy_strerror(msg->data.result), msg->data.result);
+
+                    curl_multi_remove_handle(multi, msg->easy_handle);
+                    dlSlots[i].handle = NULL;
+                    dlSlots[i].size = dlSlots[i].filled = 0;
+                    dlSlots[i].full = false;
+                    break;
+                }
+            }
+
+            if(!running)
+                break;
+
+            curl_multi_poll(multi, NULL, 0, 20, NULL);
+        }
+    }
+
     for(int i = 0; i < dlSlotCount; ++i)
         if(dlSlots[i].handle != NULL)
         {

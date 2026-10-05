@@ -24,6 +24,7 @@
 #include <netinet/tcp.h>
 #include <stdlib.h>
 
+#include <ac_wrapper.h>
 #include <config.h>
 #include <crypto.h>
 #include <downloader.h>
@@ -114,7 +115,6 @@
 static bool initialised = false;
 static CURL *curl;
 static char curlError[CURL_ERROR_SIZE];
-static bool curlReuseConnection = true;
 static OSThread *socketPoolThread = NULL;
 static bool socketPoolDonated = false;
 
@@ -157,6 +157,24 @@ static void setStreamCount(int streams)
 
     dlStreams = streams;
     dlSlotCount = streams * 2;
+}
+
+// Whether a transfer may take a connection out of the cache. FRESH_CONNECT
+// decides that: after a failure the connection in there is the one that
+// failed, so the next attempt has to connect on its own.
+//
+// Every handle goes through here, the stream handles included: they are
+// configured once in initParallel() and so never got this.
+static void setFreshConnect(bool fresh)
+{
+    CURLcode ret = curl_easy_setopt(curl, CURLOPT_FRESH_CONNECT, fresh ? 1L : 0L);
+    for(int i = 0; ret == CURLE_OK && i < DL_MAX_SLOTS && dlHandles[i] != NULL; ++i)
+        ret = curl_easy_setopt(dlHandles[i], CURLOPT_FRESH_CONNECT, fresh ? 1L : 0L);
+
+    if(ret != CURLE_OK)
+        debugPrintf("Could not set CURLOPT_FRESH_CONNECT: %d", ret);
+    else
+        debugPrintf("Connection from cache: %s", fresh ? "no" : "yes");
 }
 
 static size_t chunkWrite(const void *ptr, size_t size, size_t n, void *userdata);
@@ -238,10 +256,9 @@ static int socketPoolThreadMain(int argc, const char **argv)
         debugPrintf("socketPoolThread: Out of memory");
     else
     {
-        // BIG_BUFFERS splits the donation 50-50 between small and big buffers
-        // instead of 80-20. Receive buffers are what we are here for, so the big
-        // half is the half that matters.
-        ret = somemopt(SOMEMOPT_REQUEST_INIT, socketPool, SOCKET_POOL_SIZE, SOMEMOPT_FLAGS_BIG_BUFFERS);
+        // No flags: bit 0 is the only one there is, and measured it costs us the
+        // buffer it was supposed to buy.
+        ret = somemopt(SOMEMOPT_REQUEST_INIT, socketPool, SOCKET_POOL_SIZE, SOMEMOPT_FLAGS_NONE);
         MEMFreeToDefaultHeap(socketPool);
     }
 
@@ -280,26 +297,23 @@ static void initSocketPool()
 
     // Donating is asynchronous, and a socket created before it lands would get a
     // default-sized buffer anyway, so wait it out. Returns the bytes now in use.
-#ifdef NUSSPLI_DEBUG
-    int used =
-#endif
-        somemopt(SOMEMOPT_REQUEST_WAIT_FOR_INIT, NULL, 0, SOMEMOPT_FLAGS_NONE);
+    int used = somemopt(SOMEMOPT_REQUEST_WAIT_FOR_INIT, NULL, 0, SOMEMOPT_FLAGS_NONE);
     debugPrintf("initSocketPool: %d bytes donated", used);
 
-    // From here the thread is parked inside somemopt() until the socket library
-    // ends, so the pool counts as ours whatever the donation turned out to be.
-    socketPoolDonated = true;
+    // Only ours if it actually landed.
+    socketPoolDonated = used > 0;
 }
 
 // All the socket options we set below are pure performance tweaks, so a failure
-// is never fatal. CafeOS answers with ENOPROTOOPT (92, "Non-supported option")
-// for options it doesn't know about and returning CURL_SOCKOPT_ERROR on that
-// would kill the whole transfer instead of just losing the tweak.
+// is never fatal. An option CafeOS does not know about answers ENOPROTOOPT, and
+// returning CURL_SOCKOPT_ERROR on that would kill the whole transfer instead of
+// just losing the tweak. The constant is spelled out because 92 is ENOPROTOOPT
+// on a Linux box and ELOOP on this one, which is what it compared against before.
 static inline bool trySockopt(curl_socket_t socket, int level, int option, int value, const char *name)
 {
     (void)name; // Only handed to debugPrintf, which compiles away in release builds
     int ret = setsockopt(socket, level, option, &value, sizeof(value));
-    if(ret != 0 && errno != 92)
+    if(ret != 0 && errno != ENOPROTOOPT)
     {
         debugPrintf("initSocket: Error setting %s: %d", name, errno);
         return false;
@@ -374,8 +388,6 @@ static CURLcode ssl_ctx_init(CURL *cu, void *sslctx, void *parm)
     return CURLE_OK;
 }
 
-#define initNetwork() (curlReuseConnection = false)
-
 // We're not using WUTs NNResult_IsSuccess() / NNResult_IsFailure() here as it's wrong
 static void resetNetwork()
 {
@@ -383,7 +395,7 @@ static void resetNetwork()
     // because a breadcrumb only exists in a presented frame: the teardown and
     // the reconnect draw nothing else, so the message would sit at zero
     // opacity for the whole wait and the hide at its end would drop it before
-    // it was ever seen. The close status alone can take 5 s and the connect
+    // it was ever seen. The close status alone can take 10 s and the connect
     // loop 10 s, so the user is looking at this message for many seconds.
     void *ovl = uiShowOverlay(localise("Preparing. This might take some time. Please be patient."));
 
@@ -405,35 +417,47 @@ closeAgain:
     {
         ACClose();
         // The budget counts frames now, not 10 ms steps: the present paces the
-        // loop at FRAMERATE, so milliseconds would stretch the 5 s into half
-        // a minute. FRAMERATE frames are one second.
-        uint32_t timeout = 5 * FRAMERATE;
-        do
+        // loop at FRAMERATE, so milliseconds would stretch the 10 s into
+        // minutes. FRAMERATE frames are one second.
+        uint32_t timeout = 10 * FRAMERATE;
+        bool closed = false;
+        while(AppRunning(true))
         {
-            nnres = ACGetCloseStatus();
-            if(nnres.value == 0) // SUCCESS
-                break;
+            // The result of the query and the state of the close are two
+            // different things, and only the second one says whether we are done.
+            int32_t status = AC_STATUS_FAILED;
+            nnres.value = acGetCloseStatus(&status);
 
-            if(nnres.value == -1 || !--timeout) // FAILED
+            if(nnres.value == 0 && status != AC_STATUS_PROCESSING)
             {
-                if(ovl)
-                    uiHideOverlay(ovl);
-
-                if(showNetworkError(localise("Error closing network!")))
-                {
-                    if(!AppRunning(true))
-                        return;
-
-                    ovl = uiShowOverlay(localise("Preparing. This might take some time. Please be patient."));
-                    goto closeAgain;
-                }
-
-                goto exitApp;
+                closed = status == AC_STATUS_OK;
+                break;
             }
 
-            // A nnres.value of 1 means processing
+            if(!--timeout) // Still processing after the whole budget
+                break;
+
             uiPresentFrame();
-        } while(AppRunning(true));
+        }
+
+        // A HOME press ends the wait with the close unfinished, and that is not
+        // an error to report.
+        if(!closed && AppRunning(true))
+        {
+            if(ovl)
+                uiHideOverlay(ovl);
+
+            if(showNetworkError(localise("Error closing network!")))
+            {
+                if(!AppRunning(true))
+                    return;
+
+                ovl = uiShowOverlay(localise("Preparing. This might take some time. Please be patient."));
+                goto closeAgain;
+            }
+
+            goto exitApp;
+        }
     }
 
     ACFinalize();
@@ -491,8 +515,6 @@ exitApp:
 
 bool initDownloader()
 {
-    initNetwork();
-
     struct curl_blob blob = { .data = NULL, .flags = CURL_BLOB_COPY };
     blob.len = readFile(ROMFS_PATH "ca-certs.pem", &blob.data);
     if(blob.data == NULL)
@@ -766,9 +788,6 @@ static void initParallel(void)
 #pragma GCC diagnostic pop
 
         if(wf != CURLE_OK
-            // Each stream keeps its own connection alive across chunks - a fresh
-            // handshake per chunk would hand the round trip time right back.
-            || curl_easy_setopt(dlHandles[i], CURLOPT_FRESH_CONNECT, 0L) != CURLE_OK
             || curl_easy_setopt(dlHandles[i], CURLOPT_NOPROGRESS, 1L) != CURLE_OK
             // A compressed range response would not match the byte count we sized
             // the chunk for, and content is already compressed anyway.
@@ -1000,7 +1019,7 @@ static const char *translateCurlError(CURLcode err, const char *error)
         case CURLE_READ_ERROR:
         case CURLE_OUT_OF_MEMORY:
             return "Internal error";
-        // libCURL is right here: CafeOS answered ENOPROTOOPT (92) to a WUT socket
+        // libCURL is right here: CafeOS answered ENOPROTOOPT to a WUT socket
         // call, so libCURL got an invalid argument. See issue #302.
         case CURLE_BAD_FUNCTION_ARGUMENT:
             // Why the socket died is never reported to the app: CafeOS destroys it
@@ -1058,6 +1077,10 @@ int downloadFile(const char *url, char *file, downloadData *data, FileType type,
     OSTick phaseTick = 0;
     bool phaseStop = false;
     bool userCancelled = false;
+    // Cleared by a failure, so the attempt after it connects on its own instead
+    // of taking that connection up again. Outside the retry label, so the jumps
+    // back keep it cleared.
+    bool reuseCache = true;
     // Where the single stream path writes to. It counts what the queue took,
     // which is the offset a stopped phase continues this file at.
     dlWriteTarget target;
@@ -1235,33 +1258,22 @@ transfer:
         ret = curl_easy_setopt(curl, opt, url);
     if(!parallel && ret == CURLE_OK)
     {
-        opt = CURLOPT_FRESH_CONNECT;
-        if(curlReuseConnection)
-            ret = curl_easy_setopt(curl, opt, 0L);
-        else
-        {
-            ret = curl_easy_setopt(curl, opt, 1L);
-            curlReuseConnection = true;
-        }
+        opt = CURLOPT_RESUME_FROM_LARGE;
+        ret = curl_easy_setopt(curl, opt, (curl_off_t)fileSize);
         if(ret == CURLE_OK)
         {
-            opt = CURLOPT_RESUME_FROM_LARGE;
-            ret = curl_easy_setopt(curl, opt, (curl_off_t)fileSize);
+            opt = CURLOPT_WRITEFUNCTION;
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+            ret = curl_easy_setopt(curl, opt, rambuf ? fwrite : (size_t (*)(const void *, size_t, size_t, FILE *))sequentialWrite);
+#pragma GCC diagnostic pop
             if(ret == CURLE_OK)
             {
-                opt = CURLOPT_WRITEFUNCTION;
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-                ret = curl_easy_setopt(curl, opt, rambuf ? fwrite : (size_t (*)(const void *, size_t, size_t, FILE *))sequentialWrite);
-#pragma GCC diagnostic pop
+                opt = CURLOPT_WRITEDATA;
+                ret = curl_easy_setopt(curl, opt, rambuf ? (FILE *)fp : (FILE *)&target);
                 if(ret == CURLE_OK)
                 {
-                    opt = CURLOPT_WRITEDATA;
-                    ret = curl_easy_setopt(curl, opt, rambuf ? (FILE *)fp : (FILE *)&target);
-                    if(ret == CURLE_OK)
-                    {
-                        opt = CURLOPT_XFERINFODATA;
-                        ret = curl_easy_setopt(curl, opt, &cdata);
-                    }
+                    opt = CURLOPT_XFERINFODATA;
+                    ret = curl_easy_setopt(curl, opt, &cdata);
                 }
             }
         }
@@ -1282,6 +1294,10 @@ transfer:
     phaseTick = OSGetTick();
     phaseStop = false;
     setStreamCount(want);
+
+    // A failure leaves a connection behind that the next attempt must not take up.
+    setFreshConnect(!reuseCache);
+
     if(ramping)
         debugPrintf("Ramp[phase=%d/streams=%d] begin at offset %u", rampPhase, want, (unsigned int)fileSize);
 
@@ -1594,9 +1610,9 @@ transfer:
         // anymore. This matters most for CURLE_BAD_FUNCTION_ARGUMENT: CafeOS kills
         // the socket behind libCURLs back ("Received request to kill all sockets"),
         // select() then fails with ENOPROTOOPT and libCURL reports an unrecoverable
-        // poll. Retrying on that very same socket just reproduces the error, so make
-        // sure the next attempt does a fresh connect.
-        curlReuseConnection = false;
+        // poll. Retrying on that very same socket just reproduces the error, so the
+        // next attempt must not take it up again.
+        reuseCache = false;
 
         const char *te = translateCurlError(ret, curlError);
         switch(ret)

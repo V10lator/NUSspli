@@ -50,9 +50,9 @@ static bool aroma;
 static bool apdEnabled;
 static uint32_t apdDisabledCount = 0;
 static bool launching = false;
-// Noted by the callback, taken over by uiFrame(): both sides are the thread
-// that pumps the events, so a plain bool does - unlike app, read by the workers.
-static bool homePressed = false;
+// Noted by the callback, taken over by uiDrainEvents(). Volatile because we do
+// not know which thread the callback runs on, unlike app whose readers are known.
+static volatile bool homePressed = false;
 
 void enableApd()
 {

@@ -1125,17 +1125,18 @@ static void waitForFrame()
 #endif
 }
 
-#define predrawFrame()                                                  \
-    if(font == NULL)                                                    \
-        return;                                                         \
-                                                                        \
-    /* Once we stop, SDL may have released the foreground already: */   \
-    /* the present path has no foreground guard and would write into */ \
-    /* the freed scan buffers. */                                       \
-    if(app == APP_STATE_STOPPING || app == APP_STATE_STOPPED)           \
-        return;                                                         \
-                                                                        \
-    SDL_SetRenderTarget(renderer, NULL);                                \
+#define predrawFrame()                                                                 \
+    if(font == NULL)                                                                   \
+        return;                                                                        \
+                                                                                       \
+    /* Once we stop, SDL may have released the foreground already: */                  \
+    /* the present path has no foreground guard and would write into */                \
+    /* the freed scan buffers. After a confirmed exit the goodbye frame */             \
+    /* is the last picture and must not be painted over. */                            \
+    if(app == APP_STATE_STOPPING || app == APP_STATE_STOPPED || app == APP_STATE_HOME) \
+        return;                                                                        \
+                                                                                       \
+    SDL_SetRenderTarget(renderer, NULL);                                               \
     SDL_RenderCopy(renderer, frameBuffer, NULL, NULL);
 
 #define postdrawFrame()                                                    \
@@ -1213,7 +1214,8 @@ void drawKeyboard(bool tv)
     if(font == NULL)
         return;
 
-    if(app == APP_STATE_STOPPING || app == APP_STATE_STOPPED)
+    // The same two reasons as predrawFrame(), see there.
+    if(app == APP_STATE_STOPPING || app == APP_STATE_STOPPED || app == APP_STATE_HOME)
         return;
 
     SDL_SetRenderTarget(renderer, NULL);

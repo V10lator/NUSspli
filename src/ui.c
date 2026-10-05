@@ -138,6 +138,11 @@ void uiDrainEvents()
 {
     char msg[UI_ERROR_MSG];
 
+    // Every loop drains here - uiFrame(), uiPump(), uiWaitKey(), uiWaitWhile()
+    // - so this is where the HOME press the ProcUI callback noted is answered.
+    // Before the error below: an unrecoverable one ends the app anyway.
+    exitOnHomePress();
+
     spinLock(eventLock);
     bool pending = errorPending;
     if(pending)
@@ -347,11 +352,6 @@ void uiFrame()
         return;
     if(app == APP_STATE_RETURNING)
         frameDirty = true;
-
-    // The exit question is a modal and the goodbye frame a present, so both
-    // belong into a frame here instead of into the pump the press arrived
-    // from, see homeButtonCallback().
-    exitOnHomePress();
 
     // Animation clock of every presented frame, see tickClock.
     tickClock();

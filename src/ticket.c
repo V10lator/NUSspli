@@ -41,12 +41,20 @@
 #include <tmd.h>
 #include <utils.h>
 
+#include <mbedtls/sha1.h>
+
 #pragma GCC diagnostic ignored "-Wundef"
 #include <coreinit/memdefaultheap.h>
 #include <coreinit/memory.h>
 #pragma GCC diagnostic pop
 
 #define TICKET_BUCKET "/vol/slc/sys/rights/ticket/apps/"
+// What a ticket of Nintendo carries, and where the file that is about to be
+// changed is copied before it is touched.
+#define TICKET_ISSUER     "Root-CA00000003-XS0000000c"
+#define TICKET_SIG_RSA    0x00010004 // RSA-2048 with SHA-256
+#define TICKET_BACKUP_DIR NUSDIR_SD "NUSspli-tickets/"
+#define TICKET_TMP        NUSDIR_SD "NUSspli-plant.tik"
 
 typedef struct
 {
@@ -336,6 +344,226 @@ gftFree:
     MEMFreeToDefaultHeap(tmd);
 }
 
+/*
+ * The file a ticket belongs in: the low nibble of the third byte of the
+ * SHA-1 of the title ID names the folder, the low five bits of the fourth
+ * name the file. That is what the store of a 5.5.5E console showed, and the
+ * walk of hasTicket() finds a ticket wherever it ends up anyway.
+ */
+static void ticketPath(uint64_t tid, char *path, size_t size)
+{
+    uint8_t hash[20];
+    mbedtls_sha1((const unsigned char *)&tid, sizeof(tid), hash);
+    snprintf(path, size, TICKET_BUCKET "%04x/%08x.tik", hash[2] & 0x0F, hash[3] & 0x1F);
+}
+
+// How much of a buffer is the ticket itself: the struct and the header
+// sections behind it, the way deleteTicket() walks them. 0 when the buffer
+// holds no ticket that makes sense. Not named ticketSize because
+// generateCert() takes an argument of that name.
+static size_t ticketRecordSize(const void *buf, size_t avail)
+{
+    if(buf == NULL || avail < sizeof(TICKET))
+        return 0;
+
+    const TICKET *ticket = (const TICKET *)buf;
+    size_t size = sizeof(TICKET);
+    if(ticket->total_hdr_size > 0x14)
+        size += ticket->total_hdr_size - 0x14;
+
+    return size <= avail && size <= 0x1000 ? size : 0;
+}
+
+// A cetk of the servers of Nintendo: the ticket anyone gets for free content,
+// which is the one that belongs to every console instead of to one.
+static bool isPublicTicket(const void *buf, size_t size, uint64_t tid)
+{
+    if(ticketRecordSize(buf, size) == 0)
+        return false;
+
+    uint32_t sigType;
+    OSBlockMove(&sigType, buf, sizeof(sigType), false);
+    const TICKET *ticket = (const TICKET *)buf;
+    return sigType == TICKET_SIG_RSA && strncmp(ticket->issuer, TICKET_ISSUER, sizeof(ticket->issuer)) == 0 && ticket->tid == tid && ticket->device_id == 0 && ticket->account_id == 0;
+}
+
+// The file about to be changed, copied to the SD card first. Returns false
+// when the copy could not be made, which stops the write: a change to the
+// store of the console that cannot be taken back is not worth making.
+static bool backupBucket(const char *path, const char *name)
+{
+    // Nothing there yet is nothing to lose: the file is made by the append
+    // and taking it back is removing it again.
+    if(!fileExists(path))
+        return true;
+
+    if(!dirExists(TICKET_BACKUP_DIR) && createDirectory(TICKET_BACKUP_DIR) != FS_ERROR_OK)
+        return false;
+
+    void *file;
+    size_t size = readFile(path, &file);
+    // A file that is there but will not be read is one that must not be
+    // appended to either: there would be no way back.
+    if(file == NULL)
+        return false;
+
+    char backup[FS_MAX_PATH];
+    snprintf(backup, sizeof(backup), TICKET_BACKUP_DIR "%s", name);
+    FSAFileHandle fh = openFile(backup, "w", size);
+    if(fh == 0)
+    {
+        MEMFreeToDefaultHeap(file);
+        return false;
+    }
+
+    addToIOQueue(file, 1, size, fh);
+    addToIOQueue(NULL, 0, 0, fh);
+    flushIOQueue();
+    MEMFreeToDefaultHeap(file);
+    return !checkForQueueErrors();
+}
+
+// Puts the file back the way the backup has it, for a write that did not
+// end up with the ticket the console can find.
+static void restoreBucket(const char *path, const char *name, bool existed)
+{
+    if(!existed)
+    {
+        FSARemove(getFSAClient(), path);
+        return;
+    }
+
+    char backup[FS_MAX_PATH];
+    snprintf(backup, sizeof(backup), TICKET_BACKUP_DIR "%s", name);
+
+    void *file;
+    size_t size = readFile(backup, &file);
+    if(file == NULL)
+    {
+        debugPrintf("No backup to put back at %s", backup);
+        return;
+    }
+
+    FSAFileHandle fh = openFile(path, "w", size);
+    if(fh != 0)
+    {
+        addToIOQueue(file, 1, size, fh);
+        addToIOQueue(NULL, 0, 0, fh);
+        flushIOQueue();
+    }
+
+    MEMFreeToDefaultHeap(file);
+}
+
+TICKET_PLANT_RESULT plantTicket(const TMD *tmd)
+{
+    if(tmd == NULL)
+        return TICKET_PLANT_INVALID;
+
+    const uint64_t tid = tmd->tid;
+    // A ticket that is there already is never touched: it may be the one the
+    // console was sold with.
+    if(hasTicket(tid))
+        return TICKET_PLANT_EXISTS;
+
+    RAMBUF *rambuf = allocRamBuf();
+    if(rambuf == NULL)
+        return TICKET_PLANT_FAILED;
+
+    char path[FS_MAX_PATH];
+    snprintf(path, sizeof(path), DOWNLOAD_URL "%016llx/cetk", tid);
+
+    void *owned = NULL;
+    const void *bytes = NULL;
+    size_t size = 0;
+    bool fake = false;
+
+    // The public ticket of Nintendo when there is one, which is the real
+    // thing and belongs to every console.
+    if(downloadFile(path, "title.tik", NULL, FILE_TYPE_TIK | FILE_TYPE_TORAM, false, NULL, rambuf) == 0 && isPublicTicket(rambuf->buf, rambuf->size, tid))
+    {
+        bytes = rambuf->buf;
+        size = ticketRecordSize(rambuf->buf, rambuf->size);
+    }
+    else
+    {
+        // Nothing on the servers, so the one NUSspli makes for its own
+        // installs. It is written out and read back instead of built twice.
+        fake = true;
+        if(!generateTik(TICKET_TMP, tmd))
+        {
+            freeRamBuf(rambuf);
+            return TICKET_PLANT_NO_TICKET;
+        }
+
+        flushIOQueue();
+        size_t fileSize = readFile(TICKET_TMP, &owned);
+        FSARemove(getFSAClient(), TICKET_TMP);
+        size = ticketRecordSize(owned, fileSize);
+        bytes = owned;
+    }
+
+    if(size == 0)
+    {
+        freeRamBuf(rambuf);
+        if(owned != NULL)
+            MEMFreeToDefaultHeap(owned);
+
+        return TICKET_PLANT_NO_TICKET;
+    }
+
+    ticketPath(tid, path, sizeof(path));
+    const char *name = path + sizeof(TICKET_BUCKET) - 1;
+    char backupName[sizeof("0000/00000000.tik")];
+    // "0001/00000002.tik" becomes "0001-00000002.tik", one folder of copies.
+    snprintf(backupName, sizeof(backupName), "%s", name);
+    char *slash = strchr(backupName, '/');
+    if(slash != NULL)
+        *slash = '-';
+
+    debugPrintf("Putting a%s ticket for %016llX into %s", fake ? " fake" : " public", tid, path);
+
+    const bool existed = fileExists(path);
+    if(!backupBucket(path, backupName))
+    {
+        freeRamBuf(rambuf);
+        if(owned != NULL)
+            MEMFreeToDefaultHeap(owned);
+
+        return TICKET_PLANT_FAILED;
+    }
+
+    // Only ever appended: the tickets already in the file keep their bytes,
+    // and taking this one back is cutting the file at the length it had.
+    FSAFileHandle fh = openFile(path, "a", 0);
+    if(fh == 0)
+    {
+        freeRamBuf(rambuf);
+        if(owned != NULL)
+            MEMFreeToDefaultHeap(owned);
+
+        return TICKET_PLANT_FAILED;
+    }
+
+    addToIOQueue(bytes, 1, size, fh);
+    addToIOQueue(NULL, 0, 0, fh);
+    flushIOQueue();
+    freeRamBuf(rambuf);
+    if(owned != NULL)
+        MEMFreeToDefaultHeap(owned);
+
+    // The console has to be able to find it, else the file goes back to what
+    // it was.
+    if(checkForQueueErrors() || !hasTicket(tid))
+    {
+        debugPrintf("The ticket did not take, putting the file back");
+        restoreBucket(path, backupName, existed);
+        return TICKET_PLANT_FAILED;
+    }
+
+    return fake ? TICKET_PLANT_OK_FAKE : TICKET_PLANT_OK;
+}
+
 void deleteTicket(uint64_t tid)
 {
     LIST *ticketList = createList();
@@ -485,6 +713,78 @@ exit:
     t = OSGetTime() - t;
     addEntropy(&t, sizeof(OSTime));
     destroyList(ticketList, true);
+}
+
+bool hasTicket(uint64_t tid)
+{
+    char path[FS_MAX_PATH];
+    OSBlockMove(path, TICKET_BUCKET, sizeof(TICKET_BUCKET), false);
+    char *inSentence = path + (sizeof(TICKET_BUCKET) - 1);
+
+    FSADirectoryHandle dir;
+    if(FSAOpenDir(getFSAClient(), path, &dir) != FS_ERROR_OK)
+        return false;
+
+    // The same walk as deleteTicket(): folders of four characters, files of
+    // twelve, every file a row of tickets.
+    bool found = false;
+    FSADirectoryEntry entry;
+    FSADirectoryHandle dir2;
+    while(!found && FSAReadDir(getFSAClient(), dir, &entry) == FS_ERROR_OK)
+    {
+        if(!(entry.info.flags & FS_STAT_DIRECTORY) || strlen(entry.name) != 4)
+            continue;
+
+        strcpy(inSentence, entry.name);
+        if(FSAOpenDir(getFSAClient(), path, &dir2) != FS_ERROR_OK)
+            continue;
+
+        strcat(inSentence, "/");
+        char *fileName = inSentence + strlen(inSentence);
+        while(!found && FSAReadDir(getFSAClient(), dir2, &entry) == FS_ERROR_OK)
+        {
+            if((entry.info.flags & FS_STAT_DIRECTORY) || strlen(entry.name) != 12)
+                continue;
+
+            strcpy(fileName, entry.name);
+            void *file;
+            size_t fileSize = readFile(path, &file);
+            if(file == NULL)
+                continue;
+
+            uint8_t *fileEnd = ((uint8_t *)file) + fileSize;
+            TICKET *ticket = (TICKET *)file;
+            while(((uint8_t *)ticket) + sizeof(TICKET) <= fileEnd)
+            {
+                if(ticket->tid == tid)
+                {
+                    // Which bucket file holds the ticket of a title is the
+                    // system's own business: the names of the folders and
+                    // files follow no title ID, and one file carries the
+                    // tickets of several titles. A debug build says where
+                    // the ticket of a title turned up, the way
+                    // deleteTicket() does, so the choice of the system can
+                    // be looked at instead of guessed at.
+                    debugPrintf("Ticket of %016llX found at %s+0x%X", tid, path, (unsigned int)(((uint8_t *)ticket) - ((uint8_t *)file)));
+                    found = true;
+                    break;
+                }
+
+                uint8_t *ptr = ((uint8_t *)ticket) + sizeof(TICKET);
+                if(ticket->total_hdr_size > 0x14)
+                    ptr += ticket->total_hdr_size - 0x14;
+
+                ticket = (TICKET *)ptr;
+            }
+
+            MEMFreeToDefaultHeap(file);
+        }
+
+        FSACloseDir(getFSAClient(), dir2);
+    }
+
+    FSACloseDir(getFSAClient(), dir);
+    return found;
 }
 
 bool hasMagicHeader(const TICKET *ticket)

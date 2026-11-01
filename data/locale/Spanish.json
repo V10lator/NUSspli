@@ -207,5 +207,18 @@
     "unknown": "desconocido",
     "Yes": "Sí",
     "No": "No",
-    "File": "Archivo"
+    "File": "Archivo",
+    "The Wii U Download Management refused the title.": "La gesti\u00F3n de descargas de Wii U ha rechazado el t\u00EDtulo.",
+    "Experimental: NUSspli can put a ticket for this title on the console,\nwhich is what the Wii U Download Management installs with.\n\nThis writes to the ticket store of the console. The file it adds to is\ncopied to NUSspli-tickets on the SD card first and put back if the\nticket does not take.\n\nPut a ticket on the console?": "Experimental: NUSspli puede poner un ticket de este t\u00EDtulo en la\nconsola, que es con lo que instala la gesti\u00F3n de descargas de Wii U.\n\nEsto escribe en el almac\u00E9n de tickets de la consola. El archivo que\ntoca se copia primero a NUSspli-tickets en la tarjeta SD y se\ndevuelve si el ticket no cuaja.\n\n\u00BFPoner un ticket en la consola?",
+    "There is no ticket for this title to be had.": "No hay ning\u00FAn ticket disponible para este t\u00EDtulo.",
+    "Could not put a ticket on the console.\nThe ticket store was left the way it was.": "No se pudo poner un ticket en la consola.\nEl almac\u00E9n de tickets qued\u00F3 como estaba.",
+    "There is no ticket for this title on the console,\nso the Wii U Download Management will probably fail to install it.\n\nAdd it anyway?": "No hay ning\u00FAn ticket de este t\u00EDtulo en la consola,\nas\u00ED que la gesti\u00F3n de descargas de Wii U probablemente no podr\u00E1 instalarlo.\n\n\u00BFA\u00F1adirlo de todos modos?",
+    "It is already in the Download Management.\nRemove it from there, with what it downloaded so far?": "Ya est\u00E1 en la gesti\u00F3n de descargas.\n\u00BFQuitarlo de ah\u00ED, con lo que ya se ha descargado?",
+    "Added to the Wii U Download Management!": "\u00A1A\u00F1adido a la gesti\u00F3n de descargas de Wii U!",
+    "Removed from the Wii U Download Management!": "\u00A1Quitado de la gesti\u00F3n de descargas de Wii U!",
+    "\uE002 Download Management": "\uE002 Gesti\u00F3n de descargas",
+    "It is already in the Download Management.\nClear it there first.": "Ya est\u00E1 en la gesti\u00F3n de descargas.\nB\u00F3rralo all\u00ED primero.",
+    "It is already installed.": "Ya est\u00E1 instalado.",
+    "A file of this title is no longer on the servers of Nintendo.": "Un archivo de este t\u00EDtulo ya no est\u00E1 en los servidores de Nintendo.",
+    "The icon of this title could not be downloaded.\nA Pretendo install (Inkay) redirects the icon server of Nintendo,\nso turn that plugin off and try again, with a user that has a\nNintendo Network ID: without Inkay a Pretendo account left the Wii U\nMenu without icons.": "No se pudo descargar el icono de este t\u00EDtulo.\nUna instalaci\u00F3n de Pretendo (Inkay) redirige el servidor de iconos\nde Nintendo: desactiva ese plugin e int\u00E9ntalo de nuevo, con un usuario\nque tenga una Nintendo Network ID: sin Inkay, una cuenta de Pretendo\ndej\u00F3 el men\u00FA de Wii U sin iconos."
 }

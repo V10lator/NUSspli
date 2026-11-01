@@ -206,5 +206,19 @@
     "unknown": "unknown",
     "Yes": "Yes",
     "No": "No",
-    "File": "File"
+    "File": "File",
+
+    "The Wii U Download Management refused the title.": "The Wii U Download Management refused the title.",
+    "Experimental: NUSspli can put a ticket for this title on the console,\nwhich is what the Wii U Download Management installs with.\n\nThis writes to the ticket store of the console. The file it adds to is\ncopied to NUSspli-tickets on the SD card first and put back if the\nticket does not take.\n\nPut a ticket on the console?": "Experimental: NUSspli can put a ticket for this title on the console,\nwhich is what the Wii U Download Management installs with.\n\nThis writes to the ticket store of the console. The file it adds to is\ncopied to NUSspli-tickets on the SD card first and put back if the\nticket does not take.\n\nPut a ticket on the console?",
+    "There is no ticket for this title to be had.": "There is no ticket for this title to be had.",
+    "Could not put a ticket on the console.\nThe ticket store was left the way it was.": "Could not put a ticket on the console.\nThe ticket store was left the way it was.",
+    "There is no ticket for this title on the console,\nso the Wii U Download Management will probably fail to install it.\n\nAdd it anyway?": "There is no ticket for this title on the console,\nso the Wii U Download Management will probably fail to install it.\n\nAdd it anyway?",
+    "It is already in the Download Management.\nRemove it from there, with what it downloaded so far?": "It is already in the Download Management.\nRemove it from there, with what it downloaded so far?",
+    "Added to the Wii U Download Management!": "Added to the Wii U Download Management!",
+    "Removed from the Wii U Download Management!": "Removed from the Wii U Download Management!",
+    "\uE002 Download Management": "\uE002 Download Management",
+    "It is already in the Download Management.\nClear it there first.": "It is already in the Download Management.\nClear it there first.",
+    "It is already installed.": "It is already installed.",
+    "A file of this title is no longer on the servers of Nintendo.": "A file of this title is no longer on the servers of Nintendo.",
+    "The icon of this title could not be downloaded.\nA Pretendo install (Inkay) redirects the icon server of Nintendo,\nso turn that plugin off and try again, with a user that has a\nNintendo Network ID: without Inkay a Pretendo account left the Wii U\nMenu without icons.": "The icon of this title could not be downloaded.\nA Pretendo install (Inkay) redirects the icon server of Nintendo,\nso turn that plugin off and try again, with a user that has a\nNintendo Network ID: without Inkay a Pretendo account left the Wii U\nMenu without icons."
 }

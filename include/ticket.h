@@ -179,10 +179,38 @@ extern "C"
     WUT_CHECK_OFFSET(CETK, sizeof(CA3_PPKI_CERT) + sizeof(OTHER_PPKI_CERT), cert3);
     WUT_CHECK_SIZE(CETK, sizeof(CA3_PPKI_CERT) + (sizeof(OTHER_PPKI_CERT) * 2));
 
+    typedef enum
+    {
+        TICKET_PLANT_OK, // The public ticket of Nintendo went in
+        TICKET_PLANT_OK_FAKE, // One NUSspli made went in
+        TICKET_PLANT_EXISTS, // The console had one, nothing was touched
+        TICKET_PLANT_NO_TICKET, // No ticket could be had for the title
+        TICKET_PLANT_INVALID, // Nothing to work with
+        TICKET_PLANT_FAILED, // The store was not changed, or was put back
+    } TICKET_PLANT_RESULT;
+
+    /*
+     * Puts a ticket for a title into the ticket store of the console, which
+     * is what the Wii U Download Management installs with: without one it
+     * downloads a title and then fails to install it (105-3683).
+     *
+     * The public ticket of Nintendo is used where there is one, else the
+     * ticket NUSspli makes for its own installs. A title that has one
+     * already is left alone, the file is copied to NUSspli-tickets on the SD
+     * card before it is touched, only appended to, and put back when the
+     * console cannot find the ticket afterwards.
+     *
+     * This writes to the store the licences of the console live in. Ask
+     * first.
+     */
+    TICKET_PLANT_RESULT plantTicket(const TMD *tmd);
+
     bool generateTik(const char *path, const TMD *tmd);
     bool generateCert(const TMD *tmd, const TICKET *ticket, size_t ticketSize, const char *path);
     void generateFakeTicket();
     void deleteTicket(uint64_t tid);
+    // Whether the ticket store of the console holds a ticket for the title.
+    bool hasTicket(uint64_t tid);
     bool hasMagicHeader(const TICKET *ticket);
 
 #ifdef __cplusplus

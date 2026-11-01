@@ -197,5 +197,18 @@
     "unknown": "unbekannten",
     "Yes": "Ja",
     "No": "Nein",
-    "File": "Datei"
+    "File": "Datei",
+    "The Wii U Download Management refused the title.": "Die Wii U-Downloadverwaltung hat den Titel abgelehnt.",
+    "Experimental: NUSspli can put a ticket for this title on the console,\nwhich is what the Wii U Download Management installs with.\n\nThis writes to the ticket store of the console. The file it adds to is\ncopied to NUSspli-tickets on the SD card first and put back if the\nticket does not take.\n\nPut a ticket on the console?": "Experimentell: NUSspli kann ein Ticket f\u00FCr diesen Titel auf die\nKonsole legen, womit die Wii U-Downloadverwaltung installiert.\n\nDas schreibt in den Ticketspeicher der Konsole. Die Datei, die\nge\u00E4ndert wird, wird zuerst nach NUSspli-tickets auf der SD-Karte\nkopiert und zur\u00FCckgelegt, falls das Ticket nicht greift.\n\nEin Ticket auf die Konsole legen?",
+    "There is no ticket for this title to be had.": "F\u00FCr diesen Titel ist kein Ticket zu bekommen.",
+    "Could not put a ticket on the console.\nThe ticket store was left the way it was.": "Konnte kein Ticket auf die Konsole legen.\nDer Ticketspeicher blieb, wie er war.",
+    "There is no ticket for this title on the console,\nso the Wii U Download Management will probably fail to install it.\n\nAdd it anyway?": "F\u00FCr diesen Titel ist kein Ticket auf der Konsole,\ndie Wii U-Downloadverwaltung wird ihn vermutlich nicht installieren k\u00F6nnen.\n\nTrotzdem hinzuf\u00FCgen?",
+    "It is already in the Download Management.\nRemove it from there, with what it downloaded so far?": "Er ist bereits in der Downloadverwaltung.\nDort entfernen, mit dem bisher Heruntergeladenen?",
+    "Added to the Wii U Download Management!": "Zur Wii U-Downloadverwaltung hinzugef\u00FCgt!",
+    "Removed from the Wii U Download Management!": "Aus der Wii U-Downloadverwaltung entfernt!",
+    "\uE002 Download Management": "\uE002 Download-Verwaltung",
+    "It is already in the Download Management.\nClear it there first.": "Er ist bereits in der Downloadverwaltung.\nL\u00F6sche ihn dort zuerst.",
+    "It is already installed.": "Er ist bereits installiert.",
+    "A file of this title is no longer on the servers of Nintendo.": "Eine Datei dieses Titels ist nicht mehr auf den Servern von Nintendo.",
+    "The icon of this title could not be downloaded.\nA Pretendo install (Inkay) redirects the icon server of Nintendo,\nso turn that plugin off and try again, with a user that has a\nNintendo Network ID: without Inkay a Pretendo account left the Wii U\nMenu without icons.": "Das Symbol dieses Titels konnte nicht heruntergeladen werden.\nEine Pretendo-Installation (Inkay) leitet den Symbolserver von\nNintendo um: schalte dieses Plugin aus und versuche es erneut, mit\neinem Benutzer mit Nintendo Network ID: ohne Inkay lie\u00DF ein\nPretendo-Konto das Wii U-Men\u00FC ohne Symbole."
 }

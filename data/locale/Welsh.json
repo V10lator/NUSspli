@@ -195,5 +195,18 @@
     "unknown": "anhysbys",
     "Yes": "Ie",
     "No": "Na",
-    "File": "Ffeil"
+    "File": "Ffeil",
+    "The Wii U Download Management refused the title.": "Gwrthododd Rheoli Lawrlwythiadau'r Wii U y teitl.",
+    "Experimental: NUSspli can put a ticket for this title on the console,\nwhich is what the Wii U Download Management installs with.\n\nThis writes to the ticket store of the console. The file it adds to is\ncopied to NUSspli-tickets on the SD card first and put back if the\nticket does not take.\n\nPut a ticket on the console?": "Arbrofol: gall NUSspli roi tocyn ar gyfer y teitl hwn ar y consol,\ndyna mae Rheoli Lawrlwythiadau'r Wii U yn gosod ag ef.\n\nMae hyn yn ysgrifennu i storfa docynnau'r consol. Mae'r ffeil sy'n\ncael ei newid yn cael ei chop\u00EFo i NUSspli-tickets ar y cerdyn SD yn\ngyntaf, a'i rhoi yn \u00F4l os nad yw'r tocyn yn gafael.\n\nRhoi tocyn ar y consol?",
+    "There is no ticket for this title to be had.": "Does dim tocyn i'w gael ar gyfer y teitl hwn.",
+    "Could not put a ticket on the console.\nThe ticket store was left the way it was.": "Methwyd rhoi tocyn ar y consol.\nGadawyd storfa'r tocynnau fel yr oedd.",
+    "There is no ticket for this title on the console,\nso the Wii U Download Management will probably fail to install it.\n\nAdd it anyway?": "Does dim tocyn ar gyfer y teitl hwn ar y consol,\nfelly mae'n debyg na fydd Rheoli Lawrlwythiadau'r Wii U yn gallu ei osod.\n\nEi ychwanegu beth bynnag?",
+    "It is already in the Download Management.\nRemove it from there, with what it downloaded so far?": "Mae eisoes yn Rheoli Lawrlwythiadau.\nEi dynnu oddi yno, gyda'r hyn a lawrlwythwyd hyd yma?",
+    "Added to the Wii U Download Management!": "Wedi'i ychwanegu at Reoli Lawrlwythiadau'r Wii U!",
+    "Removed from the Wii U Download Management!": "Wedi'i dynnu o Reoli Lawrlwythiadau'r Wii U!",
+    "\uE002 Download Management": "Pwyswch \uE002 Rheoli Lawrlwythiadau",
+    "It is already in the Download Management.\nClear it there first.": "Mae eisoes yn Rheoli Lawrlwythiadau.\nCliriwch ef yno yn gyntaf.",
+    "It is already installed.": "Mae eisoes wedi'i osod.",
+    "A file of this title is no longer on the servers of Nintendo.": "Nid yw un o ffeiliau'r teitl hwn ar weinyddion Nintendo mwyach.",
+    "The icon of this title could not be downloaded.\nA Pretendo install (Inkay) redirects the icon server of Nintendo,\nso turn that plugin off and try again, with a user that has a\nNintendo Network ID: without Inkay a Pretendo account left the Wii U\nMenu without icons.": "Nid oedd modd lawrlwytho eicon y teitl hwn.\nMae gosodiad Pretendo (Inkay) yn ailgyfeirio gweinydd eiconau\nNintendo: diffoddwch yr ategyn hwnnw a cheisiwch eto, gyda defnyddiwr\nsydd ag Nintendo Network ID: heb Inkay gadawodd cyfrif Pretendo\nDdewislen y Wii U heb eiconau."
 }

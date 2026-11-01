@@ -201,5 +201,18 @@
     "unknown": "bilinmeyen",
     "Yes": "Evet",
     "No": "Hayır",
-    "File": "Dosya"
+    "File": "Dosya",
+    "The Wii U Download Management refused the title.": "Wii U \u0130ndirme Y\u00F6netimi ba\u015Fl\u0131\u011F\u0131 reddetti.",
+    "Experimental: NUSspli can put a ticket for this title on the console,\nwhich is what the Wii U Download Management installs with.\n\nThis writes to the ticket store of the console. The file it adds to is\ncopied to NUSspli-tickets on the SD card first and put back if the\nticket does not take.\n\nPut a ticket on the console?": "Deneysel: NUSspli bu ba\u015Fl\u0131k i\u00E7in konsola bir bilet koyabilir, Wii U\n\u0130ndirme Y\u00F6netimi bununla y\u00FCkler.\n\nBu, konsolun bilet deposuna yazar. De\u011Fi\u015Ftirilen dosya \u00F6nce SD\nkarttaki NUSspli-tickets klas\u00F6r\u00FCne kopyalan\u0131r ve bilet tutmazsa\ngeri konur.\n\nKonsola bir bilet konsun mu?",
+    "There is no ticket for this title to be had.": "Bu ba\u015Fl\u0131k i\u00E7in al\u0131nabilecek bir bilet yok.",
+    "Could not put a ticket on the console.\nThe ticket store was left the way it was.": "Konsola bir bilet konulamad\u0131.\nBilet deposu oldu\u011Fu gibi b\u0131rak\u0131ld\u0131.",
+    "There is no ticket for this title on the console,\nso the Wii U Download Management will probably fail to install it.\n\nAdd it anyway?": "Konsolda bu ba\u015Fl\u0131k i\u00E7in bir bilet yok,\nbu y\u00FCzden Wii U \u0130ndirme Y\u00F6netimi muhtemelen onu y\u00FCkleyemeyecek.\n\nYine de eklensin mi?",
+    "It is already in the Download Management.\nRemove it from there, with what it downloaded so far?": "Zaten \u0130ndirme Y\u00F6netimi'nde.\n\u015Eimdiye kadar indirilenlerle birlikte oradan kald\u0131r\u0131ls\u0131n m\u0131?",
+    "Added to the Wii U Download Management!": "Wii U \u0130ndirme Y\u00F6netimi'ne eklendi!",
+    "Removed from the Wii U Download Management!": "Wii U \u0130ndirme Y\u00F6netimi'nden kald\u0131r\u0131ld\u0131!",
+    "\uE002 Download Management": "\uE002 \u0130ndirme Y\u00F6netimi",
+    "It is already in the Download Management.\nClear it there first.": "Zaten \u0130ndirme Y\u00F6netimi'nde.\n\u00D6nce orada sil.",
+    "It is already installed.": "Zaten y\u00FCkl\u00FC.",
+    "A file of this title is no longer on the servers of Nintendo.": "Bu ba\u015Fl\u0131\u011F\u0131n bir dosyas\u0131 art\u0131k Nintendo sunucular\u0131nda de\u011Fil.",
+    "The icon of this title could not be downloaded.\nA Pretendo install (Inkay) redirects the icon server of Nintendo,\nso turn that plugin off and try again, with a user that has a\nNintendo Network ID: without Inkay a Pretendo account left the Wii U\nMenu without icons.": "Bu ba\u015Fl\u0131\u011F\u0131n simgesi indirilemedi.\nBir Pretendo kurulumu (Inkay) Nintendo'nun simge sunucusunu\ny\u00F6nlendiriyor: o eklentiyi kapat\u0131p Nintendo Network ID'si olan bir\nkullan\u0131c\u0131yla tekrar deneyin: Inkay olmadan bir Pretendo hesab\u0131 Wii U\nMen\u00FCs\u00FC'n\u00FC simgesiz b\u0131rakt\u0131."
 }

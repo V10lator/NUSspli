@@ -449,6 +449,12 @@ void showFinishedScreen(const char *titleName, FINISHING_OPERATION op)
         case FINISHING_OPERATION_QUEUE:
             text = localise("Queue finished successfully!");
             break;
+        case FINISHING_OPERATION_SYSTEM_DOWNLOAD:
+            text = localise("Added to the Wii U Download Management!");
+            break;
+        case FINISHING_OPERATION_SYSTEM_DOWNLOAD_REMOVED:
+            text = localise("Removed from the Wii U Download Management!");
+            break;
     }
 
     finishedTitle = titleName;

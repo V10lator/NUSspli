@@ -68,44 +68,22 @@ void nimMakeConfig(NimTitlePackageTaskConfig *config, uint64_t tid, uint16_t ver
 {
     OSBlockSet(config, 0, sizeof(NimTitlePackageTaskConfig));
     config->titleId = tid;
-    // Cemu names the word at 0x08 region or language and leaves it 0, after
-    // the int the eShop hands its config call along with the title ID and
-    // the type. It is the version of the title: the system fetched tmd.0 of
-    // the Wii Sports Club update (seen on a mirror of the secure content
-    // server), which does not exist and was the 404 behind 105-0955, and the
-    // version 0 of YouTube that does exist is what it installed.
+    // Cemu names this word region or language, but it is the version of the
+    // title: with 0 the system fetches tmd.0, which most titles do not have,
+    // and that 404 is 105-0955.
     config->titleVersion = version;
-    // The values of nn::Cafe::TitleType are not documented, and the category
-    // byte of the title ID is not one of them: with 0x02 a 5.5.5E console
-    // installed a demo as additional content, listed as such in the Download
-    // Management and never shown on the Wii U Menu, and 0x0C and 0x0E left
-    // the Download Management blank. With the values below the same console
-    // installed all four kinds of title: 0 for a game and for a demo, 1 for
-    // an update, the value an update package the system registered on its
-    // own carried, and 2 for additional content.
     if(isUpdate(tid))
-        config->titleType = 1;
+        config->titleType = NIM_TITLE_TYPE_UPDATE;
     else if(isDLC(tid))
-        config->titleType = 2;
+        config->titleType = NIM_TITLE_TYPE_ADDITIONAL_CONTENT;
     else
-        config->titleType = 0;
-    // The eShop reads these two to find the device of the title. 1 is the
-    // internal memory in Cemu, and a 5.5.5E console installed YouTube there.
-    // An update the same console registered on its own, for Mario Kart 8 on
-    // a USB drive, carried 2 in both, and a title handed over with 2 was
-    // installed to the USB drive of that console.
-    config->applicationBoxDevice1 = toUSB ? 2 : 1;
+        config->titleType = NIM_TITLE_TYPE_APPLICATION;
+    config->applicationBoxDevice1 = toUSB ? NIM_DEVICE_USB : NIM_DEVICE_INTERNAL;
     config->applicationBoxDevice2 = config->applicationBoxDevice1;
-    // Byte 0x15 is set to 1 by Cemu, its meaning is unknown.
-    ((uint8_t *)config)[0x15] = 1;
-    // Cemu notes 2 as "use the background install policy". On a 5.5.5E
-    // console that downloaded YouTube but left the install for the next
-    // start of the title ("start the software to finish the installation"),
-    // which a title that is not installed yet never gets: it has no icon to
-    // start. 0 and 1 are not named anywhere: with 1 the same console
-    // installed YouTube right after the download, the way the eShop does it
-    // for a purchase.
-    config->postDownloadAction = 1;
+    config->unknown15 = 1;
+    // Installing at the next start of the title would leave a title that is
+    // not installed yet waiting forever: it has no icon to start it with.
+    config->postDownloadAction = NIM_POST_DOWNLOAD_INSTALL;
 
     debugPrintf("NIM config for %016llX v%u: type %u, devices %u/%u, action %u", tid, version, config->titleType, config->applicationBoxDevice1, config->applicationBoxDevice2, config->postDownloadAction);
 }

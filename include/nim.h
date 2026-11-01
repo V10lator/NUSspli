@@ -54,23 +54,50 @@ extern "C"
      * fails even with a ticket, while NUSspli itself can still install it.
      */
 
+    // The type of a title as the task config wants it, a value of
+    // nn::Cafe::TitleType. It is not the category byte of the title ID:
+    // 0x0C and 0x0E leave the Download Management blank, and 0x02 installs a
+    // demo as additional content.
+    typedef enum
+    {
+        NIM_TITLE_TYPE_APPLICATION = 0, // A game or a demo
+        NIM_TITLE_TYPE_UPDATE = 1,
+        NIM_TITLE_TYPE_ADDITIONAL_CONTENT = 2, // DLC
+    } NIM_TITLE_TYPE;
+
+    // Where the system installs the title.
+    typedef enum
+    {
+        NIM_DEVICE_INTERNAL = 1,
+        NIM_DEVICE_USB = 2,
+    } NIM_DEVICE;
+
+    // What the system does once the download is complete.
+    typedef enum
+    {
+        NIM_POST_DOWNLOAD_INSTALL = 1, // Install right away, as the eShop does
+        NIM_POST_DOWNLOAD_INSTALL_ON_START = 2, // Install at the next start of the title
+    } NIM_POST_DOWNLOAD;
+
     // nn::nim::TitlePackageTaskConfig, as Cemu fills it for the eShop.
     typedef struct WUT_PACKED
     {
         uint64_t titleId;
         uint32_t titleVersion; // Cemu calls it region or language, see nimMakeConfig()
-        uint8_t titleType;
-        uint8_t applicationBoxDevice1;
+        uint8_t titleType; // NIM_TITLE_TYPE
+        uint8_t applicationBoxDevice1; // NIM_DEVICE
         WUT_UNKNOWN_BYTES(1);
-        uint8_t applicationBoxDevice2;
-        WUT_UNKNOWN_BYTES(6);
-        uint8_t postDownloadAction;
+        uint8_t applicationBoxDevice2; // NIM_DEVICE, the same as the first
+        WUT_UNKNOWN_BYTES(5);
+        uint8_t unknown15; // Cemu sets it to 1, its meaning is unknown
+        uint8_t postDownloadAction; // NIM_POST_DOWNLOAD
         WUT_UNKNOWN_BYTES(1);
     } NimTitlePackageTaskConfig;
     WUT_CHECK_OFFSET(NimTitlePackageTaskConfig, 0x00, titleId);
     WUT_CHECK_OFFSET(NimTitlePackageTaskConfig, 0x08, titleVersion);
     WUT_CHECK_OFFSET(NimTitlePackageTaskConfig, 0x0C, titleType);
     WUT_CHECK_OFFSET(NimTitlePackageTaskConfig, 0x0F, applicationBoxDevice2);
+    WUT_CHECK_OFFSET(NimTitlePackageTaskConfig, 0x15, unknown15);
     WUT_CHECK_OFFSET(NimTitlePackageTaskConfig, 0x16, postDownloadAction);
     WUT_CHECK_SIZE(NimTitlePackageTaskConfig, 0x18);
 

@@ -27,7 +27,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Docker caching
-        uses: AndreKurait/docker-cache@0.7.0
+        uses: AndreKurait/docker-cache@0.7.1
         id: cache
         continue-on-error: true
         with:

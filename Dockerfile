@@ -1,4 +1,4 @@
-FROM devkitpro/devkitppc:20260503
+FROM devkitpro/devkitppc:20261102
 COPY --from=ghcr.io/wiiu-env/libmocha:20260331 /artifacts $DEVKITPRO
 COPY --from=ghcr.io/wiiu-env/librpxloader:20260329 /artifacts $DEVKITPRO
 

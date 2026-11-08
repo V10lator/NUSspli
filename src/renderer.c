@@ -343,7 +343,7 @@ void boxToFrame(int lineStart, int lineEnd)
     rect[2]->y = rect[0]->y + 2;
     rect[2]->w = SCREEN_WIDTH - (FONT_SIZE << 1) - 3;
     rect[2]->h = rect[0]->h - 3;
-    SCREEN_COLOR co = SCREEN_COLOR_BLACK;
+    SCREEN_COLOR co = SCREEN_COLOR_WHITE;
     SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, 64);
     SDL_RenderFillRect(renderer, rect[2]);
 }

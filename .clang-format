@@ -1,5 +1,6 @@
 BasedOnStyle: WebKit
 AlignConsecutiveMacros: AcrossEmptyLines
+AlignEscapedNewlines: Right
 BreakBeforeBraces: Allman
 DerivePointerAlignment: false
 PointerAlignment: Right

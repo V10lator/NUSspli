@@ -336,17 +336,17 @@ void boxToFrame(int lineStart, int lineEnd)
     rect[1]->y = rect[0]->y;
     rect[1]->w = 3;
     rect[1]->h = rect[0]->h;
-    SDL_RenderFillRect(renderer, rect[1]);
+    SDL_RenderFillRect(renderer,
 
-    // Background - we paint it on top of the gray lines as they look better that way
-    rect[2]->x = FONT_SIZE + 2;
-    rect[2]->y = rect[0]->y + 2;
-    rect[2]->w = SCREEN_WIDTH - (FONT_SIZE << 1) - 3;
-    rect[2]->h = rect[0]->h - 3;
-    SCREEN_COLOR co = SCREEN_COLOR_WHITE;
-    SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, 64);
-    SDL_RenderFillRect(renderer, rect[2]);
-}
+// Background - we paint it on top of the gray lines
+	rect[2]->x = FONT_SIZE + 2;
+	rect[2]->y = rect[0]->y + 2;
+	rect[2]->w = SCREEN_WIDTH - (FONT_SIZE << 1) - 3;
+	rect[2]->h = rect[0]->h - 3;
+	SCREEN_COLOR co = SCREEN_COLOR_WHITE;
+	SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, 255);
+	SDL_RenderFillRect(renderer, rect[2]);
+
 
 void barToFrame(int line, int column, uint32_t width, float progress)
 {

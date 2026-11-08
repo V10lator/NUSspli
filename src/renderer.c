@@ -336,17 +336,17 @@ void boxToFrame(int lineStart, int lineEnd)
     rect[1]->y = rect[0]->y;
     rect[1]->w = 3;
     rect[1]->h = rect[0]->h;
-    SDL_RenderFillRect(renderer,
+    SDL_RenderFillRect(renderer, rect[1]);
 
-// Background - we paint it on top of the gray lines
-	rect[2]->x = FONT_SIZE + 2;
-	rect[2]->y = rect[0]->y + 2;
-	rect[2]->w = SCREEN_WIDTH - (FONT_SIZE << 1) - 3;
-	rect[2]->h = rect[0]->h - 3;
-	SCREEN_COLOR co = SCREEN_COLOR_WHITE;
-	SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, 255);
-	SDL_RenderFillRect(renderer, rect[2]);
-
+    // Background - we paint it on top of the gray lines
+    rect[2]->x = FONT_SIZE + 2;
+    rect[2]->y = rect[0]->y + 2;
+    rect[2]->w = SCREEN_WIDTH - (FONT_SIZE << 1) - 3;
+    rect[2]->h = rect[0]->h - 3;
+    SCREEN_COLOR co = SCREEN_COLOR_WHITE;
+    SDL_SetRenderDrawColor(renderer, co.r, co.g, co.b, 255);
+    SDL_RenderFillRect(renderer, rect[2]);
+}
 
 void barToFrame(int line, int column, uint32_t width, float progress)
 {
@@ -431,8 +431,8 @@ void arrowToFrame(int line, int column)
     if(rect == NULL)
         return;
 
-    rect->x = column + FONT_SIZE,
-    rect->y = line,
+    rect->x = column + FONT_SIZE;
+    rect->y = line;
 
     SDL_QueryTexture(arrowTex, NULL, NULL, &(rect->w), &(rect->h));
     SDL_RenderCopy(renderer, arrowTex, NULL, rect);
@@ -452,8 +452,8 @@ void checkmarkToFrame(int line, int column)
     if(rect == NULL)
         return;
 
-    rect->x = column + FONT_SIZE,
-    rect->y = line,
+    rect->x = column + FONT_SIZE;
+    rect->y = line;
 
     SDL_QueryTexture(checkmarkTex, NULL, NULL, &(rect->w), &(rect->h));
     SDL_RenderCopy(renderer, checkmarkTex, NULL, rect);
@@ -494,8 +494,8 @@ void flagToFrame(int line, int column, MCPRegion flag)
     if(rect == NULL)
         return;
 
-    rect->x = column + FONT_SIZE,
-    rect->y = line,
+    rect->x = column + FONT_SIZE;
+    rect->y = line;
     SDL_QueryTexture(fd, NULL, NULL, &(rect->w), &(rect->h));
     SDL_RenderCopy(renderer, fd, NULL, rect);
 }
@@ -1146,20 +1146,20 @@ static void waitForFrame()
 #define predrawFrame()                                                                 \
     if(font == NULL)                                                                   \
         return;                                                                        \
-                                                                                        \
+                                                                                         \
     /* Once we stop, SDL may have released the foreground already: */                  \
     /* the present path has no foreground guard and would write into */                \
     /* the freed scan buffers. After a confirmed exit the goodbye frame */             \
     /* is the last picture and must not be painted over. */                            \
     if(app == APP_STATE_STOPPING || app == APP_STATE_STOPPED || app == APP_STATE_HOME) \
         return;                                                                        \
-                                                                                        \
+                                                                                         \
     SDL_SetRenderTarget(renderer, NULL);                                               \
     SDL_RenderCopy(renderer, frameBuffer, NULL, NULL);
 
 #define postdrawFrame()                                                    \
     presentOverlays();                                                     \
-                                                                            \
+                                                                             \
     /* Hand the queued drawing to GX2 and take the vblank before the */    \
     /* present: the present copies into the scan buffer and queues the */  \
     /* swap, GX2 runs that swap at a vblank as the renderer was created */ \

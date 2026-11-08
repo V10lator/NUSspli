@@ -47,7 +47,7 @@ github.write(f"version={version}\n")
 github.close()
 
 if len(nuspacker) == 0 or not os.path.exists(nuspacker):
-    cDownload("https://github.com/Maschell/nuspacker/raw/master/NUSPacker.jar", "nuspacker.jar")
+    cDownload("https://github.com/ihaveamac/nuspacker/raw/master/NUSPacker.jar", "nuspacker.jar")
     nuspacker = "nuspacker.jar"
 
 isBeta = False

@@ -1,21 +1,21 @@
 /***************************************************************************
-  * This file is part of NUSspli.                                           *
-  * Copyright (c) 2020-2021 V10lator <v10lator@myway.de>                    *
-  * Copyright (c) 2022 Xpl0itU <DaThinkingChair@protonmail.com>             *
-  *                                                                         *
-  * This program is free software; you can redistribute it and/or modify    *
-  * it under the terms of the GNU General Public License as published by    *
-  * the Free Software Foundation; either version 3 of the License, or       *
-  * (at your option) any later version.                                     *
-  *                                                                         *
-  * This program is distributed in the hope that it will be useful,         *
-  * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
-  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
-  * GNU General Public License for more details.                             *
-  *                                                                         *
-  * You should have received a copy of the GNU General Public License along *
-  * with this program; if not, If not, see <http://www.gnu.org/licenses/>.  *
-  ***************************************************************************/
+ * This file is part of NUSspli.                                           *
+ * Copyright (c) 2020-2021 V10lator <v10lator@myway.de>                    *
+ * Copyright (c) 2022 Xpl0itU <DaThinkingChair@protonmail.com>             *
+ *                                                                         *
+ * This program is free software; you can redistribute it and/or modify    *
+ * it under the terms of the GNU General Public License as published by    *
+ * the Free Software Foundation; either version 3 of the License, or       *
+ * (at your option) any later version.                                     *
+ *                                                                         *
+ * This program is distributed in the hope that it will be useful,         *
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of          *
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           *
+ * GNU General Public License for more details.                            *
+ *                                                                         *
+ * You should have received a copy of the GNU General Public License along *
+ * with this program; if not, If not, see <http://www.gnu.org/licenses/>.  *
+ ***************************************************************************/
 
 #pragma once
 
@@ -54,8 +54,8 @@ extern "C"
 
     typedef SDL_Color SCREEN_COLOR;
 #define SCREEN_COLOR_BLACK        ((SDL_Color) { .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF })
-#define SCREEN_COLOR_WHITE        ((SDL_Color) { .r = 0xAD, .g = 0xD8, .b = 0xE6, .a = 0xFF })
-#define SCREEN_COLOR_WHITE_TRANSP ((SDL_Color) { .r = 0xAD, .g = 0xD8, .b = 0xE6, .a = 0x7F })
+#define SCREEN_COLOR_WHITE        ((SDL_Color) { .r = 0x66, .g = 0xCC, .b = 0xFF, .a = 0xFF })
+#define SCREEN_COLOR_WHITE_TRANSP ((SDL_Color) { .r = 0x66, .g = 0xCC, .b = 0xFF, .a = 0x7F })
 #define SCREEN_COLOR_D_RED        ((SDL_Color) { .r = 0x7F, .g = 0x00, .b = 0x00, .a = 0xFF })
 #define SCREEN_COLOR_RED          ((SDL_Color) { .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF })
 #define SCREEN_COLOR_D_GREEN      ((SDL_Color) { .r = 0x00, .g = 0x7F, .b = 0x00, .a = 0xFF })

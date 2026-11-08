@@ -119,4 +119,4 @@ extern "C"
 
 #define startNewFrame()                              colorStartNewFrame(SCREEN_COLOR_BG_WHITE)
 #define textToFrame(line, column, str)               textToFrameCut(line, column, str, column == 0 ? SCREEN_WIDTH - (FONT_SIZE * 2) : 0)
-#define textToFrameColored(line, column, str, color) textToFrameColoredCut(line, column, str, column == 0 ? SCREEN_WIDTH - (FONT_SIZE * 2) : 0)
+#define textToFrameColored(line, column, str, color) textToFrameColoredCut(line, column, str, color, column == 0 ? SCREEN_WIDTH - (FONT_SIZE * 2) : 0)

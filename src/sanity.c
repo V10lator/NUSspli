@@ -33,15 +33,13 @@
 #include <coreinit/time.h>
 #pragma GCC diagnostic pop
 
-#define MD5_FILES 2
+#define MD5_FILES 1
 
 static const uint32_t md5[MD5_FILES][4] = {
-    { 0xcb490117, 0xda849d9f, 0x5cd4bbe8, 0xe860b181 },
     { 0x85e37679, 0x0ea9a811, 0x091c7f52, 0x55f6a2b6 },
 };
 
 static const char *md5File[MD5_FILES] = {
-    ROMFS_PATH "audio/bg.mp3",
     ROMFS_PATH "textures/goodbye.png",
 };
 

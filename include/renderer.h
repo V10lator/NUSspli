@@ -54,8 +54,8 @@ extern "C"
 
     typedef SDL_Color SCREEN_COLOR;
 #define SCREEN_COLOR_BLACK        ((SDL_Color) { .r = 0x00, .g = 0x00, .b = 0x00, .a = 0xFF })
-#define SCREEN_COLOR_WHITE        ((SDL_Color) { .r = 0x66, .g = 0xCC, .b = 0xFF, .a = 0xFF })
-#define SCREEN_COLOR_WHITE_TRANSP ((SDL_Color) { .r = 0x66, .g = 0xCC, .b = 0xFF, .a = 0x7F })
+#define SCREEN_COLOR_WHITE        ((SDL_Color) { .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF })
+#define SCREEN_COLOR_WHITE_TRANSP ((SDL_Color) { .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0x7F })
 #define SCREEN_COLOR_D_RED        ((SDL_Color) { .r = 0x7F, .g = 0x00, .b = 0x00, .a = 0xFF })
 #define SCREEN_COLOR_RED          ((SDL_Color) { .r = 0xFF, .g = 0x00, .b = 0x00, .a = 0xFF })
 #define SCREEN_COLOR_D_GREEN      ((SDL_Color) { .r = 0x00, .g = 0x7F, .b = 0x00, .a = 0xFF })

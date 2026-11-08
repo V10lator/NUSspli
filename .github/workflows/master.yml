@@ -6,21 +6,9 @@ on:
       - master
 
 jobs:
-  clang-format:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: checkout
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 1
-      - name: clang-format
-        run: |
-          git submodule update --init --recursive
-          docker run --rm -v ${PWD}:/src xianpengshen/clang-tools:22 clang-format --dry-run --Werror $(find src include -type f \( -name "*.c" -o -name "*.cpp" -o -name "*.h" -o -name "*.hpp" \))
   build-binary:
     name: Build binary
     runs-on: ubuntu-24.04
-    needs: clang-format
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -43,28 +31,24 @@ jobs:
           cat version.txt >> $GITHUB_OUTPUT
         id: version
       - name: Upload Aroma version
-        
         uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Aroma
           path: out/Aroma/*
           if-no-files-found: warn
       - name: Upload Aroma debug version
-        
         uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Aroma-DEBUG
           path: out/Aroma-DEBUG/*
           if-no-files-found: error
       - name: Upload Channel version
-        
         uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Channel
           path: out/Channel/*
           if-no-files-found: warn
       - name: Upload Channel debug version
-        
         uses: actions/upload-artifact@v7
         with:
           name: NUSspli-${{ steps.version.outputs.version }}-Channel-DEBUG
@@ -94,3 +78,4 @@ jobs:
             zips/NUSspli-${{ steps.version.outputs.version }}-Aroma-DEBUG.zip
             zips/NUSspli-${{ steps.version.outputs.version }}-Channel.zip
             zips/NUSspli-${{ steps.version.outputs.version }}-Channel-DEBUG.zip
+

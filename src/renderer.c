@@ -139,12 +139,12 @@ static inline SDL_Rect *createRect()
                 OSBlockMove(tmp, str, i, false);                                    \
                 tmp[i] = '\0';                                                      \
                 tmp += i;                                                           \
-                                                                                    \
+                                                                                     \
                 *--tmp = '\0';                                                      \
                 *--tmp = '.';                                                       \
                 *--tmp = '.';                                                       \
                 *--tmp = '.';                                                       \
-                                                                                    \
+                                                                                     \
                 char *tmp2;                                                         \
                 w = FC_GetWidth(font, "%s", lineBuffer);                            \
                 while(w > maxWidth && tmp > lineBuffer)                             \
@@ -155,17 +155,17 @@ static inline SDL_Rect *createRect()
                     *++tmp2 = '\0';                                                 \
                     w = FC_GetWidth(font, "%s", lineBuffer);                        \
                 }                                                                   \
-                                                                                    \
+                                                                                     \
                 if(tmp > lineBuffer && *--tmp == ' ')                               \
                 {                                                                   \
                     *tmp = '.';                                                     \
                     tmp[3] = '\0';                                                  \
                 }                                                                   \
-                                                                                    \
+                                                                                     \
                 str = lineBuffer;                                                   \
             }                                                                       \
         }                                                                           \
-                                                                                    \
+                                                                                     \
         switch(column)                                                              \
         {                                                                           \
             case ALIGNED_CENTER:                                                    \
@@ -815,18 +815,9 @@ void resumeRenderer()
 
             bgTex = SDL_CreateTexture(renderer, SDL_GetWindowPixelFormat(window), SDL_TEXTUREACCESS_TARGET, 2, 2);
             SDL_SetRenderTarget(renderer, bgTex);
-            // Top left
-            SDL_SetRenderDrawColor(renderer, 0x91, 0x1E, 0xFF, 0xFF);
+            // Make the default background fully white, matching the requested layout.
+            SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
             SDL_RenderClear(renderer);
-            // Top right
-            SDL_SetRenderDrawColor(renderer, 0x52, 0x05, 0xFF, 0xFF);
-            SDL_RenderDrawPoint(renderer, 2, 1);
-            // Bottom right
-            SDL_SetRenderDrawColor(renderer, 0x61, 0x0a, 0xFF, 0xFF);
-            SDL_RenderDrawPoint(renderer, 2, 2);
-            // Bottom left
-            SDL_SetRenderDrawColor(renderer, 0x83, 0x18, 0xFF, 0xFF);
-            SDL_RenderDrawPoint(renderer, 1, 2);
 
             SDL_SetRenderTarget(renderer, frameBuffer);
 
@@ -1155,20 +1146,20 @@ static void waitForFrame()
 #define predrawFrame()                                                                 \
     if(font == NULL)                                                                   \
         return;                                                                        \
-                                                                                       \
+                                                                                        \
     /* Once we stop, SDL may have released the foreground already: */                  \
     /* the present path has no foreground guard and would write into */                \
     /* the freed scan buffers. After a confirmed exit the goodbye frame */             \
     /* is the last picture and must not be painted over. */                            \
     if(app == APP_STATE_STOPPING || app == APP_STATE_STOPPED || app == APP_STATE_HOME) \
         return;                                                                        \
-                                                                                       \
+                                                                                        \
     SDL_SetRenderTarget(renderer, NULL);                                               \
     SDL_RenderCopy(renderer, frameBuffer, NULL, NULL);
 
 #define postdrawFrame()                                                    \
     presentOverlays();                                                     \
-                                                                           \
+                                                                            \
     /* Hand the queued drawing to GX2 and take the vblank before the */    \
     /* present: the present copies into the scan buffer and queues the */  \
     /* swap, GX2 runs that swap at a vblank as the renderer was created */ \
